@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c4642a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ต้นทุนเครป">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<title>คำนวณต้นทุนร้านเครป</title>
+<style>
+  :root{
+    --bg:#f6f4ef; --card:#fff; --ink:#23201c; --muted:#7c7467;
+    --line:#e3ded3; --accent:#c4642a; --accent-soft:#fbeee4;
+    --good:#2e7d4f; --warn:#b8860b; --bad:#c0392b;
+    --radius:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#1a1816; --card:#232020; --ink:#ece7df; --muted:#9a9186;
+      --line:#352f2b; --accent:#e08a4e; --accent-soft:#2d241d;
+      --good:#6cc08b; --warn:#e0b84c; --bad:#e8766a;
+    }
+  }
+  /* เว้นที่ให้แถบสถานะ/แถบล่างของมือถือตอนเปิดเป็นแอป */
+  :root{
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  :root[data-theme="dark"]{
+    --bg:#1a1816; --card:#232020; --ink:#ece7df; --muted:#9a9186;
+    --line:#352f2b; --accent:#e08a4e; --accent-soft:#2d241d;
+    --good:#6cc08b; --warn:#e0b84c; --bad:#e8766a;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Sarabun","Leelawadee UI","Segoe UI",system-ui,sans-serif;
+    font-size:15px; line-height:1.55;
+  }
+  .wrap{max-width:1000px; margin:0 auto; padding:20px 16px 64px}
+  header h1{font-size:22px; margin:0 0 4px}
+  header p{margin:0; color:var(--muted); font-size:13.5px}
+  .toolbar{display:flex; flex-wrap:wrap; gap:8px; margin:16px 0}
+  button{
+    font:inherit; cursor:pointer; border:1px solid var(--line);
+    background:var(--card); color:var(--ink); padding:7px 13px;
+    border-radius:9px; transition:.15s;
+  }
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+  button.ghost{background:transparent}
+  button.mini{padding:3px 9px; font-size:13px}
+  button.danger{color:var(--bad)}
+  /* แถบแท็บ + ปุ่มลัด ติดอยู่บนสุดตลอดเวลาเลื่อน */
+  .topbar{
+    position:sticky; top:env(safe-area-inset-top, 0px); z-index:5; background:var(--bg);
+    display:flex; align-items:center; gap:10px;
+    border-bottom:1px solid var(--line); margin-bottom:18px;
+  }
+  .topbar .acts{display:flex; gap:6px; flex:0 0 auto; padding-bottom:4px}
+  nav{
+    display:flex; gap:4px; flex:1; min-width:0;
+    overflow-x:auto; -webkit-overflow-scrolling:touch;
+  }
+  nav button{
+    border:none; background:none; border-radius:0; padding:10px 14px;
+    color:var(--muted); border-bottom:2px solid transparent; white-space:nowrap;
+  }
+  nav button.on{color:var(--accent); border-bottom-color:var(--accent); font-weight:600}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:14px}
+  .card h2{font-size:16px; margin:0 0 12px}
+  .card h3{font-size:14px; margin:18px 0 8px; color:var(--muted); font-weight:600}
+  table{width:100%; border-collapse:collapse; font-size:14px}
+  th,td{text-align:right; padding:7px 8px; border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--muted); font-weight:600; font-size:12.5px; white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  input,select,textarea{
+    font:inherit; background:var(--bg); color:var(--ink);
+    border:1px solid var(--line); border-radius:8px; padding:6px 9px; width:100%;
+  }
+  textarea{font-family:ui-monospace,Consolas,monospace; font-size:12px; resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent-soft); border-color:var(--accent)}
+  input[type=number]{text-align:right}
+  .grid{display:grid; gap:10px}
+  .f{display:flex; flex-direction:column; gap:4px}
+  .f label{font-size:12.5px; color:var(--muted)}
+  .row-form{display:grid; grid-template-columns:1.6fr .9fr .8fr .9fr auto; gap:8px; align-items:end}
+  .kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px}
+  .kpi{background:var(--bg); border:1px solid var(--line); border-radius:11px; padding:12px}
+  .kpi .lbl{font-size:12px; color:var(--muted)}
+  .kpi .val{font-size:21px; font-weight:700; margin-top:2px}
+  .num{font-variant-numeric:tabular-nums}
+  .good{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+  .pill{display:inline-block; padding:1px 8px; border-radius:99px; font-size:12px; background:var(--accent-soft); color:var(--accent)}
+  .menu-head{display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin-bottom:10px}
+  .menu-head .f{flex:1; min-width:120px}
+  .empty{color:var(--muted); font-size:13.5px; padding:10px 0}
+  .hint{color:var(--muted); font-size:12.5px; margin-top:8px}
+  .bar{height:6px; background:var(--line); border-radius:99px; overflow:hidden; margin-top:6px}
+  .bar>i{display:block; height:100%; background:var(--accent)}
+  .scroll{overflow-x:auto}
+  .scroll table{min-width:520px}
+
+  /* ---- มือถือ ---- */
+  @media(max-width:640px){
+    .wrap{padding:16px 16px 56px}
+    header h1{font-size:19px}
+    button{min-height:38px}
+    button.mini{min-height:32px}
+    input,select{font-size:16px; padding:8px 10px}   /* 16px กัน iOS ซูมเองเวลากดช่องกรอก */
+
+    /* ตารางแบบแถว → การ์ดเรียงลงมา อ่านง่ายบนจอแคบ */
+    table.stack thead{display:none}
+    table.stack tbody tr{
+      display:grid; grid-template-columns:1fr 1fr; gap:10px;
+      padding:12px 0; border-bottom:1px solid var(--line);
+    }
+    table.stack tbody tr:last-child{border-bottom:none}
+    table.stack td{border:none; padding:0; display:flex; flex-direction:column; gap:3px; text-align:left}
+    table.stack td::before{content:attr(data-l); font-size:11.5px; color:var(--muted)}
+    table.stack td[data-l=""]::before{display:none}
+    table.stack td.full{grid-column:span 2}
+    table.stack td.act{grid-column:span 2; align-items:flex-start}
+    table.stack td.ro{justify-content:flex-end}
+    table.stack td.ro span{font-weight:600}
+    table.stack .empty{display:block}
+    .hide-sm{display:none}
+    .sm-hide{display:none}          /* ปุ่มลัดเหลือแต่ไอคอน จะได้ไม่เบียดแท็บ */
+    .kpi .val{font-size:19px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🥞 คำนวณต้นทุนร้านเครป</h1>
+    <p>ใส่ราคาวัตถุดิบที่ซื้อมา → ระบบคิดต้นทุนต่อจาน กำไร และจุดคุ้มทุนให้</p>
+  </header>
+
+  <noscript>
+    <div class="card" style="border-color:var(--bad)">
+      <h2 style="color:var(--bad)">⚠️ หน้านี้ต้องเปิดด้วยเบราว์เซอร์จริง</h2>
+      <p style="margin:0 0 10px">
+        ตอนนี้คุณกำลังเปิดไฟล์ผ่าน<b>ตัวพรีวิว</b> (เช่น พรีวิวในไลน์ หรือแอป Files ของ iPhone)
+        ซึ่งปิดการทำงานของ JavaScript ไว้ หน้าจอเลยว่างเปล่า — ไม่ใช่ว่าไฟล์เสียนะครับ
+      </p>
+      <p style="margin:0"><b>วิธีแก้:</b> เปิดด้วย Safari หรือ Chrome แทน<br>
+        บน iPhone แนะนำให้ใช้ลิงก์เว็บแทนการเปิดไฟล์ เพราะ iOS ไม่ยอมให้ไฟล์ในเครื่องเก็บข้อมูล</p>
+    </div>
+  </noscript>
+
+  <div class="toolbar">
+    <button class="primary" onclick="openBackup()">💾 สำรอง / กู้คืนข้อมูล</button>
+    <button class="ghost" onclick="loadDemo()">ใส่ข้อมูลตัวอย่าง</button>
+    <button class="ghost danger" onclick="resetAll()">ล้างข้อมูลทั้งหมด</button>
+    <span id="saveFlag" class="hint" style="margin-left:auto"></span>
+  </div>
+
+  <div class="card" id="backup" hidden>
+    <h2>สำรอง / กู้คืนข้อมูล</h2>
+    <h3>สำรอง — คัดลอกข้อความนี้เก็บไว้ (ส่งเข้าไลน์ตัวเองก็ได้)</h3>
+    <textarea id="dump" readonly rows="4" onclick="this.select()"></textarea>
+    <div class="toolbar" style="margin:8px 0 0">
+      <button class="primary" onclick="copyDump()">📋 คัดลอก</button>
+      <button id="dlBtn" onclick="exportJSON()">⬇ ดาวน์โหลดเป็นไฟล์</button>
+    </div>
+    <h3>กู้คืน — วางข้อความที่สำรองไว้ แล้วกดกู้คืน</h3>
+    <textarea id="paste" rows="4" placeholder='วางข้อความที่ขึ้นต้นด้วย {"ingredients": ... ที่นี่'></textarea>
+    <div class="toolbar" style="margin:8px 0 0">
+      <button onclick="restoreText()">♻ กู้คืนจากข้อความ</button>
+      <button onclick="document.getElementById('imp').click()">📂 เลือกไฟล์ JSON</button>
+      <input type="file" id="imp" accept=".json,application/json" hidden onchange="importJSON(this)">
+      <button class="ghost" onclick="closeBackup()">ปิด</button>
+    </div>
+    <p class="hint" id="bkMsg"></p>
+  </div>
+
+  <div class="topbar">
+    <nav id="tabs"></nav>
+    <div class="acts">
+      <button class="mini" onclick="openBackup()" title="สำรอง / กู้คืนข้อมูล">💾<span class="sm-hide"> สำรอง</span></button>
+      <button class="mini" onclick="loadDemo()" title="ใส่ข้อมูลตัวอย่าง">🧪<span class="sm-hide"> ตัวอย่าง</span></button>
+    </div>
+  </div>
+  <div id="banner"></div>
+  <div id="view"></div>
+</div>
+
+<script>
+/* ---------- ข้อมูล ---------- */
+const KEY = 'crepe-cost-v1';
+const UNITS = ['กรัม','มิลลิลิตร','ชิ้น','แผ่น','ใบ','ช้อนโต๊ะ'];
+
+const blank = () => ({
+  ingredients: [],
+  menus: [],
+  fixed: { rent:0, electric:0, gas:0, water:0, other:0, days:26, labor:0 },
+  targetMargin: 65
+});
+
+let db = load();
+let tab = db.isDemo ? 'sum' : 'ing';
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    if(!raw) return buildDemo();   // เปิดครั้งแรก ใส่ข้อมูลตัวอย่างให้เห็นภาพก่อน จะได้ไม่เจอหน้าเปล่า
+    return Object.assign(blank(), JSON.parse(raw));
+  }catch(e){ return buildDemo(); }
+}
+function save(){
+  try{
+    localStorage.setItem(KEY, JSON.stringify(db));
+    flag('บันทึกแล้ว ' + new Date().toLocaleTimeString('th-TH'));
+  }catch(e){ flag('⚠ บันทึกไม่ได้ (เบราว์เซอร์ปิดการเก็บข้อมูล)'); }
+}
+function flag(t){ const el=document.getElementById('saveFlag'); if(el) el.textContent=t; }
+function uid(){ return Math.random().toString(36).slice(2,9); }
+const n = v => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
+const baht = v => n(v).toLocaleString('th-TH',{minimumFractionDigits:2, maximumFractionDigits:2});
+const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- การคำนวณ ---------- */
+// ต้นทุนวัตถุดิบต่อ 1 หน่วย = ราคาที่ซื้อ ÷ ปริมาณที่ได้
+const unitCost = ing => n(ing.packQty) > 0 ? n(ing.packPrice) / n(ing.packQty) : 0;
+const findIng = id => db.ingredients.find(i => i.id === id);
+
+function menuCost(m){
+  return (m.items||[]).reduce((s,it) => {
+    const ing = findIng(it.ingId);
+    return s + (ing ? unitCost(ing) * n(it.qty) : 0);
+  }, 0);
+}
+const profit = m => n(m.price) - menuCost(m);
+const marginPct = m => n(m.price) > 0 ? profit(m) / n(m.price) * 100 : 0;
+const suggestPrice = m => {
+  const mg = n(db.targetMargin);
+  return mg < 100 ? menuCost(m) / (1 - mg/100) : 0;
+};
+
+function fixedPerMonth(){
+  const f = db.fixed;
+  return n(f.rent)+n(f.electric)+n(f.gas)+n(f.water)+n(f.other) + n(f.labor)*n(f.days);
+}
+const fixedPerDay = () => n(db.fixed.days) > 0 ? fixedPerMonth() / n(db.fixed.days) : 0;
+
+function avgProfit(){
+  const list = db.menus.filter(m => n(m.price) > 0);
+  if(!list.length) return 0;
+  return list.reduce((s,m) => s + profit(m), 0) / list.length;
+}
+const breakEven = () => avgProfit() > 0 ? fixedPerDay() / avgProfit() : 0;
+
+/* ---------- หน้าจอ ---------- */
+const TABS = [
+  ['ing','1. วัตถุดิบ'],
+  ['menu','2. เมนู / สูตร'],
+  ['fixed','3. ต้นทุนคงที่'],
+  ['sum','4. สรุป']
+];
+
+function render(){
+  document.getElementById('tabs').innerHTML = TABS.map(([k,l]) =>
+    `<button class="${tab===k?'on':''}" onclick="go('${k}')">${l}</button>`).join('');
+  renderBanner();
+  document.getElementById('view').innerHTML =
+    tab==='ing' ? viewIng() : tab==='menu' ? viewMenu() : tab==='fixed' ? viewFixed() : viewSum();
+}
+function renderBanner(){
+  const el = document.getElementById('banner');
+  if(!el) return;
+  el.innerHTML = db.isDemo ? `
+    <div class="card" style="border-color:var(--accent); background:var(--accent-soft)">
+      <b>🧪 ตอนนี้กำลังดูข้อมูลตัวอย่าง</b>
+      <div class="hint" style="margin-top:4px">ใส่ไว้ให้เห็นภาพก่อนว่าใช้ยังไง กดดูได้ทุกแท็บ ยังไม่ใช่ตัวเลขของร้านคุณ</div>
+      <div class="toolbar" style="margin:10px 0 0">
+        <button class="primary" onclick="startFresh()">🗑 ล้างทิ้ง เริ่มกรอกของร้านเรา</button>
+        <button class="ghost" onclick="keepDemo()">ขอแก้ทับอันนี้เลย</button>
+      </div>
+    </div>` : '';
+}
+function startFresh(){ db = blank(); save(); tab='ing'; render(); }
+function keepDemo(){ delete db.isDemo; save(); render(); }
+function go(t){ tab=t; render(); }
+
+/* --- แท็บวัตถุดิบ --- */
+function viewIng(){
+  const rows = db.ingredients.map(i => `
+    <tr>
+      <td class="full" data-l="ชื่อวัตถุดิบ"><input value="${esc(i.name)}" placeholder="เช่น แป้งเครป" oninput="setIng('${i.id}','name',this.value)"></td>
+      <td data-l="ปริมาณที่ได้"><input type="number" step="any" value="${i.packQty}" oninput="setIng('${i.id}','packQty',this.value)"></td>
+      <td data-l="หน่วย">
+        <select onchange="setIng('${i.id}','unit',this.value)">
+          ${UNITS.map(u=>`<option ${u===i.unit?'selected':''}>${u}</option>`).join('')}
+        </select>
+      </td>
+      <td data-l="ราคาที่จ่าย (บาท)"><input type="number" step="any" value="${i.packPrice}" oninput="setIng('${i.id}','packPrice',this.value)"></td>
+      <td class="num ro" data-l="บาท/หน่วย"><span>${unitCost(i).toFixed(4)}</span></td>
+      <td class="act" data-l=""><button class="mini danger" onclick="delIng('${i.id}')">ลบ</button></td>
+    </tr>`).join('');
+
+  return `
+  <div class="card">
+    <h2>วัตถุดิบที่ซื้อมา</h2>
+    <p class="hint" style="margin:0 0 12px">
+      กรอกตามที่ซื้อจริง เช่น ซื้อแป้งเครป <b>1,000 กรัม ราคา 45 บาท</b> → ระบบจะคิดให้เองว่ากรัมละเท่าไหร่
+    </p>
+    <table class="stack">
+      <thead><tr>
+        <th>ชื่อวัตถุดิบ</th><th>ปริมาณที่ได้</th><th>หน่วย</th><th>ราคาที่จ่าย (บาท)</th><th>บาท/หน่วย</th><th></th>
+      </tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="empty full" data-l="">ยังไม่มีวัตถุดิบ — กดปุ่มด้านล่างเพื่อเพิ่ม</td></tr>`}</tbody>
+    </table>
+    <div style="margin-top:12px"><button class="primary" onclick="addIng()">+ เพิ่มวัตถุดิบ</button></div>
+  </div>`;
+}
+function addIng(){
+  db.ingredients.push({id:uid(), name:'', packQty:1000, unit:'กรัม', packPrice:0});
+  save(); render();
+}
+function setIng(id,k,v){
+  const i = findIng(id); if(!i) return;
+  i[k] = (k==='name'||k==='unit') ? v : n(v);
+  save();
+  if(k!=='name') render();
+}
+function delIng(id){
+  const i = findIng(id);
+  const used = db.menus.filter(m => (m.items||[]).some(it => it.ingId===id)).map(m=>m.name||'(ไม่มีชื่อ)');
+  if(used.length && !confirm(`"${i?.name||''}" ถูกใช้ในเมนู: ${used.join(', ')}\nลบแล้วสูตรเหล่านั้นจะหายไปด้วย ยืนยันไหม?`)) return;
+  db.ingredients = db.ingredients.filter(x => x.id!==id);
+  db.menus.forEach(m => m.items = (m.items||[]).filter(it => it.ingId!==id));
+  save(); render();
+}
+
+/* --- แท็บเมนู --- */
+function viewMenu(){
+  if(!db.ingredients.length){
+    return `<div class="card"><h2>เมนู / สูตร</h2>
+      <p class="empty">ต้องใส่วัตถุดิบในแท็บที่ 1 ก่อน แล้วค่อยมาผูกเป็นสูตรของแต่ละเมนู</p>
+      <button class="primary" onclick="go('ing')">ไปใส่วัตถุดิบ</button></div>`;
+  }
+  const cards = db.menus.map(m => {
+    const cost = menuCost(m), pf = profit(m), mg = marginPct(m);
+    const cls = mg >= n(db.targetMargin) ? 'good' : mg >= n(db.targetMargin)-15 ? 'warn' : 'bad';
+    const items = (m.items||[]).map((it,idx) => {
+      const ing = findIng(it.ingId);
+      return `<tr>
+        <td class="full" data-l="วัตถุดิบ"><select onchange="setItem('${m.id}',${idx},'ingId',this.value)">
+          ${db.ingredients.map(i=>`<option value="${i.id}" ${i.id===it.ingId?'selected':''}>${esc(i.name||'(ไม่มีชื่อ)')}</option>`).join('')}
+        </select></td>
+        <td style="width:110px" data-l="ใช้เท่าไหร่ (${esc(ing?.unit||'หน่วย')})"><input type="number" step="any" value="${it.qty}" oninput="setItem('${m.id}',${idx},'qty',this.value)"></td>
+        <td style="width:70px" class="hide-sm" data-l="หน่วย">${esc(ing?.unit||'')}</td>
+        <td class="num ro" style="width:90px" data-l="ต้นทุน"><span>${ing ? baht(unitCost(ing)*n(it.qty)) : '-'}</span></td>
+        <td style="width:50px" class="act" data-l=""><button class="mini danger" onclick="delItem('${m.id}',${idx})">✕ ลบ</button></td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="card">
+      <div class="menu-head">
+        <div class="f" style="flex:2"><label>ชื่อเมนู</label>
+          <input value="${esc(m.name)}" oninput="setMenu('${m.id}','name',this.value)" placeholder="เช่น เครปกรอบ นูเทลล่า"></div>
+        <div class="f"><label>ราคาขาย (บาท)</label>
+          <input type="number" step="any" value="${m.price}" oninput="setMenu('${m.id}','price',this.value)"></div>
+        <button class="mini danger" onclick="delMenu('${m.id}')">ลบเมนู</button>
+      </div>
+      <table class="stack">
+        <thead><tr><th>วัตถุดิบ</th><th>ใช้เท่าไหร่</th><th>หน่วย</th><th>ต้นทุน</th><th></th></tr></thead>
+        <tbody>${items || `<tr><td colspan="5" class="empty full" data-l="">ยังไม่ได้ใส่สูตร</td></tr>`}</tbody>
+      </table>
+      <div style="margin:10px 0"><button class="mini" onclick="addItem('${m.id}')">+ เพิ่มวัตถุดิบในสูตร</button></div>
+      <div class="kpis">
+        <div class="kpi"><div class="lbl">ต้นทุนวัตถุดิบ/จาน</div><div class="val num">${baht(cost)}</div></div>
+        <div class="kpi"><div class="lbl">กำไรต่อจาน</div><div class="val num ${pf>=0?'good':'bad'}">${baht(pf)}</div></div>
+        <div class="kpi"><div class="lbl">กำไรขั้นต้น</div><div class="val num ${cls}">${mg.toFixed(1)}%</div>
+          <div class="bar"><i style="width:${Math.max(0,Math.min(100,mg))}%"></i></div></div>
+        <div class="kpi"><div class="lbl">ราคาที่ควรขาย (เป้า ${n(db.targetMargin)}%)</div>
+          <div class="val num">${baht(suggestPrice(m))}</div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return cards + `<div class="card" style="text-align:center">
+    <button class="primary" onclick="addMenu()">+ เพิ่มเมนูใหม่</button></div>`;
+}
+const findMenu = id => db.menus.find(m => m.id===id);
+function addMenu(){ db.menus.push({id:uid(), name:'', price:0, items:[]}); save(); render(); }
+function setMenu(id,k,v){
+  const m = findMenu(id); if(!m) return;
+  m[k] = k==='name' ? v : n(v);
+  save(); if(k!=='name') render();
+}
+function delMenu(id){
+  const m = findMenu(id);
+  if(!confirm(`ลบเมนู "${m?.name||'(ไม่มีชื่อ)'}" ?`)) return;
+  db.menus = db.menus.filter(x => x.id!==id); save(); render();
+}
+function addItem(mid){
+  const m = findMenu(mid); if(!m) return;
+  (m.items = m.items||[]).push({ingId: db.ingredients[0].id, qty:0});
+  save(); render();
+}
+function setItem(mid,idx,k,v){
+  const m = findMenu(mid); if(!m||!m.items[idx]) return;
+  m.items[idx][k] = k==='qty' ? n(v) : v;
+  save(); render();
+}
+function delItem(mid,idx){
+  const m = findMenu(mid); if(!m) return;
+  m.items.splice(idx,1); save(); render();
+}
+
+/* --- แท็บต้นทุนคงที่ --- */
+function viewFixed(){
+  const f = db.fixed;
+  const fld = (k,l,ph='') => `<div class="f"><label>${l}</label>
+    <input type="number" step="any" value="${f[k]}" placeholder="${ph}" oninput="setFixed('${k}',this.value)"></div>`;
+  return `
+  <div class="card">
+    <h2>ต้นทุนคงที่ (ค่าใช้จ่ายที่ต้องจ่ายแม้ขายไม่ได้)</h2>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+      ${fld('rent','ค่าเช่าที่ / เดือน')}
+      ${fld('electric','ค่าไฟ / เดือน')}
+      ${fld('water','ค่าน้ำ / เดือน')}
+      ${fld('gas','ค่าแก๊ส / เดือน')}
+      ${fld('other','อื่น ๆ / เดือน','ค่าขนส่ง, ค่าเน็ต')}
+      ${fld('labor','ค่าแรงลูกจ้าง / วัน')}
+      ${fld('days','เปิดขายกี่วัน / เดือน')}
+      <div class="f"><label>กำไรขั้นต้นที่ต้องการ (%)</label>
+        <input type="number" step="any" value="${db.targetMargin}" oninput="setTarget(this.value)"></div>
+    </div>
+    <div class="kpis" style="margin-top:16px">
+      <div class="kpi"><div class="lbl">ต้นทุนคงที่ / เดือน</div><div class="val num">${baht(fixedPerMonth())}</div></div>
+      <div class="kpi"><div class="lbl">ต้นทุนคงที่ / วัน</div><div class="val num">${baht(fixedPerDay())}</div></div>
+      <div class="kpi"><div class="lbl">กำไรเฉลี่ย / จาน</div><div class="val num">${baht(avgProfit())}</div></div>
+      <div class="kpi"><div class="lbl">ต้องขายวันละ (จุดคุ้มทุน)</div>
+        <div class="val num">${breakEven() ? Math.ceil(breakEven()) + ' จาน' : '—'}</div></div>
+    </div>
+    <p class="hint">จุดคุ้มทุน = ต้นทุนคงที่ต่อวัน ÷ กำไรเฉลี่ยต่อจาน ขายได้มากกว่านี้คือเริ่มมีกำไรจริง</p>
+  </div>`;
+}
+function setFixed(k,v){ db.fixed[k]=n(v); save(); if(k==='days') render(); else refreshKpis(); }
+function setTarget(v){ db.targetMargin=n(v); save(); }
+function refreshKpis(){
+  const old = document.querySelector('#view .kpis');
+  if(!old) return render();
+  const tmp = document.createElement('div');
+  tmp.innerHTML = viewFixed();
+  old.replaceWith(tmp.querySelector('.kpis'));
+}
+
+/* --- แท็บสรุป --- */
+function viewSum(){
+  if(!db.menus.length) return `<div class="card"><h2>สรุป</h2><p class="empty">ยังไม่มีเมนู</p></div>`;
+  const sorted = [...db.menus].sort((a,b) => marginPct(b) - marginPct(a));
+  const rows = sorted.map((m,i) => {
+    const mg = marginPct(m);
+    const cls = mg >= n(db.targetMargin) ? 'good' : mg >= n(db.targetMargin)-15 ? 'warn' : 'bad';
+    return `<tr>
+      <td>${i===0?'⭐ ':''}${esc(m.name||'(ไม่มีชื่อ)')}</td>
+      <td class="num">${baht(menuCost(m))}</td>
+      <td class="num">${baht(m.price)}</td>
+      <td class="num ${profit(m)>=0?'good':'bad'}">${baht(profit(m))}</td>
+      <td class="num ${cls}">${mg.toFixed(1)}%</td>
+      <td class="num">${baht(suggestPrice(m))}</td>
+    </tr>`;
+  }).join('');
+
+  const worst = sorted[sorted.length-1];
+  const tips = [];
+  if(worst && marginPct(worst) < n(db.targetMargin))
+    tips.push(`เมนู <b>${esc(worst.name||'(ไม่มีชื่อ)')}</b> กำไรบางสุด (${marginPct(worst).toFixed(1)}%) — ลองขึ้นราคาเป็น ${baht(suggestPrice(worst))} บาท หรือลดปริมาณไส้ลง`);
+  if(breakEven())
+    tips.push(`ต้องขายให้ได้วันละ <b>${Math.ceil(breakEven())} จาน</b> ถึงจะคุ้มค่าเช่า/ค่าไฟ/ค่าแรง`);
+  if(!fixedPerMonth())
+    tips.push(`ยังไม่ได้ใส่ต้นทุนคงที่ — ตัวเลขกำไรที่เห็นยังไม่ได้หักค่าเช่ากับค่าไฟนะ`);
+
+  return `
+  <div class="card">
+    <h2>เปรียบเทียบทุกเมนู <span class="pill">เป้ากำไร ${n(db.targetMargin)}%</span></h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>เมนู</th><th>ต้นทุน</th><th>ราคาขาย</th><th>กำไร/จาน</th><th>%กำไร</th><th>ราคาที่ควรขาย</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <p class="hint">บนมือถือ: เลื่อนตารางไปทางซ้ายเพื่อดูคอลัมน์ที่เหลือ</p>
+  </div>
+  ${tips.length ? `<div class="card"><h2>ข้อสังเกต</h2><ul style="margin:0; padding-left:20px">
+    ${tips.map(t=>`<li style="margin-bottom:6px">${t}</li>`).join('')}</ul></div>` : ''}`;
+}
+
+/* ---------- สำรอง / กู้คืน ---------- */
+function openBackup(){
+  const box = document.getElementById('backup');
+  document.getElementById('dump').value = JSON.stringify(db);
+  document.getElementById('bkMsg').textContent = '';
+  box.hidden = false;
+  box.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function closeBackup(){ document.getElementById('backup').hidden = true; }
+function bkMsg(t){ document.getElementById('bkMsg').textContent = t; }
+
+async function copyDump(){
+  const ta = document.getElementById('dump');
+  try{
+    await navigator.clipboard.writeText(ta.value);
+    bkMsg('✅ คัดลอกแล้ว — เอาไปวางเก็บไว้ที่ไหนก็ได้');
+  }catch(e){
+    ta.select(); bkMsg('กดค้างที่ข้อความแล้วเลือก "คัดลอก" เองนะครับ');
+  }
+}
+function restoreText(){
+  const txt = document.getElementById('paste').value.trim();
+  if(!txt) return bkMsg('⚠ ยังไม่ได้วางข้อความ');
+  if(!applyData(txt)) return bkMsg('⚠ ข้อความไม่ถูกต้อง ลองคัดลอกมาใหม่ทั้งก้อน');
+  bkMsg('✅ กู้คืนเรียบร้อย');
+}
+function applyData(raw){
+  try{
+    const data = JSON.parse(raw);
+    if(!data || !Array.isArray(data.ingredients)) return false;
+    db = Object.assign(blank(), data);
+    save(); render();
+    return true;
+  }catch(e){ return false; }
+}
+
+function exportJSON(){
+  const blob = new Blob([JSON.stringify(db,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ต้นทุนร้านเครป-${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function importJSON(input){
+  const file = input.files[0]; if(!file) return;
+  const r = new FileReader();
+  r.onload = () => {
+    bkMsg(applyData(r.result) ? '✅ กู้คืนจากไฟล์เรียบร้อย' : '⚠ ไฟล์ไม่ถูกต้อง');
+    input.value = '';
+  };
+  r.readAsText(file);
+}
+function resetAll(){
+  if(!confirm('ล้างข้อมูลทั้งหมด? กู้คืนไม่ได้ (แนะนำให้สำรองไฟล์ก่อน)')) return;
+  db = blank(); save(); render();
+}
+
+/* ---------- ข้อมูลตัวอย่าง ---------- */
+function loadDemo(){
+  if(db.ingredients.length && !db.isDemo && !confirm('จะทับข้อมูลเดิมทั้งหมด ยืนยันไหม?')) return;
+  db = buildDemo(); save(); tab='sum'; render();
+}
+function buildDemo(){
+  const I = (name,packQty,unit,packPrice) => ({id:uid(), name, packQty, unit, packPrice});
+  const list = [
+    I('แป้งเครปสำเร็จ',1000,'กรัม',45),
+    I('ไข่ไก่',30,'ใบ',135),
+    I('นมสด',1000,'มิลลิลิตร',58),
+    I('เนยสด',500,'กรัม',120),
+    I('น้ำตาลทราย',1000,'กรัม',25),
+    I('นูเทลล่า',350,'กรัม',185),
+    I('ไส้กรอก',500,'กรัม',75),
+    I('ชีสสไลซ์',12,'แผ่น',65),
+    I('กล้วยหอม',12,'ชิ้น',60),
+    I('กระดาษห่อ + ถุง',100,'ชิ้น',90)
+  ];
+  const g = nm => list.find(x => x.name===nm).id;
+  return {
+    isDemo: true,
+    ingredients: list,
+    menus: [
+      {id:uid(), name:'เครปกรอบ นูเทลล่า', price:45, items:[
+        {ingId:g('แป้งเครปสำเร็จ'),qty:40},{ingId:g('ไข่ไก่'),qty:0.3},
+        {ingId:g('นมสด'),qty:50},{ingId:g('เนยสด'),qty:8},
+        {ingId:g('นูเทลล่า'),qty:20},{ingId:g('กล้วยหอม'),qty:0.5},
+        {ingId:g('กระดาษห่อ + ถุง'),qty:1}
+      ]},
+      {id:uid(), name:'เครปไส้กรอกชีส', price:40, items:[
+        {ingId:g('แป้งเครปสำเร็จ'),qty:40},{ingId:g('ไข่ไก่'),qty:0.3},
+        {ingId:g('นมสด'),qty:50},{ingId:g('เนยสด'),qty:8},
+        {ingId:g('ไส้กรอก'),qty:40},{ingId:g('ชีสสไลซ์'),qty:1},
+        {ingId:g('กระดาษห่อ + ถุง'),qty:1}
+      ]},
+      {id:uid(), name:'เครปน้ำตาลเนย (ธรรมดา)', price:25, items:[
+        {ingId:g('แป้งเครปสำเร็จ'),qty:40},{ingId:g('ไข่ไก่'),qty:0.3},
+        {ingId:g('นมสด'),qty:50},{ingId:g('เนยสด'),qty:10},
+        {ingId:g('น้ำตาลทราย'),qty:12},{ingId:g('กระดาษห่อ + ถุง'),qty:1}
+      ]}
+    ],
+    fixed: { rent:3500, electric:800, gas:400, water:150, other:300, days:26, labor:0 },
+    targetMargin: 65
+  };
+}
+
+// เปิดผ่านลิงก์ (ไม่ใช่ไฟล์ในเครื่อง) จะดาวน์โหลดไฟล์ไม่ได้ — ซ่อนปุ่มนั้นไว้ ใช้ปุ่มคัดลอกแทน
+if(window.claude){
+  const b = document.getElementById('dlBtn');
+  if(b) b.hidden = true;
+}
+
+// ติดตั้งเป็นแอป + ใช้งานตอนไม่มีเน็ต (ต้องเปิดผ่าน https หรือ localhost เท่านั้น)
+if('serviceWorker' in navigator && !window.claude
+   && (location.protocol === 'https:' || location.hostname === 'localhost')){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+
+render();
+</script>
+</body>
+</html>

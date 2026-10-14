@@ -1,0 +1,19 @@
+{
+  "name": "crepe-cost",
+  "version": "1.0.0",
+  "private": true,
+  "description": "เว็บคำนวณต้นทุนร้านเครป — ใช้เป็นเว็บ ติดตั้งเป็น PWA หรือ build เป็นแอป iOS ก็ได้",
+  "scripts": {
+    "serve": "node serve.js",
+    "icons": "node tools/make-icons.js icons assets",
+    "build": "node tools/build-www.js",
+    "ios:add": "npm run build && npx cap add ios && npx @capacitor/assets generate --ios",
+    "ios:sync": "npm run build && npx cap sync ios"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/ios": "^7.0.0"
+  }
+}

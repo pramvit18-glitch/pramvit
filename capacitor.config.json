@@ -1,0 +1,9 @@
+{
+  "appId": "com.crepecost.app",
+  "appName": "ต้นทุนเครป",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "always",
+    "backgroundColor": "#f6f4ef"
+  }
+}

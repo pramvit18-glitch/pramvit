@@ -1,0 +1,63 @@
+name: สร้างไฟล์ .ipa สำหรับ iPhone
+
+# รันเองได้จากแท็บ Actions หรือรันอัตโนมัติทุกครั้งที่ push ขึ้น main
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    # GitHub ให้เครื่อง Mac รัน build ฟรีถ้า repo เป็น public
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: ติดตั้ง dependency
+        run: npm install
+
+      - name: รวมไฟล์เว็บเข้า www/
+        run: npm run build
+
+      - name: สร้างโปรเจกต์ iOS
+        run: npx cap add ios
+
+      - name: ใส่ไอคอนกับ splash
+        run: npx @capacitor/assets generate --ios
+
+      - name: ซิงก์ไฟล์เว็บเข้าโปรเจกต์ iOS
+        run: npx cap sync ios
+
+      - name: คอมไพล์แบบไม่เซ็น (จะไปเซ็นตอน sideload)
+        run: |
+          cd ios/App
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER=""
+
+      - name: ห่อเป็นไฟล์ .ipa
+        run: |
+          cd ios/App/build/Build/Products/Release-iphoneos
+          mkdir -p Payload
+          cp -R App.app Payload/
+          zip -qry CrepeCost.ipa Payload
+          ls -lh CrepeCost.ipa
+
+      - name: อัปโหลดไฟล์ให้โหลด
+        uses: actions/upload-artifact@v4
+        with:
+          name: CrepeCost-ipa
+          path: ios/App/build/Build/Products/Release-iphoneos/CrepeCost.ipa
+          retention-days: 30

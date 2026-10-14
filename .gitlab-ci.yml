@@ -1,0 +1,23 @@
+# GitLab CI — เอาเว็บขึ้น GitLab Pages ให้ฟรี
+# ได้ URL: https://pramvit18-group.gitlab.io/crepecost/
+# เปิดบนมือถือได้ทุกที่ ทุกบัญชี แล้วกด "เพิ่มไปยังโฮมสกรีน" ใช้เป็นแอปได้เลย
+#
+# หมายเหตุ: ที่นี่ build ไฟล์ .ipa ไม่ได้ เพราะ GitLab ให้เครื่อง Mac เฉพาะแพ็กเกจเสียเงิน
+#          ถ้าจะทำ .ipa ให้ push ไป GitHub ด้วย (ดู IPA.md)
+
+stages:
+  - deploy
+
+pages:
+  stage: deploy
+  image: node:20-alpine
+  script:
+    - node tools/build-www.js      # รวม index.html + icons + manifest + sw.js เข้า www/
+    - rm -rf public
+    - mv www public                # GitLab Pages อ่านจากโฟลเดอร์ชื่อ public เท่านั้น
+    - echo "เสร็จแล้ว → https://pramvit18-group.gitlab.io/crepecost/"
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
