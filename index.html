@@ -33,28 +33,9 @@
     --card-shadow:0 1px 2px rgba(13,36,64,.04), 0 6px 18px rgba(13,36,64,.06);
     --nav-h:62px;
     --r:18px; --r-sm:12px;
-  }
-  @media (prefers-color-scheme:dark){
-    :root:not([data-theme="light"]){
-      --page:#050c14;
-      --bg:#0a1420; --surface:#111e2d; --surface-2:#16243a;
-      --ink:#e8eff7; --ink-2:#a9bdd3; --muted:#8197af;
-      --line:#22354a; --line-2:#1a2b3d;
-      --accent:#5aa0ff; --accent-ink:#9cc5fb; --accent-soft:#122a48;
-      --bar-cost:#5aa0ff; --bar-profit:#2d5886;
-      --good-ink:#5fd35f; --warn-ink:#fab219; --bad-ink:#ef7272;
-      --card-shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.22);
-    }
-  }
-  :root[data-theme="dark"]{
-    --page:#050c14;
-    --bg:#0a1420; --surface:#111e2d; --surface-2:#16243a;
-    --ink:#e8eff7; --ink-2:#a9bdd3; --muted:#8197af;
-    --line:#22354a; --line-2:#1a2b3d;
-    --accent:#5aa0ff; --accent-ink:#9cc5fb; --accent-soft:#122a48;
-    --bar-cost:#5aa0ff; --bar-profit:#2d5886;
-    --good-ink:#5fd35f; --warn-ink:#fab219; --bad-ink:#ef7272;
-    --card-shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.22);
+
+    /* ธีมขาว-ฟ้าอย่างเดียว ไม่สลับตามโหมดมืดของเครื่อง */
+    color-scheme: light;
   }
 
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
