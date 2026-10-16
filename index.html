@@ -281,6 +281,41 @@
   .gloss-k{font-weight:800; font-size:14.5px; color:var(--accent-ink)}
   .gloss-v{font-size:13.5px; color:var(--ink-2); line-height:1.5}
 
+  /* ============ ป้ายสถานะเป็นคำ ============ */
+  .status{
+    padding:5px 11px; border-radius:99px; font-size:12.5px; font-weight:700; white-space:nowrap;
+  }
+  .status.is-good{background:#e6f6e6; color:#0a6b0a}
+  .status.is-warn{background:#fdf3dd; color:#8a6000}
+  .status.is-bad{background:#fbe8e8; color:#b32222}
+
+  /* ============ กล่องสรุปแบบประโยค ============ */
+  .verdict{
+    border-radius:14px; padding:13px 15px; font-size:13.5px; line-height:1.55;
+    margin:12px 0 4px;
+  }
+  .verdict b:first-child{display:block; font-size:16px; margin-bottom:2px}
+  .verdict.is-good{background:#e6f6e6; color:#0a5c0a}
+  .verdict.is-warn{background:#fdf3dd; color:#7a5500}
+  .verdict.is-bad{background:#fbe8e8; color:#9e1f1f}
+
+  /* ============ ปุ่มย้อนกลับ ============ */
+  .btn.back{
+    border:none; background:none; color:var(--accent); padding:4px 0 10px;
+    font-weight:700; font-size:14px;
+  }
+  .btn.back:hover{color:var(--accent-ink)}
+
+  /* ============ ส่วนที่พับเก็บไว้ได้ ============ */
+  details{margin-top:12px}
+  details>summary{
+    cursor:pointer; list-style:none; color:var(--accent); font-weight:700; font-size:13.5px;
+    padding:9px 0; display:flex; align-items:center; gap:7px;
+  }
+  details>summary::-webkit-details-marker{display:none}
+  details>summary::after{content:'▾'; font-size:11px; transition:transform .15s}
+  details[open]>summary::after{transform:rotate(180deg)}
+
   .empty{color:var(--muted); font-size:13.5px; text-align:center; padding:28px 10px}
   .empty svg{width:34px; height:34px; opacity:.4; display:block; margin:0 auto 8px}
   .hint{color:var(--muted); font-size:12.5px; margin:10px 0 0}
@@ -431,7 +466,13 @@ function save(){
 }
 function uid(){ return Math.random().toString(36).slice(2,9); }
 const n = v => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
-const baht = v => n(v).toLocaleString('th-TH',{minimumFractionDigits:2, maximumFractionDigits:2});
+// เจ้าของร้านคิดเป็นบาทเต็ม ไม่ได้คิดเป็นสตางค์ — แสดงทศนิยมเฉพาะตอนเงินน้อยกว่า 10 บาท
+const baht = v => {
+  const x = n(v);
+  return Math.abs(x) > 0 && Math.abs(x) < 10
+    ? x.toLocaleString('th-TH',{minimumFractionDigits:2, maximumFractionDigits:2})
+    : Math.round(x).toLocaleString('th-TH');
+};
 const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 
@@ -496,12 +537,21 @@ function daily(){
 }
 const hasSales = () => db.menus.some(m => n(m.qtyPerDay) > 0);
 
+// บอกสถานะเป็นคำ คนอ่านไม่ต้องตีความสีเอง
+function statusWord(m){
+  if(n(m.price) <= 0) return {word:'ยังไม่ได้ใส่ราคา', lv:'warn'};
+  if(profit(m) < 0)   return {word:'ขาดทุน', lv:'bad'};
+  const lv = level(marginPct(m));
+  return {word: lv==='good' ? 'กำไรดี' : lv==='warn' ? 'กำไรพอใช้' : 'กำไรน้อย', lv};
+}
+
 // ระดับของกำไร: ถึงเป้า / ใกล้เป้า / ต่ำไป  — ใช้คู่กับตัวเลขเสมอ ไม่ให้สีสื่อความหมายลำพัง
+// เกณฑ์ตามมาตรฐานร้านอาหารทั่วไป ไม่ผูกกับเป้าที่ผู้ใช้ตั้ง
+// (เป้าที่ตั้งเอาไว้ใช้คำนวณ "ราคาที่แนะนำ" อย่างเดียว)
 function level(mg){
-  const t = n(db.targetMargin);
-  if(mg >= t) return 'good';
-  if(mg >= t - 15) return 'warn';
-  return 'bad';
+  if(mg >= 60) return 'good';   // กำไรดี
+  if(mg >= 45) return 'warn';   // พอใช้
+  return 'bad';                 // น้อยไป
 }
 
 /* ===================== ไอคอน ===================== */
@@ -513,6 +563,7 @@ const SVG = {
   sum:'<path d="M5 20v-7M12 20V5M19 20v-4"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
   check:'<path d="m5 13 4 4L19 7"/>',
+  back:'<path d="m15 5-7 7 7 7"/>',
   chev:'<path d="m9 5 7 7-7 7"/>',
   edit:'<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5 17.5 9.5"/>',
   trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
@@ -739,16 +790,54 @@ function costSplit(m){
     </div>`;
 }
 
+// เปิดเมนูไหนอยู่ (null = แสดงเป็นรายการรวม)
+let openMenuId = null;
+function openMenu(id){ openMenuId = id; render(); window.scrollTo({top:0}); }
+function backToMenus(){ openMenuId = null; render(); window.scrollTo({top:0}); }
+
 function viewMenu(){
   if(!db.ingredients.length){
+    openMenuId = null;
     return `<div class="card">
-      <h2>เมนู / สูตร</h2>
-      <div class="empty">${icon('menu',34)}ต้องใส่วัตถุดิบก่อน<br>แล้วค่อยมาผูกเป็นสูตรของแต่ละเมนู</div>
-      <button class="btn primary block" onclick="go('ing')">ไปใส่วัตถุดิบ</button>
+      <h2>เมนู</h2>
+      <div class="empty">${icon('menu',34)}ต้องใส่ของที่ซื้อมาก่อน<br>แล้วค่อยมาบอกว่าแต่ละเมนูใช้อะไรบ้าง</div>
+      <button class="btn primary block" onclick="go('ing')">ไปใส่ของที่ซื้อมา</button>
     </div>`;
   }
 
-  const cards = db.menus.map(m => {
+  // --- หน้ารายการเมนู: เห็นทีเดียวว่าเมนูไหนกำไรดี ---
+  if(!openMenuId || !findMenu(openMenuId)){
+    openMenuId = null;
+    if(!db.menus.length){
+      return `<div class="card"><h2>เมนู</h2>
+        <div class="empty">${icon('menu',34)}ยังไม่มีเมนู<br>แตะปุ่ม <b>+ เพิ่มเมนู</b> มุมขวาล่าง</div></div>`;
+    }
+    const rows = db.menus.map(m => {
+      const st = statusWord(m);
+      const noRecipe = !(m.items||[]).length;
+      return `<div class="li" role="button" tabindex="0" onclick="openMenu('${m.id}')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMenu('${m.id}')}">
+        <div class="li-main">
+          <div class="li-title">${esc(m.name || '(ยังไม่มีชื่อ)')}</div>
+          <div class="li-sub">${noRecipe ? 'ยังไม่ได้ใส่ว่าใช้อะไรบ้าง'
+            : `ขาย ${baht(m.price)} บาท · ได้กำไรจานละ ${baht(profit(m))} บาท`}</div>
+        </div>
+        <div class="li-end">
+          <span class="status is-${noRecipe ? 'warn' : st.lv}">${noRecipe ? 'ยังไม่ครบ' : st.word}</span>
+          <span class="li-chev">${icon('chev',16)}</span>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div class="card">
+      <h2>เมนูที่ขาย</h2>
+      <p class="sub">แตะที่เมนูเพื่อดูรายละเอียดและใส่ว่าใช้ของอะไรบ้าง</p>
+      <div class="list">${rows}</div>
+    </div>`;
+  }
+
+  // --- หน้ารายละเอียดของเมนูเดียว ---
+  const cards = [findMenu(openMenuId)].map(m => {
     const cost = menuCost(m), mg = marginPct(m), lv = level(mg);
     const items = (m.items||[]).map((it,idx) => {
       const ing = findIng(it.ingId);
@@ -768,7 +857,9 @@ function viewMenu(){
       </div>`;
     }).join('');
 
-    return `<div class="card">
+    const st = statusWord(m);
+    return `<button class="btn back" onclick="backToMenus()">${icon('back',16)} เมนูทั้งหมด</button>
+    <div class="card">
       <div class="row-head" style="margin-bottom:2px">
         <div class="li-main">
           <h2 style="margin:0">${esc(m.name || '(ยังไม่มีชื่อ)')}</h2>
@@ -776,6 +867,13 @@ function viewMenu(){
         </div>
         <button class="btn sm" onclick="editMenu('${m.id}')">${icon('edit',14)} แก้ไข</button>
         <button class="li-del" title="ลบเมนูนี้" onclick="delMenu('${m.id}')">${icon('trash',15)}</button>
+      </div>
+
+      <div class="verdict is-${st.lv}">
+        <b>${st.word}</b>
+        ${n(m.price) > 0 && (m.items||[]).length
+          ? `ขายจานละ ${baht(m.price)} บาท ค่าของ ${baht(cost)} บาท <b>เหลือกำไร ${baht(profit(m))} บาท</b>`
+          : 'ใส่ราคาขายและของที่ใช้ให้ครบก่อน แล้วจะคำนวณให้'}
       </div>
 
       ${costSplit(m)}
@@ -1017,15 +1115,16 @@ function viewDash(){
       <p class="hint">${d.net >= 0
         ? `วันละประมาณ ${baht(d.net)} บาท จากการขาย ${d.plates} จาน`
         : `ตอนนี้<b>ขาดทุนวันละ ${baht(-d.net)} บาท</b> — ดูหัวข้อถัดไปว่าต้องขายเพิ่มเท่าไหร่`}</p>
-      <div class="tiles" style="margin-top:14px">
-        <div class="tile"><div class="lbl">รายได้ / วัน</div><div class="val tnum">${baht(d.revenue)}</div></div>
-        <div class="tile"><div class="lbl">ค่าของ / วัน</div><div class="val tnum">${baht(d.food)}</div></div>
-        <div class="tile"><div class="lbl">ค่าเช่า+ค่าไฟ / วัน</div><div class="val tnum">${baht(d.fixed)}</div></div>
-        <div class="tile"><div class="lbl">กำไรสุทธิ / วัน</div><div class="val tnum ${netCls}">${baht(d.net)}</div></div>
-      </div>
-      <div class="btnrow" style="margin-top:14px">
-        <button class="btn" onclick="editSales()">แก้ยอดขายต่อวัน</button>
-      </div>
+      <details>
+        <summary>ดูตัวเลขแยกรายวัน</summary>
+        <div class="tiles">
+          <div class="tile"><div class="lbl">ขายได้ / วัน</div><div class="val tnum">${baht(d.revenue)}</div></div>
+          <div class="tile"><div class="lbl">ค่าของ / วัน</div><div class="val tnum">${baht(d.food)}</div></div>
+          <div class="tile"><div class="lbl">ค่าเช่า+ค่าไฟ / วัน</div><div class="val tnum">${baht(d.fixed)}</div></div>
+          <div class="tile"><div class="lbl">เหลือ / วัน</div><div class="val tnum ${netCls}">${baht(d.net)}</div></div>
+        </div>
+      </details>
+      <button class="btn block" style="margin-top:12px" onclick="editSales()">แก้ยอดขายต่อวัน</button>
     </div>`);
 
     /* --- เงิน 100 บาท ไปไหนบ้าง --- */
@@ -1157,19 +1256,21 @@ function viewSum(){
   return `
   <div class="card">
     <h2>เมนูไหนกำไรดี</h2>
-    <p class="sub">ยิ่งแท่งยาวยิ่งกำไรดี · เป้าที่ตั้งไว้ ${n(db.targetMargin)}%</p>
+    <p class="sub">ยิ่งแท่งยาวยิ่งดี · ร้านอาหารทั่วไปควรได้ 60% ขึ้นไป</p>
     <div class="rank">${bars}</div>
   </div>
 
   <div class="card">
-    <h2>ตารางสรุป</h2>
-    <p class="sub">เลื่อนตารางไปทางซ้ายเพื่อดูคอลัมน์ที่เหลือ</p>
+    <details>
+      <summary>ดูตารางสรุปแบบเต็ม</summary>
     <div class="scroll">
       <table>
         <thead><tr><th>เมนู</th><th>ต้นทุน</th><th>ขาย</th><th>กำไร</th><th>กำไร %</th><th>แนะนำ</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
+    <p class="hint">เลื่อนตารางไปทางซ้ายเพื่อดูคอลัมน์ที่เหลือ</p>
+    </details>
   </div>
 
   ${tips.length ? `<div class="card"><h2>ข้อสังเกต</h2>
