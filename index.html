@@ -238,6 +238,38 @@
     padding:12px 14px; font-size:13px; color:var(--accent-ink); margin-top:12px;
   }
 
+  /* ============ หน้าต่างกรอกข้อมูล ============ */
+  dialog{
+    border:none; padding:0; color:var(--ink); background:var(--surface);
+    border-radius:var(--r); width:min(430px, calc(100% - 32px));
+    box-shadow:0 24px 64px rgba(13,36,64,.28);
+  }
+  dialog::backdrop{background:rgba(9,24,43,.5)}
+  .dlg-head{padding:18px 18px 0}
+  .dlg-head h3{margin:0; font-size:17px; font-weight:700}
+  .dlg-head p{margin:3px 0 0; font-size:12.5px; color:var(--muted)}
+  .dlg-body{padding:15px 18px 0; display:grid; gap:12px; grid-template-columns:1fr 1fr}
+  .f.wide{grid-column:1/-1}
+  .dlg-live{
+    grid-column:1/-1; background:var(--accent-soft); color:var(--accent-ink);
+    border-radius:10px; padding:9px 12px; font-size:13px; font-weight:600;
+    font-variant-numeric:tabular-nums;
+  }
+  .dlg-err{grid-column:1/-1; color:var(--bad-ink); font-size:12.5px; font-weight:600}
+  .dlg-err:empty{display:none}
+  .dlg-foot{padding:16px 18px 18px; display:flex; gap:9px}
+  .dlg-foot .btn{flex:1}
+  @media(max-width:719px){
+    dialog{
+      width:100%; max-width:100%; max-height:92vh; overflow:auto;
+      margin:auto auto 0; border-radius:20px 20px 0 0;
+      padding-bottom:env(safe-area-inset-bottom, 0px);
+    }
+    dialog[open]{animation:sheet .22s ease-out}
+  }
+  @keyframes sheet{from{transform:translateY(100%)} to{transform:translateY(0)}}
+  @media(prefers-reduced-motion:reduce){ dialog[open]{animation:none} }
+
   @media(min-width:720px){
     .tabs{display:flex}
     .bottomnav{display:none}
@@ -317,6 +349,20 @@
 
 <nav id="tabsBottom" class="bottomnav"></nav>
 
+<dialog id="dlg">
+  <form id="dlgForm" onsubmit="return dlgSubmit(event)">
+    <div class="dlg-head">
+      <h3 id="dlgTitle"></h3>
+      <p id="dlgSub"></p>
+    </div>
+    <div class="dlg-body" id="dlgBody"></div>
+    <div class="dlg-foot">
+      <button type="button" class="btn ghost" onclick="dlg.close()">ยกเลิก</button>
+      <button type="submit" class="btn primary" id="dlgSave">บันทึก</button>
+    </div>
+  </form>
+</dialog>
+
 <script>
 /* ===================== ข้อมูล ===================== */
 const KEY = 'crepe-cost-v1';
@@ -330,7 +376,7 @@ const blank = () => ({
 });
 
 let db = load();
-let tab = db.isDemo ? 'sum' : 'ing';
+let tab = db.isDemo ? 'dash' : 'ing';
 
 function load(){
   try{
@@ -379,6 +425,28 @@ function avgProfit(){
 }
 const breakEven = () => avgProfit() > 0 ? fixedPerDay() / avgProfit() : 0;
 
+/* ภาพรวมทั้งร้านต่อวัน — คิดจากยอดขายโดยประมาณของแต่ละเมนู */
+function daily(){
+  let revenue = 0, food = 0, plates = 0;
+  db.menus.forEach(m => {
+    const q = n(m.qtyPerDay);
+    if(q <= 0) return;
+    plates  += q;
+    revenue += n(m.price) * q;
+    food    += menuCost(m) * q;
+  });
+  const fixed = fixedPerDay();
+  const gross = revenue - food;          // กำไรก่อนหักค่าเช่า/ค่าไฟ
+  const net   = gross - fixed;           // กำไรสุทธิจริง ๆ
+  const perPlate = plates > 0 ? gross / plates : avgProfit();
+  return {
+    revenue, food, fixed, gross, net, plates, perPlate,
+    need: perPlate > 0 ? fixed / perPlate : 0,   // ต้องขายกี่จานถึงคุ้ม
+    month: net * n(db.fixed.days)
+  };
+}
+const hasSales = () => db.menus.some(m => n(m.qtyPerDay) > 0);
+
 // ระดับของกำไร: ถึงเป้า / ใกล้เป้า / ต่ำไป  — ใช้คู่กับตัวเลขเสมอ ไม่ให้สีสื่อความหมายลำพัง
 function level(mg){
   const t = n(db.targetMargin);
@@ -389,6 +457,7 @@ function level(mg){
 
 /* ===================== ไอคอน ===================== */
 const SVG = {
+  dash:'<path d="M3 12l9-8 9 8"/><path d="M5.5 10v10h13V10"/><path d="M9.5 20v-5h5v5"/>',
   ing:'<path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9.5 8a2.5 2.5 0 0 1 5 0"/>',
   menu:'<path d="M4 7h16M4 12h16M4 17h10"/>',
   fixed:'<path d="M4 10h16v10H4z"/><path d="M4 10 6 4h12l2 6"/><path d="M10 20v-5h4v5"/>',
@@ -402,10 +471,10 @@ const icon = (k,s=18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fi
 
 /* ===================== หน้าจอ ===================== */
 const TABS = [
+  ['dash',  'ภาพรวม',    'dash'],
   ['ing',   'วัตถุดิบ',   'ing'],
   ['menu',  'เมนู',       'menu'],
-  ['fixed', 'ต้นทุนคงที่', 'fixed'],
-  ['sum',   'สรุป',       'sum']
+  ['fixed', 'คงที่',      'fixed']
 ];
 
 function render(){
@@ -417,7 +486,7 @@ function render(){
 
   renderBanner();
   document.getElementById('view').innerHTML =
-    tab==='ing' ? viewIng() : tab==='menu' ? viewMenu() : tab==='fixed' ? viewFixed() : viewSum();
+    tab==='ing' ? viewIng() : tab==='menu' ? viewMenu() : tab==='fixed' ? viewFixed() : viewDash();
 }
 function go(t){ tab=t; render(); window.scrollTo({top:0}); }
 
@@ -435,6 +504,64 @@ function renderBanner(){
 }
 function startFresh(){ db = blank(); save(); tab='ing'; render(); }
 function keepDemo(){ delete db.isDemo; save(); render(); }
+
+/* ===================== หน้าต่างกรอกข้อมูล ===================== */
+const dlg = document.getElementById('dlg');
+let dlgCfg = null;
+
+// fields: [{k, label, type:'text'|'number'|'select', value, options, placeholder, wide, step}]
+function openDialog(cfg){
+  dlgCfg = cfg;
+  document.getElementById('dlgTitle').textContent = cfg.title;
+  document.getElementById('dlgSub').textContent = cfg.sub || '';
+  document.getElementById('dlgSave').textContent = cfg.saveLabel || 'บันทึก';
+
+  document.getElementById('dlgBody').innerHTML = cfg.fields.map(f => {
+    const cls = `f${f.wide ? ' wide' : ''}`;
+    if(f.type === 'select'){
+      return `<div class="${cls}"><label for="dlg_${f.k}">${f.label}</label>
+        <select id="dlg_${f.k}" data-k="${f.k}">${f.options.map(o =>
+          `<option value="${esc(o.value)}" ${o.value===f.value?'selected':''}>${esc(o.label)}</option>`).join('')}</select></div>`;
+    }
+    const t = f.type === 'number' ? 'number' : 'text';
+    return `<div class="${cls}"><label for="dlg_${f.k}">${f.label}</label>
+      <input id="dlg_${f.k}" data-k="${f.k}" type="${t}" ${f.type==='number'?'step="any" inputmode="decimal"':''}
+        value="${esc(f.value ?? '')}" placeholder="${esc(f.placeholder||'')}"></div>`;
+  }).join('')
+    + (cfg.live ? `<div class="dlg-live" id="dlgLive"></div>` : '')
+    + `<div class="dlg-err" id="dlgErr"></div>`;
+
+  if(cfg.live) dlg.addEventListener('input', dlgLive);
+  dlgLive();
+  dlg.showModal();
+  const first = dlg.querySelector('[data-k]');
+  if(first) setTimeout(() => first.focus(), 60);
+}
+
+function dlgValues(){
+  const v = {};
+  dlg.querySelectorAll('[data-k]').forEach(el => {
+    const f = dlgCfg.fields.find(x => x.k === el.dataset.k);
+    v[el.dataset.k] = f && f.type === 'number' ? n(el.value) : el.value;
+  });
+  return v;
+}
+function dlgLive(){
+  const box = document.getElementById('dlgLive');
+  if(!box || !dlgCfg || !dlgCfg.live) return;
+  box.innerHTML = dlgCfg.live(dlgValues());
+}
+function dlgSubmit(e){
+  e.preventDefault();
+  const v = dlgValues();
+  const err = dlgCfg.check ? dlgCfg.check(v) : null;
+  if(err){ document.getElementById('dlgErr').textContent = err; return false; }
+  dlg.removeEventListener('input', dlgLive);
+  dlg.close();
+  dlgCfg.save(v);
+  return false;
+}
+dlg.addEventListener('close', () => dlg.removeEventListener('input', dlgLive));
 
 /* --------- แท็บ 1: วัตถุดิบ --------- */
 function viewIng(){
@@ -474,8 +601,26 @@ function viewIng(){
   </div>`;
 }
 function addIng(){
-  db.ingredients.push({id:uid(), name:'', packQty:1000, unit:'กรัม', packPrice:0});
-  save(); render();
+  openDialog({
+    title:'เพิ่มวัตถุดิบ',
+    sub:'กรอกตามบิลที่ซื้อจริง ระบบคิดราคาต่อหน่วยให้เอง',
+    fields:[
+      {k:'name', label:'ชื่อวัตถุดิบ', type:'text', value:'', placeholder:'เช่น แป้งเครป', wide:true},
+      {k:'packQty', label:'ปริมาณที่ได้', type:'number', value:1000},
+      {k:'unit', label:'หน่วย', type:'select', value:'กรัม', options:UNITS.map(u=>({value:u,label:u}))},
+      {k:'packPrice', label:'ราคาที่จ่าย (บาท)', type:'number', value:'', wide:true}
+    ],
+    live: v => v.packQty > 0 && v.packPrice > 0
+      ? `คิดเป็น ${(v.packPrice / v.packQty).toFixed(4)} บาท ต่อ 1 ${esc(v.unit)}`
+      : 'กรอกปริมาณกับราคาแล้วจะคำนวณให้ทันที',
+    check: v => !v.name.trim() ? 'ยังไม่ได้ใส่ชื่อวัตถุดิบ'
+              : v.packQty <= 0 ? 'ปริมาณที่ได้ต้องมากกว่า 0'
+              : v.packPrice < 0 ? 'ราคาติดลบไม่ได้' : null,
+    save: v => {
+      db.ingredients.push({id:uid(), name:v.name.trim(), packQty:v.packQty, unit:v.unit, packPrice:v.packPrice});
+      save(); render();
+    }
+  });
 }
 function setIng(id,k,v){
   const i = findIng(id); if(!i) return;
@@ -548,7 +693,10 @@ function viewMenu(){
           <input value="${esc(m.name)}" placeholder="เช่น เครปกรอบ นูเทลล่า" oninput="setMenu('${m.id}','name',this.value)"></div>
         <div class="f"><label>ราคาขาย (บาท)</label>
           <input type="number" step="any" value="${m.price}" oninput="setMenu('${m.id}','price',this.value)"></div>
-        <div class="f"><label>&nbsp;</label>
+        <div class="f"><label>ขายได้วันละ (จาน)</label>
+          <input type="number" step="any" value="${m.qtyPerDay ?? ''}" placeholder="กะคร่าว ๆ"
+                 oninput="setMenu('${m.id}','qtyPerDay',this.value)"></div>
+        <div class="f wide"><label>&nbsp;</label>
           <button class="btn danger" onclick="delMenu('${m.id}')">${icon('trash',14)} ลบเมนูนี้</button></div>
       </div>
 
@@ -577,7 +725,24 @@ function viewMenu(){
   return cards + `<button class="btn primary block" onclick="addMenu()">${icon('plus',15)} เพิ่มเมนูใหม่</button>`;
 }
 const findMenu = id => db.menus.find(m => m.id===id);
-function addMenu(){ db.menus.push({id:uid(), name:'', price:0, items:[]}); save(); render(); }
+function addMenu(){
+  openDialog({
+    title:'เพิ่มเมนูใหม่',
+    sub:'ใส่ชื่อกับราคาขายก่อน แล้วค่อยไปใส่สูตรทีหลัง',
+    fields:[
+      {k:'name', label:'ชื่อเมนู', type:'text', value:'', placeholder:'เช่น เครปกรอบ นูเทลล่า', wide:true},
+      {k:'price', label:'ราคาขาย (บาท)', type:'number', value:''},
+      {k:'qtyPerDay', label:'ขายได้วันละ (จาน)', type:'number', value:''}
+    ],
+    check: v => !v.name.trim() ? 'ยังไม่ได้ใส่ชื่อเมนู'
+              : v.price < 0 ? 'ราคาติดลบไม่ได้'
+              : v.qtyPerDay < 0 ? 'จำนวนจานติดลบไม่ได้' : null,
+    save: v => {
+      db.menus.push({id:uid(), name:v.name.trim(), price:v.price, qtyPerDay:v.qtyPerDay, items:[]});
+      save(); render();
+    }
+  });
+}
 function setMenu(id,k,v){
   const m = findMenu(id); if(!m) return;
   m[k] = k==='name' ? v : n(v);
@@ -590,8 +755,27 @@ function delMenu(id){
 }
 function addItem(mid){
   const m = findMenu(mid); if(!m) return;
-  (m.items = m.items||[]).push({ingId: db.ingredients[0].id, qty:0});
-  save(); render();
+  openDialog({
+    title:'เพิ่มวัตถุดิบในสูตร',
+    sub:`เมนู: ${m.name || '(ยังไม่มีชื่อ)'}`,
+    fields:[
+      {k:'ingId', label:'วัตถุดิบ', type:'select', value:db.ingredients[0].id, wide:true,
+       options: db.ingredients.map(i => ({value:i.id, label:i.name || '(ไม่มีชื่อ)'}))},
+      {k:'qty', label:'ใช้เท่าไหร่ต่อ 1 จาน', type:'number', value:'', wide:true}
+    ],
+    live: v => {
+      const ing = findIng(v.ingId);
+      if(!ing) return 'เลือกวัตถุดิบก่อน';
+      if(!(v.qty > 0)) return `ใส่จำนวนเป็น "${esc(ing.unit)}" — ราคาวัตถุดิบนี้ ${unitCost(ing).toFixed(4)} บาท/${esc(ing.unit)}`;
+      return `${v.qty} ${esc(ing.unit)} = ${baht(unitCost(ing) * v.qty)} บาท ต่อจาน`;
+    },
+    check: v => !findIng(v.ingId) ? 'ยังไม่ได้เลือกวัตถุดิบ'
+              : !(v.qty > 0) ? 'ปริมาณที่ใช้ต้องมากกว่า 0' : null,
+    save: v => {
+      (m.items = m.items||[]).push({ingId:v.ingId, qty:v.qty});
+      save(); render();
+    }
+  });
 }
 function setItem(mid,idx,k,v){
   const m = findMenu(mid); if(!m||!m.items[idx]) return;
@@ -650,15 +834,144 @@ function refreshFixed(){
   if(cur) cur.replaceWith(tmp.querySelector('.card'));
 }
 
-/* --------- แท็บ 4: สรุป --------- */
-function viewSum(){
+/* --------- แท็บ 1: ภาพรวม (dashboard) --------- */
+function viewDash(){
   if(!db.menus.length){
-    return `<div class="card"><h2>สรุป</h2>
-      <div class="empty">${icon('sum',34)}ยังไม่มีเมนูให้เปรียบเทียบ</div>
-      <button class="btn primary block" onclick="go('menu')">ไปสร้างเมนู</button></div>`;
+    return `<div class="card"><h2>ภาพรวมร้าน</h2>
+      <div class="empty">${icon('dash',34)}ยังไม่มีเมนู<br>ใส่วัตถุดิบกับเมนูก่อน แล้วภาพรวมจะคำนวณให้เอง</div>
+      <button class="btn primary block" onclick="go('ing')">เริ่มใส่วัตถุดิบ</button></div>`;
   }
+
+  const d = daily();
+  const blocks = [];
+
+  /* --- ยังไม่ได้ใส่ยอดขาย --- */
+  if(!hasSales()){
+    blocks.push(`<div class="card">
+      <h2>ภาพรวมร้าน</h2>
+      <p class="sub">อีกนิดเดียว — บอกหน่อยว่าแต่ละเมนูขายได้วันละกี่จาน</p>
+      <div class="empty" style="padding:18px 10px">${icon('dash',34)}
+        ใส่ยอดขายโดยประมาณแล้วจะบอกได้ว่า<br><b>เดือนนี้เหลือกำไรเท่าไหร่</b></div>
+      <button class="btn primary block" onclick="editSales()">ใส่ยอดขายต่อวัน</button>
+      <p class="hint">กะคร่าว ๆ ได้ ไม่ต้องเป๊ะ แก้ทีหลังเมื่อไหร่ก็ได้</p>
+    </div>`);
+  }else{
+    /* --- ตัวเลขหลัก --- */
+    const netCls = d.net >= 0 ? 'good' : 'bad';
+    blocks.push(`<div class="card">
+      <h2>กำไรสุทธิต่อเดือน</h2>
+      <p class="sub">หักค่าวัตถุดิบ ค่าเช่า ค่าไฟ ค่าแรง เรียบร้อยแล้ว · ขาย ${n(db.fixed.days)} วัน/เดือน</p>
+      <div class="hero tnum ${netCls}" style="color:${d.net>=0?'var(--accent)':'var(--bad)'}">
+        ${baht(d.month)}<small>บาท</small></div>
+      <p class="hint">${d.net >= 0
+        ? `วันละประมาณ ${baht(d.net)} บาท จากการขาย ${d.plates} จาน`
+        : `ตอนนี้<b>ขาดทุนวันละ ${baht(-d.net)} บาท</b> — ดูหัวข้อถัดไปว่าต้องขายเพิ่มเท่าไหร่`}</p>
+      <div class="tiles" style="margin-top:14px">
+        <div class="tile"><div class="lbl">รายได้ / วัน</div><div class="val tnum">${baht(d.revenue)}</div></div>
+        <div class="tile"><div class="lbl">ค่าวัตถุดิบ / วัน</div><div class="val tnum">${baht(d.food)}</div></div>
+        <div class="tile"><div class="lbl">ต้นทุนคงที่ / วัน</div><div class="val tnum">${baht(d.fixed)}</div></div>
+        <div class="tile"><div class="lbl">กำไรสุทธิ / วัน</div><div class="val tnum ${netCls}">${baht(d.net)}</div></div>
+      </div>
+      <div class="btnrow" style="margin-top:14px">
+        <button class="btn" onclick="editSales()">แก้ยอดขายต่อวัน</button>
+      </div>
+    </div>`);
+
+    /* --- เงิน 100 บาท ไปไหนบ้าง --- */
+    if(d.revenue > 0){
+      const fw = clamp(d.food / d.revenue * 100, 0, 100);
+      const xw = clamp(d.fixed / d.revenue * 100, 0, 100);
+      const pw = Math.max(0, 100 - fw - xw);
+      blocks.push(`<div class="card">
+        <h2>เงินที่ขายได้ไปไหนบ้าง</h2>
+        <p class="sub">จากรายได้ ${baht(d.revenue)} บาทต่อวัน</p>
+        <div class="split" style="height:16px">
+          <i style="width:${fw}%; background:var(--bar-profit)"></i>
+          <i style="width:${xw}%; background:#4a90ed"></i>
+          <i style="width:${pw}%; background:${d.net>=0?'var(--accent-ink)':'var(--bad)'}"></i>
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--bar-profit)"></i>วัตถุดิบ <b>${fw.toFixed(0)}%</b> · ${baht(d.food)}</span>
+          <span><i style="background:#4a90ed"></i>ค่าเช่า/ค่าไฟ <b>${xw.toFixed(0)}%</b> · ${baht(d.fixed)}</span>
+          <span><i style="background:${d.net>=0?'var(--accent-ink)':'var(--bad)'}"></i>${d.net>=0?'เหลือเป็นกำไร':'ขาดทุน'} <b>${pw.toFixed(0)}%</b> · ${baht(d.net)}</span>
+        </div>
+      </div>`);
+    }
+
+    /* --- จุดคุ้มทุน --- */
+    if(d.need > 0){
+      const pct = clamp(d.plates / d.need * 100, 0, 100);
+      const ok = d.plates >= d.need;
+      blocks.push(`<div class="card">
+        <h2>จุดคุ้มทุนวันนี้</h2>
+        <p class="sub">ต้องขายให้ได้ ${Math.ceil(d.need)} จาน ถึงจะพอจ่ายค่าเช่าและค่าไฟ</p>
+        <div class="rank-row" style="margin-top:6px">
+          <div class="rank-name">ขายอยู่ ${d.plates} จาน / ต้องขาย ${Math.ceil(d.need)} จาน</div>
+          <div class="rank-val ${ok?'good':'bad'}">${pct.toFixed(0)}%</div>
+          <div class="meter is-${ok?'good':'bad'}"><i style="width:${pct}%"></i></div>
+        </div>
+        <div class="note">${ok
+          ? `ผ่านจุดคุ้มทุนแล้ว ขายเกินมา <b>${d.plates - Math.ceil(d.need)} จาน</b> ส่วนนี้คือกำไรล้วน ๆ`
+          : `ยังขาดอีก <b>${Math.ceil(d.need - d.plates)} จาน/วัน</b> ถึงจะเท่าทุน`}</div>
+      </div>`);
+    }
+
+    /* --- เมนูไหนทำเงินให้ร้านมากสุด --- */
+    const earners = db.menus
+      .map(m => ({m, total: profit(m) * n(m.qtyPerDay)}))
+      .filter(x => n(x.m.qtyPerDay) > 0)
+      .sort((a,b) => b.total - a.total);
+    if(earners.length){
+      const top = Math.max(...earners.map(x => Math.abs(x.total))) || 1;
+      blocks.push(`<div class="card">
+        <h2>เมนูไหนทำเงินให้ร้านมากสุด</h2>
+        <p class="sub">กำไรต่อจาน × จำนวนที่ขายได้ — ไม่ใช่เมนูที่ %กำไรสูงสุดเสมอไป</p>
+        <div class="rank">${earners.map(x => `
+          <div class="rank-row">
+            <div class="rank-name">${esc(x.m.name||'(ไม่มีชื่อ)')}</div>
+            <div class="rank-val ${x.total>=0?'good':'bad'}">${baht(x.total)}</div>
+            <div class="meter ${x.total>=0?'':'is-bad'}"><i style="width:${clamp(Math.abs(x.total)/top*100,2,100)}%"></i></div>
+            <div class="rank-sub">วันละ ${n(x.m.qtyPerDay)} จาน · กำไรจานละ ${baht(profit(x.m))} · ${marginPct(x.m).toFixed(1)}%</div>
+          </div>`).join('')}</div>
+      </div>`);
+    }
+  }
+
+  return blocks.join('') + viewSum();
+}
+
+/* หน้าต่างกรอกยอดขายของทุกเมนูในทีเดียว */
+function editSales(){
+  openDialog({
+    title:'ยอดขายต่อวัน',
+    sub:'กะคร่าว ๆ ว่าแต่ละเมนูขายได้วันละกี่จาน',
+    fields: db.menus.map(m => ({
+      k:'q_'+m.id, label:(m.name || '(ไม่มีชื่อ)') + ' — จาน/วัน',
+      type:'number', value:n(m.qtyPerDay) || '', wide:true
+    })),
+    live: v => {
+      let rev=0, food=0, plates=0;
+      db.menus.forEach(m => {
+        const q = n(v['q_'+m.id]);
+        plates += q; rev += n(m.price)*q; food += menuCost(m)*q;
+      });
+      if(!plates) return 'ใส่ตัวเลขแล้วจะคำนวณให้ทันที';
+      const net = rev - food - fixedPerDay();
+      return `ขายวันละ ${plates} จาน → กำไรสุทธิ ${baht(net)} บาท/วัน`;
+    },
+    check: v => Object.values(v).some(x => n(x) < 0) ? 'จำนวนจานติดลบไม่ได้' : null,
+    save: v => {
+      db.menus.forEach(m => m.qtyPerDay = n(v['q_'+m.id]));
+      save(); render();
+    }
+  });
+}
+
+/* --------- ส่วนเปรียบเทียบเมนู (อยู่ท้ายหน้าภาพรวม) --------- */
+function viewSum(){
+  if(!db.menus.length) return '';
   const sorted = [...db.menus].sort((a,b) => marginPct(b) - marginPct(a));
-  const best = sorted[0], worst = sorted[sorted.length-1];
+  const worst = sorted[sorted.length-1];
 
   const bars = sorted.map(m => {
     const mg = marginPct(m), lv = level(mg);
@@ -692,13 +1005,7 @@ function viewSum(){
 
   return `
   <div class="card">
-    <h2>เมนูที่กำไรดีที่สุด</h2>
-    <p class="sub">จาก ${db.menus.length} เมนู เทียบด้วยกำไรขั้นต้น</p>
-    <div class="hero tnum">${marginPct(best).toFixed(1)}<small>% · ${esc(best.name||'(ไม่มีชื่อ)')}</small></div>
-  </div>
-
-  <div class="card">
-    <h2>เทียบกำไรทุกเมนู</h2>
+    <h2>เทียบ %กำไรทุกเมนู</h2>
     <p class="sub">เส้นเต็มคือ 100% · เป้าที่ตั้งไว้ ${n(db.targetMargin)}%</p>
     <div class="rank">${bars}</div>
   </div>
@@ -773,7 +1080,7 @@ function importJSON(input){
 /* ===================== ข้อมูลตัวอย่าง ===================== */
 function loadDemo(){
   if(db.ingredients.length && !db.isDemo && !confirm('จะทับข้อมูลเดิมทั้งหมด ยืนยันไหม?')) return;
-  db = buildDemo(); save(); tab='sum'; render();
+  db = buildDemo(); save(); tab='dash'; render();
 }
 function buildDemo(){
   const I = (name,packQty,unit,packPrice) => ({id:uid(), name, packQty, unit, packPrice});
@@ -794,19 +1101,19 @@ function buildDemo(){
     isDemo: true,
     ingredients: list,
     menus: [
-      {id:uid(), name:'เครปกรอบ นูเทลล่า', price:45, items:[
+      {id:uid(), name:'เครปกรอบ นูเทลล่า', price:45, qtyPerDay:16, items:[
         {ingId:g('แป้งเครปสำเร็จ'),qty:40},{ingId:g('ไข่ไก่'),qty:0.3},
         {ingId:g('นมสด'),qty:50},{ingId:g('เนยสด'),qty:8},
         {ingId:g('นูเทลล่า'),qty:20},{ingId:g('กล้วยหอม'),qty:0.5},
         {ingId:g('กระดาษห่อ + ถุง'),qty:1}
       ]},
-      {id:uid(), name:'เครปไส้กรอกชีส', price:40, items:[
+      {id:uid(), name:'เครปไส้กรอกชีส', price:40, qtyPerDay:12, items:[
         {ingId:g('แป้งเครปสำเร็จ'),qty:40},{ingId:g('ไข่ไก่'),qty:0.3},
         {ingId:g('นมสด'),qty:50},{ingId:g('เนยสด'),qty:8},
         {ingId:g('ไส้กรอก'),qty:40},{ingId:g('ชีสสไลซ์'),qty:1},
         {ingId:g('กระดาษห่อ + ถุง'),qty:1}
       ]},
-      {id:uid(), name:'เครปน้ำตาลเนย', price:25, items:[
+      {id:uid(), name:'เครปน้ำตาลเนย', price:25, qtyPerDay:22, items:[
         {ingId:g('แป้งเครปสำเร็จ'),qty:40},{ingId:g('ไข่ไก่'),qty:0.3},
         {ingId:g('นมสด'),qty:50},{ingId:g('เนยสด'),qty:10},
         {ingId:g('น้ำตาลทราย'),qty:12},{ingId:g('กระดาษห่อ + ถุง'),qty:1}
