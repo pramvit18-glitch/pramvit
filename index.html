@@ -255,6 +255,32 @@
     background:var(--accent-soft); color:var(--accent-ink); font-size:12px; font-weight:700;
     font-variant-numeric:tabular-nums; white-space:nowrap;
   }
+  /* ============ ขั้นตอนเริ่มใช้งาน ============ */
+  .steps{display:flex; flex-direction:column; gap:8px}
+  .step{
+    display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    padding:12px; border:1px solid var(--line); border-radius:14px;
+    background:var(--surface); cursor:pointer; font:inherit; color:inherit; transition:.15s;
+  }
+  .step:hover{border-color:var(--accent)}
+  .step.done{background:var(--surface-2); border-color:transparent; cursor:default}
+  .step-no{
+    width:28px; height:28px; flex:0 0 auto; border-radius:50%;
+    background:var(--accent-soft); color:var(--accent-ink);
+    display:grid; place-items:center; font-weight:800; font-size:13.5px;
+  }
+  .step.done .step-no{background:var(--good); color:#fff}
+  .step-main{flex:1; min-width:0; display:block}
+  .step-label{display:block; font-weight:700; font-size:14.5px}
+  .step.done .step-label{color:var(--muted); text-decoration:line-through}
+  .step-sub{display:block; font-size:12px; color:var(--muted); line-height:1.4}
+
+  /* ============ หน้าอธิบายคำศัพท์ ============ */
+  .gloss{display:flex; flex-direction:column; gap:14px}
+  .gloss-row{display:flex; flex-direction:column; gap:3px}
+  .gloss-k{font-weight:800; font-size:14.5px; color:var(--accent-ink)}
+  .gloss-v{font-size:13.5px; color:var(--ink-2); line-height:1.5}
+
   .empty{color:var(--muted); font-size:13.5px; text-align:center; padding:28px 10px}
   .empty svg{width:34px; height:34px; opacity:.4; display:block; margin:0 auto 8px}
   .hint{color:var(--muted); font-size:12.5px; margin:10px 0 0}
@@ -309,9 +335,9 @@
         <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>
       </svg>
     </button>
-    <button class="icon-btn" onclick="loadDemo()" title="ใส่ข้อมูลตัวอย่าง" aria-label="ใส่ข้อมูลตัวอย่าง">
+    <button class="icon-btn" onclick="openHelp()" title="คำศัพท์ในแอปแปลว่าอะไร" aria-label="ช่วยเหลือ">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M9 3h6M10 3v6.5L5 18a2 2 0 0 0 1.7 3h10.6A2 2 0 0 0 19 18l-5-8.5V3"/><path d="M7.5 15h9"/>
+        <circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.7-.8 1.2v.4"/><path d="M12 17h.01"/>
       </svg>
     </button>
 </header>
@@ -371,7 +397,7 @@
     </div>
     <div class="dlg-body" id="dlgBody"></div>
     <div class="dlg-foot">
-      <button type="button" class="btn ghost" onclick="dlg.close()">ยกเลิก</button>
+      <button type="button" class="btn ghost" id="dlgCancel" onclick="dlg.close()">ยกเลิก</button>
       <button type="submit" class="btn primary" id="dlgSave">บันทึก</button>
     </div>
   </form>
@@ -408,6 +434,15 @@ const n = v => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
 const baht = v => n(v).toLocaleString('th-TH',{minimumFractionDigits:2, maximumFractionDigits:2});
 const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+
+// ราคาต่อหน่วยมักเป็นเลขจุดทศนิยมยาว ๆ (0.0450) คนทั่วไปอ่านยาก
+// ถ้าต่ำกว่า 1 บาทให้บอกเป็นสตางค์แทน
+function perUnit(ing){
+  const c = unitCost(ing), u = esc(ing.unit);
+  if(c === 0) return 'ยังไม่ได้ใส่ราคา';
+  if(c < 1) return `${u}ละ ${(c*100).toFixed(c < 0.1 ? 1 : 0)} สตางค์`;
+  return `${u}ละ ${baht(c)} บาท`;
+}
 
 /* ===================== การคำนวณ ===================== */
 const unitCost = ing => n(ing.packQty) > 0 ? n(ing.packPrice) / n(ing.packQty) : 0;
@@ -477,6 +512,7 @@ const SVG = {
   fixed:'<path d="M4 10h16v10H4z"/><path d="M4 10 6 4h12l2 6"/><path d="M10 20v-5h4v5"/>',
   sum:'<path d="M5 20v-7M12 20V5M19 20v-4"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
+  check:'<path d="m5 13 4 4L19 7"/>',
   chev:'<path d="m9 5 7 7-7 7"/>',
   edit:'<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5 17.5 9.5"/>',
   trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
@@ -490,7 +526,7 @@ const TABS = [
   ['dash',  'ภาพรวม',    'dash'],
   ['ing',   'วัตถุดิบ',   'ing'],
   ['menu',  'เมนู',       'menu'],
-  ['fixed', 'คงที่',      'fixed']
+  ['fixed', 'รายจ่าย',    'fixed']
 ];
 
 // ปุ่มลอยมุมขวาล่าง — เปลี่ยนตามแท็บที่เปิดอยู่
@@ -557,6 +593,22 @@ function openDialog(cfg){
   document.getElementById('dlgSub').textContent = cfg.sub || '';
   document.getElementById('dlgSave').textContent = cfg.saveLabel || 'บันทึก';
 
+  const saveBtn = document.getElementById('dlgSave');
+  const cancelBtn = document.getElementById('dlgCancel');
+
+  // โหมดอ่านอย่างเดียว เช่น หน้าอธิบายคำศัพท์
+  if(cfg.html){
+    document.getElementById('dlgBody').innerHTML = `<div style="grid-column:1/-1">${cfg.html}</div>`;
+    saveBtn.hidden = true;
+    cancelBtn.textContent = 'เข้าใจแล้ว';
+    cancelBtn.className = 'btn primary';
+    dlg.showModal();
+    return;
+  }
+  saveBtn.hidden = false;
+  cancelBtn.textContent = 'ยกเลิก';
+  cancelBtn.className = 'btn ghost';
+
   document.getElementById('dlgBody').innerHTML = cfg.fields.map(f => {
     const cls = `f${f.wide ? ' wide' : ''}`;
     if(f.type === 'select'){
@@ -614,7 +666,7 @@ function viewIng(){
         <div class="li-sub">${n(i.packQty).toLocaleString('th-TH')} ${esc(i.unit)} · ${baht(i.packPrice)} บาท</div>
       </div>
       <div class="li-end">
-        <span class="chip">${unitCost(i).toFixed(4)}/${esc(i.unit)}</span>
+        <span class="chip">${perUnit(i)}</span>
         <span class="li-del" role="button" tabindex="0" title="ลบ"
               onclick="event.stopPropagation(); delIng('${i.id}')"
               onkeydown="if(event.key==='Enter'){event.stopPropagation();delIng('${i.id}')}">${icon('trash',15)}</span>
@@ -625,7 +677,7 @@ function viewIng(){
   return `
   <div class="card">
     <h2>วัตถุดิบที่ซื้อมา</h2>
-    <p class="sub">${db.ingredients.length ? 'แตะที่รายการเพื่อแก้ไข' : 'กรอกตามบิลที่ซื้อจริง ระบบคิดราคาต่อหน่วยให้เอง'}</p>
+    <p class="sub">${db.ingredients.length ? 'แตะที่รายการเพื่อแก้ไข' : 'กรอกตามบิลที่ซื้อจริง เดี๋ยวแอปคิดให้เองว่าตกหน่วยละเท่าไหร่'}</p>
     <div class="list">
       ${rows || `<div class="empty">${icon('box',34)}ยังไม่มีวัตถุดิบ<br>แตะปุ่ม <b>+ เพิ่มวัตถุดิบ</b> มุมขวาล่าง</div>`}
     </div>
@@ -643,7 +695,7 @@ function ingDialog(ing){
       {k:'packPrice', label:'ราคาที่จ่าย (บาท)', type:'number', value:ing?.packPrice ?? '', wide:true}
     ],
     live: v => v.packQty > 0 && v.packPrice > 0
-      ? `คิดเป็น ${(v.packPrice / v.packQty).toFixed(4)} บาท ต่อ 1 ${esc(v.unit)}`
+      ? `คิดเป็น ${perUnit({unit:v.unit, packQty:v.packQty, packPrice:v.packPrice})}`
       : 'กรอกปริมาณกับราคาแล้วจะคำนวณให้ทันที',
     check: v => !v.name.trim() ? 'ยังไม่ได้ใส่ชื่อวัตถุดิบ'
               : v.packQty <= 0 ? 'ปริมาณที่ได้ต้องมากกว่า 0'
@@ -736,13 +788,13 @@ function viewMenu(){
 
       <div class="sec">ผลลัพธ์</div>
       <div class="tiles">
-        <div class="tile"><div class="lbl">ต้นทุนต่อจาน</div><div class="val tnum">${baht(cost)}</div></div>
-        <div class="tile"><div class="lbl">กำไรต่อจาน</div>
+        <div class="tile"><div class="lbl">ต้นทุน / จาน</div><div class="val tnum">${baht(cost)}</div></div>
+        <div class="tile"><div class="lbl">กำไร / จาน</div>
           <div class="val tnum ${profit(m)>=0?'good':'bad'}">${baht(profit(m))}</div></div>
-        <div class="tile"><div class="lbl">กำไรขั้นต้น</div>
+        <div class="tile"><div class="lbl">กำไร %</div>
           <div class="val tnum ${lv}">${mg.toFixed(1)}%</div>
           <div class="meter is-${lv}" style="margin-top:7px"><i style="width:${clamp(mg,0,100)}%"></i></div></div>
-        <div class="tile"><div class="lbl">ราคาที่ควรขาย (เป้า ${n(db.targetMargin)}%)</div>
+        <div class="tile"><div class="lbl">ราคาที่แนะนำ</div>
           <div class="val tnum">${baht(suggestPrice(m))}</div></div>
       </div>
     </div>`;
@@ -802,7 +854,7 @@ function itemDialog(mid, idx){
     live: v => {
       const ing = findIng(v.ingId);
       if(!ing) return 'เลือกวัตถุดิบก่อน';
-      if(!(v.qty > 0)) return `ใส่จำนวนเป็น "${esc(ing.unit)}" — ราคาวัตถุดิบนี้ ${unitCost(ing).toFixed(4)} บาท/${esc(ing.unit)}`;
+      if(!(v.qty > 0)) return `ใส่จำนวนเป็น "${esc(ing.unit)}" — ของนี้${perUnit(ing)}`;
       return `${v.qty} ${esc(ing.unit)} = ${baht(unitCost(ing) * v.qty)} บาท ต่อจาน`;
     },
     check: v => !findIng(v.ingId) ? 'ยังไม่ได้เลือกวัตถุดิบ'
@@ -830,20 +882,20 @@ function viewFixed(){
 
   return `
   <div class="card" id="fixedKpi">
-    <h2>จุดคุ้มทุน</h2>
-    <p class="sub">ต้องขายวันละเท่าไหร่ถึงจะพอจ่ายค่าเช่า ค่าไฟ ค่าแรง</p>
+    <h2>ต้องขายกี่จานถึงไม่ขาดทุน</h2>
+    <p class="sub">ขายให้ได้เท่านี้ก่อน ถึงจะพอจ่ายค่าเช่ากับค่าไฟ</p>
     <div class="hero tnum">${be ? Math.ceil(be) : '–'}<small>${be ? 'จาน / วัน' : 'ยังคำนวณไม่ได้'}</small></div>
     ${be ? `<p class="hint">คิดจากกำไรเฉลี่ย ${baht(avgProfit())} บาท/จาน — ขายได้เกินนี้เมื่อไหร่คือเริ่มมีกำไรจริง</p>`
          : `<p class="hint">ต้องมีเมนูที่ตั้งราคาขายแล้ว และกำไรเฉลี่ยมากกว่า 0 ก่อน</p>`}
     <div class="tiles" style="margin-top:14px">
-      <div class="tile"><div class="lbl">ต้นทุนคงที่ / เดือน</div><div class="val tnum">${baht(fixedPerMonth())}</div></div>
-      <div class="tile"><div class="lbl">ต้นทุนคงที่ / วัน</div><div class="val tnum">${baht(fixedPerDay())}</div></div>
+      <div class="tile"><div class="lbl">รายจ่ายประจำ / เดือน</div><div class="val tnum">${baht(fixedPerMonth())}</div></div>
+      <div class="tile"><div class="lbl">เฉลี่ยวันละ</div><div class="val tnum">${baht(fixedPerDay())}</div></div>
       <div class="tile"><div class="lbl">กำไรเฉลี่ย / จาน</div><div class="val tnum">${baht(avgProfit())}</div></div>
     </div>
   </div>
 
   <div class="card">
-    <h2>ค่าใช้จ่ายประจำ</h2>
+    <h2>รายจ่ายประจำเดือน</h2>
     <p class="sub">ค่าที่ต้องจ่ายแม้วันนั้นขายไม่ได้เลย</p>
     <div class="grid g-auto">
       ${fld('rent','ค่าเช่าที่ / เดือน')}
@@ -853,7 +905,7 @@ function viewFixed(){
       ${fld('other','อื่น ๆ / เดือน','ค่าขนส่ง ค่าเน็ต')}
       ${fld('labor','ค่าแรงลูกจ้าง / วัน')}
       ${fld('days','เปิดขายกี่วัน / เดือน')}
-      <div class="f"><label>กำไรขั้นต้นที่ต้องการ (%)</label>
+      <div class="f"><label>อยากได้กำไรกี่ %</label>
         <input type="number" step="any" inputmode="decimal" value="${db.targetMargin}" oninput="setTarget(this.value)"></div>
     </div>
   </div>`;
@@ -872,6 +924,63 @@ function refreshFixed(){
   if(next) cur.replaceWith(next);
 }
 
+/* --------- หน้าอธิบายคำศัพท์ แบบภาษาชาวบ้าน --------- */
+function openHelp(){
+  const G = [
+    ['ต้นทุน', 'เงินค่าของที่ใช้ทำ <b>1 จาน</b> เช่น แป้ง ไข่ นม เนย ไส้ รวมถุงกับกระดาษห่อด้วย'],
+    ['กำไรต่อจาน', 'ราคาที่ลูกค้าจ่าย ลบ ต้นทุน<br>ขาย 45 ต้นทุน 22 → กำไร 23 บาท'],
+    ['กำไร %', 'จากเงินที่ลูกค้าจ่าย เหลือเป็นของเรากี่เปอร์เซ็นต์<br>ขาย 45 เหลือ 23 → กำไร 51%<br><b>ร้านอาหารทั่วไปควรได้ 60–70%</b>'],
+    ['รายจ่ายประจำ', 'ค่าที่ต้องจ่ายทุกเดือน <b>แม้วันนั้นขายไม่ได้เลย</b> เช่น ค่าเช่าที่ ค่าไฟ ค่าแก๊ส ค่าแรงลูกจ้าง'],
+    ['ต้องขายกี่จานถึงไม่ขาดทุน', 'ขายให้ได้เท่านี้ก่อน ถึงจะพอจ่ายค่าเช่ากับค่าไฟ<br>ขายเกินจากนี้ถึงจะเริ่มมีกำไรจริง'],
+    ['กำไรสุทธิ', 'เงินที่เหลือเข้ากระเป๋าจริง ๆ<br>หักทั้งค่าของและค่าเช่าค่าไฟแล้ว'],
+    ['ราคาที่แนะนำ', 'ถ้าอยากได้กำไรตามเป้าที่ตั้งไว้ ควรตั้งราคาเท่าไหร่<br>เป็นแค่ตัวเลขแนะนำ จะขายราคาเดิมก็ได้']
+  ];
+  openDialog({
+    title:'คำในแอปแปลว่าอะไร',
+    sub:'อ่านครั้งเดียวก็พอ ไม่ต้องจำ',
+    html:`<div class="gloss">${G.map(([k,v]) =>
+      `<div class="gloss-row"><div class="gloss-k">${k}</div><div class="gloss-v">${v}</div></div>`).join('')}
+      <p class="hint" style="margin-top:14px">ข้อมูลที่กรอกเก็บอยู่ในเครื่องนี้เครื่องเดียว ไม่ได้ส่งไปไหน
+      ควรกดปุ่ม 💾 มุมขวาบนคัดลอกเก็บไว้เป็นระยะ</p>`
+  });
+}
+
+/* --------- ขั้นตอนเริ่มใช้งาน สำหรับคนที่เพิ่งเปิดครั้งแรก --------- */
+function setupSteps(){
+  return [
+    {ok: db.ingredients.length > 0, tab:'ing',
+     label:'ใส่ของที่ซื้อมา', sub:'แป้ง ไข่ นม เนย ไส้ — ซื้อมาเท่าไหร่ ราคาเท่าไหร่'},
+    {ok: db.menus.some(m => (m.items||[]).length > 0), tab:'menu',
+     label:'ใส่เมนูที่ขาย', sub:'ชื่อเมนู ราคาขาย แล้วเลือกว่าใช้ของอะไรบ้าง'},
+    {ok: fixedPerMonth() > 0, tab:'fixed',
+     label:'ใส่ค่าเช่า ค่าไฟ', sub:'ค่าที่ต้องจ่ายทุกเดือนแม้ขายไม่ได้'}
+  ];
+}
+function stepsCard(){
+  const steps = setupSteps();
+  const done = steps.filter(s => s.ok).length;
+  if(done === steps.length) return '';
+  const next = steps.find(s => !s.ok);
+  return `<div class="card">
+    <h2>เริ่มใช้งาน — ทำไปแล้ว ${done} จาก ${steps.length} ขั้น</h2>
+    <p class="sub">ทำครบแล้วแอปจะบอกได้ว่าเดือนนี้เหลือกำไรเท่าไหร่</p>
+    <div class="steps">
+      ${steps.map((s,i) => `
+        <button class="step${s.ok?' done':''}" onclick="go('${s.tab}')">
+          <span class="step-no">${s.ok ? icon('check',15) : (i+1)}</span>
+          <span class="step-main">
+            <span class="step-label">${s.label}</span>
+            <span class="step-sub">${s.sub}</span>
+          </span>
+          ${s.ok ? '' : `<span class="li-chev">${icon('chev',16)}</span>`}
+        </button>`).join('')}
+    </div>
+    <button class="btn primary block" style="margin-top:14px" onclick="go('${next.tab}')">
+      ทำขั้นต่อไป: ${next.label}
+    </button>
+  </div>`;
+}
+
 /* --------- แท็บ 1: ภาพรวม (dashboard) --------- */
 function viewDash(){
   if(!db.menus.length){
@@ -882,6 +991,10 @@ function viewDash(){
 
   const d = daily();
   const blocks = [];
+
+  /* --- ยังตั้งค่าไม่ครบ: บอกว่าต้องทำอะไรต่อ --- */
+  const steps = stepsCard();
+  if(steps) blocks.push(steps);
 
   /* --- ยังไม่ได้ใส่ยอดขาย --- */
   if(!hasSales()){
@@ -898,7 +1011,7 @@ function viewDash(){
     const netCls = d.net >= 0 ? 'good' : 'bad';
     blocks.push(`<div class="card">
       <h2>กำไรสุทธิต่อเดือน</h2>
-      <p class="sub">หักค่าวัตถุดิบ ค่าเช่า ค่าไฟ ค่าแรง เรียบร้อยแล้ว · ขาย ${n(db.fixed.days)} วัน/เดือน</p>
+      <p class="sub">เงินที่เหลือเข้ากระเป๋าจริง ๆ หักค่าของและค่าเช่าค่าไฟแล้ว · คิดจากขาย ${n(db.fixed.days)} วัน/เดือน</p>
       <div class="hero tnum ${netCls}" style="color:${d.net>=0?'var(--accent)':'var(--bad)'}">
         ${baht(d.month)}<small>บาท</small></div>
       <p class="hint">${d.net >= 0
@@ -906,8 +1019,8 @@ function viewDash(){
         : `ตอนนี้<b>ขาดทุนวันละ ${baht(-d.net)} บาท</b> — ดูหัวข้อถัดไปว่าต้องขายเพิ่มเท่าไหร่`}</p>
       <div class="tiles" style="margin-top:14px">
         <div class="tile"><div class="lbl">รายได้ / วัน</div><div class="val tnum">${baht(d.revenue)}</div></div>
-        <div class="tile"><div class="lbl">ค่าวัตถุดิบ / วัน</div><div class="val tnum">${baht(d.food)}</div></div>
-        <div class="tile"><div class="lbl">ต้นทุนคงที่ / วัน</div><div class="val tnum">${baht(d.fixed)}</div></div>
+        <div class="tile"><div class="lbl">ค่าของ / วัน</div><div class="val tnum">${baht(d.food)}</div></div>
+        <div class="tile"><div class="lbl">ค่าเช่า+ค่าไฟ / วัน</div><div class="val tnum">${baht(d.fixed)}</div></div>
         <div class="tile"><div class="lbl">กำไรสุทธิ / วัน</div><div class="val tnum ${netCls}">${baht(d.net)}</div></div>
       </div>
       <div class="btnrow" style="margin-top:14px">
@@ -941,7 +1054,7 @@ function viewDash(){
       const pct = clamp(d.plates / d.need * 100, 0, 100);
       const ok = d.plates >= d.need;
       blocks.push(`<div class="card">
-        <h2>จุดคุ้มทุนวันนี้</h2>
+        <h2>ขายพอคุ้มแล้วหรือยัง</h2>
         <p class="sub">ต้องขายให้ได้ ${Math.ceil(d.need)} จาน ถึงจะพอจ่ายค่าเช่าและค่าไฟ</p>
         <div class="rank-row" style="margin-top:6px">
           <div class="rank-name">ขายอยู่ ${d.plates} จาน / ต้องขาย ${Math.ceil(d.need)} จาน</div>
@@ -1043,17 +1156,17 @@ function viewSum(){
 
   return `
   <div class="card">
-    <h2>เทียบ %กำไรทุกเมนู</h2>
-    <p class="sub">เส้นเต็มคือ 100% · เป้าที่ตั้งไว้ ${n(db.targetMargin)}%</p>
+    <h2>เมนูไหนกำไรดี</h2>
+    <p class="sub">ยิ่งแท่งยาวยิ่งกำไรดี · เป้าที่ตั้งไว้ ${n(db.targetMargin)}%</p>
     <div class="rank">${bars}</div>
   </div>
 
   <div class="card">
-    <h2>ตารางรายละเอียด</h2>
+    <h2>ตารางสรุป</h2>
     <p class="sub">เลื่อนตารางไปทางซ้ายเพื่อดูคอลัมน์ที่เหลือ</p>
     <div class="scroll">
       <table>
-        <thead><tr><th>เมนู</th><th>ต้นทุน</th><th>ราคาขาย</th><th>กำไร</th><th>%</th><th>ควรขาย</th></tr></thead>
+        <thead><tr><th>เมนู</th><th>ต้นทุน</th><th>ขาย</th><th>กำไร</th><th>กำไร %</th><th>แนะนำ</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
