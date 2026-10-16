@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#c4642a">
+<meta name="theme-color" content="#1668e3">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="ต้นทุนเครป">
@@ -13,187 +13,312 @@
 <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
 <title>คำนวณต้นทุนร้านเครป</title>
 <style>
+  /* ============ สี: ขาว–ฟ้า ============ */
   :root{
-    --bg:#f6f4ef; --card:#fff; --ink:#23201c; --muted:#7c7467;
-    --line:#e3ded3; --accent:#c4642a; --accent-soft:#fbeee4;
-    --good:#2e7d4f; --warn:#b8860b; --bad:#c0392b;
-    --radius:14px;
+    --bg:#f2f6fb;  --surface:#ffffff;  --surface-2:#f7fafe;
+    --ink:#0d2440; --ink-2:#51677f;    --muted:#7e93ab;
+    --line:#dce6f2; --line-2:#eaf1f9;
+
+    --accent:#1668e3;      /* น้ำเงินหลัก */
+    --accent-ink:#0b4fae;  /* น้ำเงินเข้มสำหรับตัวอักษร */
+    --accent-soft:#e7f0fe;
+    --bar-cost:#1668e3;    /* แท่งต้นทุน */
+    --bar-profit:#9cc5fb;  /* แท่งกำไร — ฟ้าอ่อนขั้นเดียวกัน */
+
+    --good:#0ca30c;  --good-ink:#0a7a0a;
+    --warn:#fab219;  --warn-ink:#8a6000;
+    --bad:#d03b3b;   --bad-ink:#b32222;
+
+    --shadow:0 1px 2px rgba(13,36,64,.05), 0 8px 24px rgba(13,36,64,.05);
+    --r:16px; --r-sm:10px;
+
+    padding-top: env(safe-area-inset-top, 0px);
   }
   @media (prefers-color-scheme:dark){
     :root:not([data-theme="light"]){
-      --bg:#1a1816; --card:#232020; --ink:#ece7df; --muted:#9a9186;
-      --line:#352f2b; --accent:#e08a4e; --accent-soft:#2d241d;
-      --good:#6cc08b; --warn:#e0b84c; --bad:#e8766a;
+      --bg:#0a1420; --surface:#111e2d; --surface-2:#16243a;
+      --ink:#e8eff7; --ink-2:#a9bdd3; --muted:#8197af;
+      --line:#22354a; --line-2:#1a2b3d;
+      --accent:#5aa0ff; --accent-ink:#9cc5fb; --accent-soft:#122a48;
+      --bar-cost:#5aa0ff; --bar-profit:#2d5886;
+      --good-ink:#5fd35f; --warn-ink:#fab219; --bad-ink:#ef7272;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
     }
-  }
-  /* เว้นที่ให้แถบสถานะ/แถบล่างของมือถือตอนเปิดเป็นแอป */
-  :root{
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
   :root[data-theme="dark"]{
-    --bg:#1a1816; --card:#232020; --ink:#ece7df; --muted:#9a9186;
-    --line:#352f2b; --accent:#e08a4e; --accent-soft:#2d241d;
-    --good:#6cc08b; --warn:#e0b84c; --bad:#e8766a;
+    --bg:#0a1420; --surface:#111e2d; --surface-2:#16243a;
+    --ink:#e8eff7; --ink-2:#a9bdd3; --muted:#8197af;
+    --line:#22354a; --line-2:#1a2b3d;
+    --accent:#5aa0ff; --accent-ink:#9cc5fb; --accent-soft:#122a48;
+    --bar-cost:#5aa0ff; --bar-profit:#28527f;
+    --good-ink:#5fd35f; --warn-ink:#fab219; --bad-ink:#ef7272;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
   }
+
   *{box-sizing:border-box}
+  html,body{margin:0}
   body{
-    margin:0; background:var(--bg); color:var(--ink);
-    font-family:"Sarabun","Leelawadee UI","Segoe UI",system-ui,sans-serif;
-    font-size:15px; line-height:1.55;
+    background:var(--bg); color:var(--ink);
+    font-family:"Sarabun","Leelawadee UI","Segoe UI",system-ui,-apple-system,sans-serif;
+    font-size:15px; line-height:1.55; -webkit-text-size-adjust:100%;
   }
-  .wrap{max-width:1000px; margin:0 auto; padding:20px 16px 64px}
-  header h1{font-size:22px; margin:0 0 4px}
-  header p{margin:0; color:var(--muted); font-size:13.5px}
-  .toolbar{display:flex; flex-wrap:wrap; gap:8px; margin:16px 0}
-  button{
-    font:inherit; cursor:pointer; border:1px solid var(--line);
-    background:var(--card); color:var(--ink); padding:7px 13px;
-    border-radius:9px; transition:.15s;
+
+  /* ============ แถบบน ============ */
+  .appbar{
+    position:sticky; top:env(safe-area-inset-top, 0px); z-index:20;
+    background:var(--surface); border-bottom:1px solid var(--line);
   }
-  button:hover{border-color:var(--accent)}
-  button.primary{background:var(--accent); border-color:var(--accent); color:#fff}
-  button.ghost{background:transparent}
-  button.mini{padding:3px 9px; font-size:13px}
-  button.danger{color:var(--bad)}
-  /* แถบแท็บ + ปุ่มลัด ติดอยู่บนสุดตลอดเวลาเลื่อน */
-  .topbar{
-    position:sticky; top:env(safe-area-inset-top, 0px); z-index:5; background:var(--bg);
-    display:flex; align-items:center; gap:10px;
-    border-bottom:1px solid var(--line); margin-bottom:18px;
+  .bar{
+    max-width:980px; margin:0 auto; padding:10px 16px;
+    display:flex; align-items:center; gap:12px;
   }
-  .topbar .acts{display:flex; gap:6px; flex:0 0 auto; padding-bottom:4px}
-  nav{
-    display:flex; gap:4px; flex:1; min-width:0;
-    overflow-x:auto; -webkit-overflow-scrolling:touch;
+  .logo{
+    width:36px; height:36px; flex:0 0 auto; border-radius:11px;
+    background:var(--accent); color:#fff;
+    display:grid; place-items:center;
   }
-  nav button{
-    border:none; background:none; border-radius:0; padding:10px 14px;
-    color:var(--muted); border-bottom:2px solid transparent; white-space:nowrap;
+  .logo svg{width:20px; height:20px}
+  .titles{flex:1; min-width:0}
+  .titles h1{font-size:16px; margin:0; font-weight:700; letter-spacing:-.01em}
+  .titles p{margin:0; font-size:12px; color:var(--muted)}
+  .icon-btn{
+    width:38px; height:38px; flex:0 0 auto; border-radius:11px; cursor:pointer;
+    border:1px solid var(--line); background:var(--surface); color:var(--ink-2);
+    display:grid; place-items:center; transition:.15s;
   }
-  nav button.on{color:var(--accent); border-bottom-color:var(--accent); font-weight:600}
-  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:14px}
-  .card h2{font-size:16px; margin:0 0 12px}
-  .card h3{font-size:14px; margin:18px 0 8px; color:var(--muted); font-weight:600}
-  table{width:100%; border-collapse:collapse; font-size:14px}
-  th,td{text-align:right; padding:7px 8px; border-bottom:1px solid var(--line)}
-  th:first-child,td:first-child{text-align:left}
-  th{color:var(--muted); font-weight:600; font-size:12.5px; white-space:nowrap}
-  tbody tr:last-child td{border-bottom:none}
+  .icon-btn:hover{border-color:var(--accent); color:var(--accent)}
+  .icon-btn svg{width:18px; height:18px}
+
+  /* แท็บบนสำหรับจอใหญ่ */
+  .tabs{display:none; max-width:980px; margin:0 auto; padding:0 12px; gap:2px}
+  .tabs button{
+    flex:1; border:none; background:none; cursor:pointer; font:inherit;
+    padding:11px 8px 13px; color:var(--muted); font-weight:600; font-size:14px;
+    border-bottom:2.5px solid transparent; display:flex; align-items:center;
+    justify-content:center; gap:7px; transition:.15s;
+  }
+  .tabs button svg{width:17px; height:17px}
+  .tabs button:hover{color:var(--ink-2)}
+  .tabs button.on{color:var(--accent); border-bottom-color:var(--accent)}
+
+  /* ============ แถบล่าง (มือถือ) ============ */
+  .bottomnav{
+    position:fixed; left:0; right:0; bottom:0; z-index:20;
+    display:flex; background:var(--surface); border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+  }
+  .bottomnav button{
+    flex:1; border:none; background:none; cursor:pointer; font:inherit;
+    padding:8px 2px 7px; color:var(--muted); font-size:11px; font-weight:600;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+  }
+  .bottomnav button svg{width:21px; height:21px}
+  .bottomnav button.on{color:var(--accent)}
+
+  main{max-width:980px; margin:0 auto; padding:16px 16px 92px}
+
+  /* ============ การ์ด ============ */
+  .card{
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--r); padding:16px; margin-bottom:14px; box-shadow:var(--shadow);
+  }
+  .card>h2{font-size:15px; margin:0 0 3px; font-weight:700}
+  .card>h2+.sub{margin:0 0 14px; font-size:12.5px; color:var(--muted)}
+  .sec{font-size:12px; color:var(--muted); font-weight:700; letter-spacing:.04em;
+       text-transform:uppercase; margin:20px 0 8px}
+  .sec:first-child{margin-top:0}
+
+  /* ============ ปุ่ม ============ */
+  button{font:inherit}
+  .btn{
+    cursor:pointer; border:1px solid var(--line); background:var(--surface);
+    color:var(--ink); padding:9px 15px; border-radius:var(--r-sm);
+    font-weight:600; font-size:14px; transition:.15s; display:inline-flex;
+    align-items:center; gap:7px; justify-content:center;
+  }
+  .btn:hover{border-color:var(--accent); color:var(--accent)}
+  .btn.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+  .btn.primary:hover{filter:brightness(1.08); color:#fff}
+  .btn.ghost{background:transparent}
+  .btn.danger{color:var(--bad-ink); border-color:var(--line)}
+  .btn.danger:hover{border-color:var(--bad); color:var(--bad)}
+  .btn.sm{padding:5px 11px; font-size:13px; border-radius:8px}
+  .btn.block{width:100%}
+  .btn svg{width:15px; height:15px}
+  .btnrow{display:flex; flex-wrap:wrap; gap:8px}
+
+  /* ============ ฟอร์ม ============ */
+  .f{display:flex; flex-direction:column; gap:5px; min-width:0}
+  .f label{font-size:12px; color:var(--muted); font-weight:600}
   input,select,textarea{
-    font:inherit; background:var(--bg); color:var(--ink);
-    border:1px solid var(--line); border-radius:8px; padding:6px 9px; width:100%;
+    font:inherit; width:100%; color:var(--ink); background:var(--surface-2);
+    border:1px solid var(--line); border-radius:var(--r-sm); padding:9px 11px;
+    transition:.15s;
   }
+  input:focus,select:focus,textarea:focus{
+    outline:none; border-color:var(--accent); background:var(--surface);
+    box-shadow:0 0 0 3px var(--accent-soft);
+  }
+  input[type=number]{text-align:right; font-variant-numeric:tabular-nums}
   textarea{font-family:ui-monospace,Consolas,monospace; font-size:12px; resize:vertical}
-  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent-soft); border-color:var(--accent)}
-  input[type=number]{text-align:right}
-  .grid{display:grid; gap:10px}
-  .f{display:flex; flex-direction:column; gap:4px}
-  .f label{font-size:12.5px; color:var(--muted)}
-  .row-form{display:grid; grid-template-columns:1.6fr .9fr .8fr .9fr auto; gap:8px; align-items:end}
-  .kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px}
-  .kpi{background:var(--bg); border:1px solid var(--line); border-radius:11px; padding:12px}
-  .kpi .lbl{font-size:12px; color:var(--muted)}
-  .kpi .val{font-size:21px; font-weight:700; margin-top:2px}
-  .num{font-variant-numeric:tabular-nums}
-  .good{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
-  .pill{display:inline-block; padding:1px 8px; border-radius:99px; font-size:12px; background:var(--accent-soft); color:var(--accent)}
-  .menu-head{display:flex; flex-wrap:wrap; gap:10px; align-items:end; margin-bottom:10px}
-  .menu-head .f{flex:1; min-width:120px}
-  .empty{color:var(--muted); font-size:13.5px; padding:10px 0}
-  .hint{color:var(--muted); font-size:12.5px; margin-top:8px}
-  .bar{height:6px; background:var(--line); border-radius:99px; overflow:hidden; margin-top:6px}
-  .bar>i{display:block; height:100%; background:var(--accent)}
-  .scroll{overflow-x:auto}
-  .scroll table{min-width:520px}
+  .grid{display:grid; gap:12px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g-auto{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}
 
-  /* ---- มือถือ ---- */
-  @media(max-width:640px){
-    .wrap{padding:16px 16px 56px}
-    header h1{font-size:19px}
-    button{min-height:38px}
-    button.mini{min-height:32px}
-    input,select{font-size:16px; padding:8px 10px}   /* 16px กัน iOS ซูมเองเวลากดช่องกรอก */
+  /* ============ ตัวเลข ============ */
+  .hero{
+    font-size:52px; line-height:1.05; font-weight:800; letter-spacing:-.02em;
+    color:var(--accent); margin:2px 0;
+  }
+  .hero small{font-size:17px; font-weight:700; color:var(--ink-2); margin-left:6px}
+  .tiles{display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
+  .tile{background:var(--surface-2); border:1px solid var(--line-2); border-radius:12px; padding:12px}
+  .tile .lbl{font-size:11.5px; color:var(--muted); font-weight:600}
+  .tile .val{font-size:22px; font-weight:700; margin-top:1px; letter-spacing:-.01em}
+  .tnum{font-variant-numeric:tabular-nums}
+  .good{color:var(--good-ink)} .warn{color:var(--warn-ink)} .bad{color:var(--bad-ink)}
 
-    /* ตารางแบบแถว → การ์ดเรียงลงมา อ่านง่ายบนจอแคบ */
-    table.stack thead{display:none}
-    table.stack tbody tr{
-      display:grid; grid-template-columns:1fr 1fr; gap:10px;
-      padding:12px 0; border-bottom:1px solid var(--line);
-    }
-    table.stack tbody tr:last-child{border-bottom:none}
-    table.stack td{border:none; padding:0; display:flex; flex-direction:column; gap:3px; text-align:left}
-    table.stack td::before{content:attr(data-l); font-size:11.5px; color:var(--muted)}
-    table.stack td[data-l=""]::before{display:none}
-    table.stack td.full{grid-column:span 2}
-    table.stack td.act{grid-column:span 2; align-items:flex-start}
-    table.stack td.ro{justify-content:flex-end}
-    table.stack td.ro span{font-weight:600}
-    table.stack .empty{display:block}
-    .hide-sm{display:none}
-    .sm-hide{display:none}          /* ปุ่มลัดเหลือแต่ไอคอน จะได้ไม่เบียดแท็บ */
-    .kpi .val{font-size:19px}
+  /* ============ แท่งสัดส่วน ต้นทุน/กำไร ============ */
+  .split{display:flex; gap:2px; height:12px; margin:10px 0 8px}
+  .split i{display:block; height:100%; background:var(--line)}
+  .split i:first-child{border-radius:4px 0 0 4px}
+  .split i:last-child{border-radius:0 4px 4px 0}
+  .split i.only{border-radius:4px}
+  .seg-cost{background:var(--bar-cost)!important}
+  .seg-profit{background:var(--bar-profit)!important}
+  .seg-loss{background:var(--bad)!important}
+  .legend{display:flex; flex-wrap:wrap; gap:14px; font-size:12.5px; color:var(--ink-2)}
+  .legend span{display:inline-flex; align-items:center; gap:6px}
+  .legend i{width:9px; height:9px; border-radius:3px; flex:0 0 auto}
+  .legend b{color:var(--ink); font-variant-numeric:tabular-nums}
+
+  /* ============ แท่งวัดกำไร ============ */
+  .meter{height:8px; border-radius:99px; overflow:hidden; background:var(--line-2)}
+  .meter>i{display:block; height:100%; border-radius:99px; background:var(--accent)}
+  .meter.is-good>i{background:var(--good)}
+  .meter.is-warn>i{background:var(--warn)}
+  .meter.is-bad>i{background:var(--bad)}
+
+  /* ============ ตารางเปรียบเทียบ ============ */
+  .rank{display:flex; flex-direction:column; gap:14px}
+  .rank-row{display:grid; grid-template-columns:1fr 62px; gap:4px 10px; align-items:center}
+  .rank-name{font-weight:600; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .rank-val{text-align:right; font-weight:700; font-variant-numeric:tabular-nums; font-size:15px}
+  .rank-row .meter{grid-column:1/-1}
+  .rank-sub{grid-column:1/-1; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums}
+
+  table{width:100%; border-collapse:collapse; font-size:13.5px}
+  th,td{text-align:right; padding:9px 8px; border-bottom:1px solid var(--line-2)}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--muted); font-size:11.5px; font-weight:700; white-space:nowrap;
+     text-transform:uppercase; letter-spacing:.03em}
+  tbody tr:last-child td{border-bottom:none}
+  td.n{font-variant-numeric:tabular-nums}
+  .scroll{overflow-x:auto; margin:0 -4px; padding:0 4px}
+  .scroll table{min-width:460px}
+
+  /* ============ แถวในรายการ ============ */
+  .row{
+    display:grid; gap:10px; padding:13px 0; border-bottom:1px solid var(--line-2);
+    grid-template-columns:1fr;
+  }
+  .row:last-of-type{border-bottom:none}
+  .row-head{display:flex; align-items:center; gap:10px}
+  .row-head .f{flex:1}
+  .chip{
+    display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:99px;
+    background:var(--accent-soft); color:var(--accent-ink); font-size:12px; font-weight:700;
+    font-variant-numeric:tabular-nums; white-space:nowrap;
+  }
+  .empty{color:var(--muted); font-size:13.5px; text-align:center; padding:26px 10px}
+  .empty svg{width:34px; height:34px; opacity:.4; display:block; margin:0 auto 8px}
+  .hint{color:var(--muted); font-size:12.5px; margin:10px 0 0}
+  .note{
+    background:var(--accent-soft); border:1px solid transparent; border-radius:12px;
+    padding:12px 14px; font-size:13px; color:var(--accent-ink); margin-top:12px;
+  }
+
+  @media(min-width:720px){
+    .tabs{display:flex}
+    .bottomnav{display:none}
+    main{padding-bottom:40px}
+    .row{grid-template-columns:1fr auto}
+  }
+  @media(max-width:719px){
+    input,select{font-size:16px}   /* กัน iOS ซูมเองตอนกดช่องกรอก */
+    .hero{font-size:44px}
   }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>🥞 คำนวณต้นทุนร้านเครป</h1>
-    <p>ใส่ราคาวัตถุดิบที่ซื้อมา → ระบบคิดต้นทุนต่อจาน กำไร และจุดคุ้มทุนให้</p>
-  </header>
 
+<header class="appbar">
+  <div class="bar">
+    <span class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+        <path d="M4.5 7.5h15L12 20.5 4.5 7.5Z"/><path d="M4.5 7.5c0-1.4 3.4-2.5 7.5-2.5s7.5 1.1 7.5 2.5"/>
+      </svg>
+    </span>
+    <div class="titles">
+      <h1>คำนวณต้นทุน</h1>
+      <p>ร้านเครป</p>
+    </div>
+    <button class="icon-btn" onclick="openBackup()" title="สำรอง / กู้คืนข้อมูล" aria-label="สำรอง / กู้คืนข้อมูล">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>
+      </svg>
+    </button>
+    <button class="icon-btn" onclick="loadDemo()" title="ใส่ข้อมูลตัวอย่าง" aria-label="ใส่ข้อมูลตัวอย่าง">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 3h6M10 3v6.5L5 18a2 2 0 0 0 1.7 3h10.6A2 2 0 0 0 19 18l-5-8.5V3"/><path d="M7.5 15h9"/>
+      </svg>
+    </button>
+  </div>
+  <nav id="tabsTop" class="tabs"></nav>
+</header>
+
+<main>
   <noscript>
     <div class="card" style="border-color:var(--bad)">
-      <h2 style="color:var(--bad)">⚠️ หน้านี้ต้องเปิดด้วยเบราว์เซอร์จริง</h2>
-      <p style="margin:0 0 10px">
+      <h2 style="color:var(--bad-ink)">⚠️ หน้านี้ต้องเปิดด้วยเบราว์เซอร์จริง</h2>
+      <p class="sub" style="color:var(--ink-2)">
         ตอนนี้คุณกำลังเปิดไฟล์ผ่าน<b>ตัวพรีวิว</b> (เช่น พรีวิวในไลน์ หรือแอป Files ของ iPhone)
         ซึ่งปิดการทำงานของ JavaScript ไว้ หน้าจอเลยว่างเปล่า — ไม่ใช่ว่าไฟล์เสียนะครับ
       </p>
-      <p style="margin:0"><b>วิธีแก้:</b> เปิดด้วย Safari หรือ Chrome แทน<br>
-        บน iPhone แนะนำให้ใช้ลิงก์เว็บแทนการเปิดไฟล์ เพราะ iOS ไม่ยอมให้ไฟล์ในเครื่องเก็บข้อมูล</p>
+      <p style="margin:0"><b>วิธีแก้:</b> เปิดด้วย Safari หรือ Chrome แทน</p>
     </div>
   </noscript>
 
-  <div class="toolbar">
-    <button class="primary" onclick="openBackup()">💾 สำรอง / กู้คืนข้อมูล</button>
-    <button class="ghost" onclick="loadDemo()">ใส่ข้อมูลตัวอย่าง</button>
-    <button class="ghost danger" onclick="resetAll()">ล้างข้อมูลทั้งหมด</button>
-    <span id="saveFlag" class="hint" style="margin-left:auto"></span>
-  </div>
-
   <div class="card" id="backup" hidden>
     <h2>สำรอง / กู้คืนข้อมูล</h2>
-    <h3>สำรอง — คัดลอกข้อความนี้เก็บไว้ (ส่งเข้าไลน์ตัวเองก็ได้)</h3>
-    <textarea id="dump" readonly rows="4" onclick="this.select()"></textarea>
-    <div class="toolbar" style="margin:8px 0 0">
-      <button class="primary" onclick="copyDump()">📋 คัดลอก</button>
-      <button id="dlBtn" onclick="exportJSON()">⬇ ดาวน์โหลดเป็นไฟล์</button>
+    <p class="sub">ข้อมูลเก็บอยู่ในเครื่องนี้เท่านั้น ควรคัดลอกเก็บไว้เป็นระยะ</p>
+
+    <div class="sec">สำรอง — คัดลอกข้อความนี้เก็บไว้</div>
+    <textarea id="dump" readonly rows="3" onclick="this.select()"></textarea>
+    <div class="btnrow" style="margin-top:9px">
+      <button class="btn primary" onclick="copyDump()">คัดลอก</button>
+      <button class="btn" id="dlBtn" onclick="exportJSON()">ดาวน์โหลดไฟล์</button>
     </div>
-    <h3>กู้คืน — วางข้อความที่สำรองไว้ แล้วกดกู้คืน</h3>
-    <textarea id="paste" rows="4" placeholder='วางข้อความที่ขึ้นต้นด้วย {"ingredients": ... ที่นี่'></textarea>
-    <div class="toolbar" style="margin:8px 0 0">
-      <button onclick="restoreText()">♻ กู้คืนจากข้อความ</button>
-      <button onclick="document.getElementById('imp').click()">📂 เลือกไฟล์ JSON</button>
+
+    <div class="sec">กู้คืน — วางข้อความที่สำรองไว้</div>
+    <textarea id="paste" rows="3" placeholder='วางข้อความที่ขึ้นต้นด้วย {"ingredients": ...'></textarea>
+    <div class="btnrow" style="margin-top:9px">
+      <button class="btn" onclick="restoreText()">กู้คืนจากข้อความ</button>
+      <button class="btn" onclick="document.getElementById('imp').click()">เลือกไฟล์ JSON</button>
       <input type="file" id="imp" accept=".json,application/json" hidden onchange="importJSON(this)">
-      <button class="ghost" onclick="closeBackup()">ปิด</button>
+      <button class="btn ghost" onclick="closeBackup()">ปิด</button>
     </div>
     <p class="hint" id="bkMsg"></p>
   </div>
 
-  <div class="topbar">
-    <nav id="tabs"></nav>
-    <div class="acts">
-      <button class="mini" onclick="openBackup()" title="สำรอง / กู้คืนข้อมูล">💾<span class="sm-hide"> สำรอง</span></button>
-      <button class="mini" onclick="loadDemo()" title="ใส่ข้อมูลตัวอย่าง">🧪<span class="sm-hide"> ตัวอย่าง</span></button>
-    </div>
-  </div>
   <div id="banner"></div>
   <div id="view"></div>
-</div>
+</main>
+
+<nav id="tabsBottom" class="bottomnav"></nav>
 
 <script>
-/* ---------- ข้อมูล ---------- */
+/* ===================== ข้อมูล ===================== */
 const KEY = 'crepe-cost-v1';
 const UNITS = ['กรัม','มิลลิลิตร','ชิ้น','แผ่น','ใบ','ช้อนโต๊ะ'];
 
@@ -210,24 +335,21 @@ let tab = db.isDemo ? 'sum' : 'ing';
 function load(){
   try{
     const raw = localStorage.getItem(KEY);
-    if(!raw) return buildDemo();   // เปิดครั้งแรก ใส่ข้อมูลตัวอย่างให้เห็นภาพก่อน จะได้ไม่เจอหน้าเปล่า
+    if(!raw) return buildDemo();   // เปิดครั้งแรก ใส่ข้อมูลตัวอย่างให้เห็นภาพก่อน
     return Object.assign(blank(), JSON.parse(raw));
   }catch(e){ return buildDemo(); }
 }
 function save(){
-  try{
-    localStorage.setItem(KEY, JSON.stringify(db));
-    flag('บันทึกแล้ว ' + new Date().toLocaleTimeString('th-TH'));
-  }catch(e){ flag('⚠ บันทึกไม่ได้ (เบราว์เซอร์ปิดการเก็บข้อมูล)'); }
+  try{ localStorage.setItem(KEY, JSON.stringify(db)); }
+  catch(e){ /* เบราว์เซอร์ปิดการเก็บข้อมูล — ใช้ต่อได้แต่ไม่บันทึก */ }
 }
-function flag(t){ const el=document.getElementById('saveFlag'); if(el) el.textContent=t; }
 function uid(){ return Math.random().toString(36).slice(2,9); }
 const n = v => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
 const baht = v => n(v).toLocaleString('th-TH',{minimumFractionDigits:2, maximumFractionDigits:2});
 const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 
-/* ---------- การคำนวณ ---------- */
-// ต้นทุนวัตถุดิบต่อ 1 หน่วย = ราคาที่ซื้อ ÷ ปริมาณที่ได้
+/* ===================== การคำนวณ ===================== */
 const unitCost = ing => n(ing.packQty) > 0 ? n(ing.packPrice) / n(ing.packQty) : 0;
 const findIng = id => db.ingredients.find(i => i.id === id);
 
@@ -257,67 +379,98 @@ function avgProfit(){
 }
 const breakEven = () => avgProfit() > 0 ? fixedPerDay() / avgProfit() : 0;
 
-/* ---------- หน้าจอ ---------- */
+// ระดับของกำไร: ถึงเป้า / ใกล้เป้า / ต่ำไป  — ใช้คู่กับตัวเลขเสมอ ไม่ให้สีสื่อความหมายลำพัง
+function level(mg){
+  const t = n(db.targetMargin);
+  if(mg >= t) return 'good';
+  if(mg >= t - 15) return 'warn';
+  return 'bad';
+}
+
+/* ===================== ไอคอน ===================== */
+const SVG = {
+  ing:'<path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9.5 8a2.5 2.5 0 0 1 5 0"/>',
+  menu:'<path d="M4 7h16M4 12h16M4 17h10"/>',
+  fixed:'<path d="M4 10h16v10H4z"/><path d="M4 10 6 4h12l2 6"/><path d="M10 20v-5h4v5"/>',
+  sum:'<path d="M5 20v-7M12 20V5M19 20v-4"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  box:'<path d="M3 8l9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/>'
+};
+const icon = (k,s=18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SVG[k]}</svg>`;
+
+/* ===================== หน้าจอ ===================== */
 const TABS = [
-  ['ing','1. วัตถุดิบ'],
-  ['menu','2. เมนู / สูตร'],
-  ['fixed','3. ต้นทุนคงที่'],
-  ['sum','4. สรุป']
+  ['ing',   'วัตถุดิบ',   'ing'],
+  ['menu',  'เมนู',       'menu'],
+  ['fixed', 'ต้นทุนคงที่', 'fixed'],
+  ['sum',   'สรุป',       'sum']
 ];
 
 function render(){
-  document.getElementById('tabs').innerHTML = TABS.map(([k,l]) =>
-    `<button class="${tab===k?'on':''}" onclick="go('${k}')">${l}</button>`).join('');
+  const top = TABS.map(([k,l,ic]) =>
+    `<button class="${tab===k?'on':''}" onclick="go('${k}')">${icon(ic,17)}<span>${l}</span></button>`).join('');
+  document.getElementById('tabsTop').innerHTML = top;
+  document.getElementById('tabsBottom').innerHTML = TABS.map(([k,l,ic]) =>
+    `<button class="${tab===k?'on':''}" onclick="go('${k}')">${icon(ic,21)}<span>${l}</span></button>`).join('');
+
   renderBanner();
   document.getElementById('view').innerHTML =
     tab==='ing' ? viewIng() : tab==='menu' ? viewMenu() : tab==='fixed' ? viewFixed() : viewSum();
 }
+function go(t){ tab=t; render(); window.scrollTo({top:0}); }
+
 function renderBanner(){
   const el = document.getElementById('banner');
-  if(!el) return;
   el.innerHTML = db.isDemo ? `
-    <div class="card" style="border-color:var(--accent); background:var(--accent-soft)">
-      <b>🧪 ตอนนี้กำลังดูข้อมูลตัวอย่าง</b>
-      <div class="hint" style="margin-top:4px">ใส่ไว้ให้เห็นภาพก่อนว่าใช้ยังไง กดดูได้ทุกแท็บ ยังไม่ใช่ตัวเลขของร้านคุณ</div>
-      <div class="toolbar" style="margin:10px 0 0">
-        <button class="primary" onclick="startFresh()">🗑 ล้างทิ้ง เริ่มกรอกของร้านเรา</button>
-        <button class="ghost" onclick="keepDemo()">ขอแก้ทับอันนี้เลย</button>
+    <div class="card" style="border-color:var(--accent)">
+      <h2>กำลังดูข้อมูลตัวอย่าง</h2>
+      <p class="sub">ใส่ไว้ให้เห็นภาพก่อนว่าใช้ยังไง กดดูได้ทุกแท็บ ยังไม่ใช่ตัวเลขของร้านคุณ</p>
+      <div class="btnrow">
+        <button class="btn primary" onclick="startFresh()">เริ่มกรอกของร้านเรา</button>
+        <button class="btn ghost" onclick="keepDemo()">ขอแก้ทับอันนี้เลย</button>
       </div>
     </div>` : '';
 }
 function startFresh(){ db = blank(); save(); tab='ing'; render(); }
 function keepDemo(){ delete db.isDemo; save(); render(); }
-function go(t){ tab=t; render(); }
 
-/* --- แท็บวัตถุดิบ --- */
+/* --------- แท็บ 1: วัตถุดิบ --------- */
 function viewIng(){
   const rows = db.ingredients.map(i => `
-    <tr>
-      <td class="full" data-l="ชื่อวัตถุดิบ"><input value="${esc(i.name)}" placeholder="เช่น แป้งเครป" oninput="setIng('${i.id}','name',this.value)"></td>
-      <td data-l="ปริมาณที่ได้"><input type="number" step="any" value="${i.packQty}" oninput="setIng('${i.id}','packQty',this.value)"></td>
-      <td data-l="หน่วย">
-        <select onchange="setIng('${i.id}','unit',this.value)">
-          ${UNITS.map(u=>`<option ${u===i.unit?'selected':''}>${u}</option>`).join('')}
-        </select>
-      </td>
-      <td data-l="ราคาที่จ่าย (บาท)"><input type="number" step="any" value="${i.packPrice}" oninput="setIng('${i.id}','packPrice',this.value)"></td>
-      <td class="num ro" data-l="บาท/หน่วย"><span>${unitCost(i).toFixed(4)}</span></td>
-      <td class="act" data-l=""><button class="mini danger" onclick="delIng('${i.id}')">ลบ</button></td>
-    </tr>`).join('');
+    <div class="row">
+      <div class="f">
+        <label>ชื่อวัตถุดิบ</label>
+        <input value="${esc(i.name)}" placeholder="เช่น แป้งเครป" oninput="setIng('${i.id}','name',this.value)">
+        <div class="grid g2" style="margin-top:8px">
+          <div class="f"><label>ปริมาณที่ได้</label>
+            <input type="number" step="any" value="${i.packQty}" oninput="setIng('${i.id}','packQty',this.value)"></div>
+          <div class="f"><label>หน่วย</label>
+            <select onchange="setIng('${i.id}','unit',this.value)">
+              ${UNITS.map(u=>`<option ${u===i.unit?'selected':''}>${u}</option>`).join('')}
+            </select></div>
+          <div class="f"><label>ราคาที่จ่าย (บาท)</label>
+            <input type="number" step="any" value="${i.packPrice}" oninput="setIng('${i.id}','packPrice',this.value)"></div>
+          <div class="f"><label>คิดเป็นหน่วยละ</label>
+            <div style="display:flex; align-items:center; gap:8px; height:39px">
+              <span class="chip">${unitCost(i).toFixed(4)} บาท/${esc(i.unit)}</span>
+            </div></div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:flex-start">
+        <button class="btn sm danger" onclick="delIng('${i.id}')">${icon('trash',14)} ลบ</button>
+      </div>
+    </div>`).join('');
 
   return `
   <div class="card">
     <h2>วัตถุดิบที่ซื้อมา</h2>
-    <p class="hint" style="margin:0 0 12px">
-      กรอกตามที่ซื้อจริง เช่น ซื้อแป้งเครป <b>1,000 กรัม ราคา 45 บาท</b> → ระบบจะคิดให้เองว่ากรัมละเท่าไหร่
-    </p>
-    <table class="stack">
-      <thead><tr>
-        <th>ชื่อวัตถุดิบ</th><th>ปริมาณที่ได้</th><th>หน่วย</th><th>ราคาที่จ่าย (บาท)</th><th>บาท/หน่วย</th><th></th>
-      </tr></thead>
-      <tbody>${rows || `<tr><td colspan="6" class="empty full" data-l="">ยังไม่มีวัตถุดิบ — กดปุ่มด้านล่างเพื่อเพิ่ม</td></tr>`}</tbody>
-    </table>
-    <div style="margin-top:12px"><button class="primary" onclick="addIng()">+ เพิ่มวัตถุดิบ</button></div>
+    <p class="sub">กรอกตามบิลที่ซื้อจริง เช่น แป้งเครป 1,000 กรัม 45 บาท — ระบบคิดราคาต่อหน่วยให้เอง</p>
+    ${rows || `<div class="empty">${icon('box',34)}ยังไม่มีวัตถุดิบ<br>กดปุ่มด้านล่างเพื่อเพิ่มรายการแรก</div>`}
+    <div style="margin-top:14px">
+      <button class="btn primary block" onclick="addIng()">${icon('plus',15)} เพิ่มวัตถุดิบ</button>
+    </div>
   </div>`;
 }
 function addIng(){
@@ -339,55 +492,89 @@ function delIng(id){
   save(); render();
 }
 
-/* --- แท็บเมนู --- */
+/* --------- แท็บ 2: เมนู --------- */
+function costSplit(m){
+  const cost = menuCost(m), price = n(m.price), pf = price - cost;
+  if(price <= 0 || cost <= 0) return '';
+  if(pf < 0){
+    return `<div class="split"><i class="seg-loss only" style="width:100%"></i></div>
+      <div class="legend"><span><i style="background:var(--bad)"></i>ขาดทุนจานละ <b>${baht(-pf)}</b> บาท</span></div>`;
+  }
+  const cw = clamp(cost / price * 100, 0, 100);
+  return `
+    <div class="split">
+      <i class="seg-cost" style="width:${cw}%"></i>
+      <i class="seg-profit" style="width:${100-cw}%"></i>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--bar-cost)"></i>ต้นทุน <b>${baht(cost)}</b></span>
+      <span><i style="background:var(--bar-profit)"></i>กำไร <b>${baht(pf)}</b></span>
+    </div>`;
+}
+
 function viewMenu(){
   if(!db.ingredients.length){
-    return `<div class="card"><h2>เมนู / สูตร</h2>
-      <p class="empty">ต้องใส่วัตถุดิบในแท็บที่ 1 ก่อน แล้วค่อยมาผูกเป็นสูตรของแต่ละเมนู</p>
-      <button class="primary" onclick="go('ing')">ไปใส่วัตถุดิบ</button></div>`;
+    return `<div class="card">
+      <h2>เมนู / สูตร</h2>
+      <div class="empty">${icon('menu',34)}ต้องใส่วัตถุดิบก่อน<br>แล้วค่อยมาผูกเป็นสูตรของแต่ละเมนู</div>
+      <button class="btn primary block" onclick="go('ing')">ไปใส่วัตถุดิบ</button>
+    </div>`;
   }
+
   const cards = db.menus.map(m => {
-    const cost = menuCost(m), pf = profit(m), mg = marginPct(m);
-    const cls = mg >= n(db.targetMargin) ? 'good' : mg >= n(db.targetMargin)-15 ? 'warn' : 'bad';
+    const cost = menuCost(m), mg = marginPct(m), lv = level(mg);
     const items = (m.items||[]).map((it,idx) => {
       const ing = findIng(it.ingId);
-      return `<tr>
-        <td class="full" data-l="วัตถุดิบ"><select onchange="setItem('${m.id}',${idx},'ingId',this.value)">
-          ${db.ingredients.map(i=>`<option value="${i.id}" ${i.id===it.ingId?'selected':''}>${esc(i.name||'(ไม่มีชื่อ)')}</option>`).join('')}
-        </select></td>
-        <td style="width:110px" data-l="ใช้เท่าไหร่ (${esc(ing?.unit||'หน่วย')})"><input type="number" step="any" value="${it.qty}" oninput="setItem('${m.id}',${idx},'qty',this.value)"></td>
-        <td style="width:70px" class="hide-sm" data-l="หน่วย">${esc(ing?.unit||'')}</td>
-        <td class="num ro" style="width:90px" data-l="ต้นทุน"><span>${ing ? baht(unitCost(ing)*n(it.qty)) : '-'}</span></td>
-        <td style="width:50px" class="act" data-l=""><button class="mini danger" onclick="delItem('${m.id}',${idx})">✕ ลบ</button></td>
-      </tr>`;
+      return `<div class="row" style="grid-template-columns:1fr auto; align-items:end">
+        <div class="grid g2">
+          <div class="f" style="grid-column:1/-1"><label>วัตถุดิบ</label>
+            <select onchange="setItem('${m.id}',${idx},'ingId',this.value)">
+              ${db.ingredients.map(i=>`<option value="${i.id}" ${i.id===it.ingId?'selected':''}>${esc(i.name||'(ไม่มีชื่อ)')}</option>`).join('')}
+            </select></div>
+          <div class="f"><label>ใช้กี่${esc(ing?.unit||'หน่วย')}</label>
+            <input type="number" step="any" value="${it.qty}" oninput="setItem('${m.id}',${idx},'qty',this.value)"></div>
+          <div class="f"><label>เป็นเงิน</label>
+            <div style="display:flex; align-items:center; height:39px">
+              <span class="chip">${ing ? baht(unitCost(ing)*n(it.qty)) : '–'} บาท</span>
+            </div></div>
+        </div>
+        <button class="btn sm danger" onclick="delItem('${m.id}',${idx})">${icon('x',13)}</button>
+      </div>`;
     }).join('');
 
     return `<div class="card">
-      <div class="menu-head">
-        <div class="f" style="flex:2"><label>ชื่อเมนู</label>
-          <input value="${esc(m.name)}" oninput="setMenu('${m.id}','name',this.value)" placeholder="เช่น เครปกรอบ นูเทลล่า"></div>
+      <div class="grid g2" style="margin-bottom:4px">
+        <div class="f" style="grid-column:1/-1"><label>ชื่อเมนู</label>
+          <input value="${esc(m.name)}" placeholder="เช่น เครปกรอบ นูเทลล่า" oninput="setMenu('${m.id}','name',this.value)"></div>
         <div class="f"><label>ราคาขาย (บาท)</label>
           <input type="number" step="any" value="${m.price}" oninput="setMenu('${m.id}','price',this.value)"></div>
-        <button class="mini danger" onclick="delMenu('${m.id}')">ลบเมนู</button>
+        <div class="f"><label>&nbsp;</label>
+          <button class="btn danger" onclick="delMenu('${m.id}')">${icon('trash',14)} ลบเมนูนี้</button></div>
       </div>
-      <table class="stack">
-        <thead><tr><th>วัตถุดิบ</th><th>ใช้เท่าไหร่</th><th>หน่วย</th><th>ต้นทุน</th><th></th></tr></thead>
-        <tbody>${items || `<tr><td colspan="5" class="empty full" data-l="">ยังไม่ได้ใส่สูตร</td></tr>`}</tbody>
-      </table>
-      <div style="margin:10px 0"><button class="mini" onclick="addItem('${m.id}')">+ เพิ่มวัตถุดิบในสูตร</button></div>
-      <div class="kpis">
-        <div class="kpi"><div class="lbl">ต้นทุนวัตถุดิบ/จาน</div><div class="val num">${baht(cost)}</div></div>
-        <div class="kpi"><div class="lbl">กำไรต่อจาน</div><div class="val num ${pf>=0?'good':'bad'}">${baht(pf)}</div></div>
-        <div class="kpi"><div class="lbl">กำไรขั้นต้น</div><div class="val num ${cls}">${mg.toFixed(1)}%</div>
-          <div class="bar"><i style="width:${Math.max(0,Math.min(100,mg))}%"></i></div></div>
-        <div class="kpi"><div class="lbl">ราคาที่ควรขาย (เป้า ${n(db.targetMargin)}%)</div>
-          <div class="val num">${baht(suggestPrice(m))}</div></div>
+
+      ${costSplit(m)}
+
+      <div class="sec">สูตร — ใช้วัตถุดิบอะไรบ้าง</div>
+      ${items || `<div class="empty" style="padding:16px">ยังไม่ได้ใส่สูตร</div>`}
+      <div style="margin-top:10px">
+        <button class="btn block" onclick="addItem('${m.id}')">${icon('plus',15)} เพิ่มวัตถุดิบในสูตร</button>
+      </div>
+
+      <div class="sec">ผลลัพธ์</div>
+      <div class="tiles">
+        <div class="tile"><div class="lbl">ต้นทุนต่อจาน</div><div class="val tnum">${baht(cost)}</div></div>
+        <div class="tile"><div class="lbl">กำไรต่อจาน</div>
+          <div class="val tnum ${profit(m)>=0?'good':'bad'}">${baht(profit(m))}</div></div>
+        <div class="tile"><div class="lbl">กำไรขั้นต้น</div>
+          <div class="val tnum ${lv}">${mg.toFixed(1)}%</div>
+          <div class="meter is-${lv}" style="margin-top:7px"><i style="width:${clamp(mg,0,100)}%"></i></div></div>
+        <div class="tile"><div class="lbl">ราคาที่ควรขาย (เป้า ${n(db.targetMargin)}%)</div>
+          <div class="val tnum">${baht(suggestPrice(m))}</div></div>
       </div>
     </div>`;
   }).join('');
 
-  return cards + `<div class="card" style="text-align:center">
-    <button class="primary" onclick="addMenu()">+ เพิ่มเมนูใหม่</button></div>`;
+  return cards + `<button class="btn primary block" onclick="addMenu()">${icon('plus',15)} เพิ่มเมนูใหม่</button>`;
 }
 const findMenu = id => db.menus.find(m => m.id===id);
 function addMenu(){ db.menus.push({id:uid(), name:'', price:0, items:[]}); save(); render(); }
@@ -416,87 +603,122 @@ function delItem(mid,idx){
   m.items.splice(idx,1); save(); render();
 }
 
-/* --- แท็บต้นทุนคงที่ --- */
+/* --------- แท็บ 3: ต้นทุนคงที่ --------- */
 function viewFixed(){
   const f = db.fixed;
   const fld = (k,l,ph='') => `<div class="f"><label>${l}</label>
     <input type="number" step="any" value="${f[k]}" placeholder="${ph}" oninput="setFixed('${k}',this.value)"></div>`;
+  const be = breakEven();
+
   return `
   <div class="card">
-    <h2>ต้นทุนคงที่ (ค่าใช้จ่ายที่ต้องจ่ายแม้ขายไม่ได้)</h2>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+    <h2>จุดคุ้มทุน</h2>
+    <p class="sub">ต้องขายวันละเท่าไหร่ถึงจะพอจ่ายค่าเช่า ค่าไฟ ค่าแรง</p>
+    <div class="hero tnum">${be ? Math.ceil(be) : '–'}<small>${be ? 'จาน / วัน' : 'ยังคำนวณไม่ได้'}</small></div>
+    ${be ? `<p class="hint">คิดจากกำไรเฉลี่ย ${baht(avgProfit())} บาท/จาน — ขายได้เกินนี้เมื่อไหร่คือเริ่มมีกำไรจริง</p>`
+         : `<p class="hint">ต้องมีเมนูที่ตั้งราคาขายแล้ว และกำไรเฉลี่ยมากกว่า 0 ก่อน</p>`}
+    <div class="tiles" style="margin-top:14px">
+      <div class="tile"><div class="lbl">ต้นทุนคงที่ / เดือน</div><div class="val tnum">${baht(fixedPerMonth())}</div></div>
+      <div class="tile"><div class="lbl">ต้นทุนคงที่ / วัน</div><div class="val tnum">${baht(fixedPerDay())}</div></div>
+      <div class="tile"><div class="lbl">กำไรเฉลี่ย / จาน</div><div class="val tnum">${baht(avgProfit())}</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>ค่าใช้จ่ายประจำ</h2>
+    <p class="sub">ค่าที่ต้องจ่ายแม้วันนั้นขายไม่ได้เลย</p>
+    <div class="grid g-auto">
       ${fld('rent','ค่าเช่าที่ / เดือน')}
       ${fld('electric','ค่าไฟ / เดือน')}
       ${fld('water','ค่าน้ำ / เดือน')}
       ${fld('gas','ค่าแก๊ส / เดือน')}
-      ${fld('other','อื่น ๆ / เดือน','ค่าขนส่ง, ค่าเน็ต')}
+      ${fld('other','อื่น ๆ / เดือน','ค่าขนส่ง ค่าเน็ต')}
       ${fld('labor','ค่าแรงลูกจ้าง / วัน')}
       ${fld('days','เปิดขายกี่วัน / เดือน')}
       <div class="f"><label>กำไรขั้นต้นที่ต้องการ (%)</label>
         <input type="number" step="any" value="${db.targetMargin}" oninput="setTarget(this.value)"></div>
     </div>
-    <div class="kpis" style="margin-top:16px">
-      <div class="kpi"><div class="lbl">ต้นทุนคงที่ / เดือน</div><div class="val num">${baht(fixedPerMonth())}</div></div>
-      <div class="kpi"><div class="lbl">ต้นทุนคงที่ / วัน</div><div class="val num">${baht(fixedPerDay())}</div></div>
-      <div class="kpi"><div class="lbl">กำไรเฉลี่ย / จาน</div><div class="val num">${baht(avgProfit())}</div></div>
-      <div class="kpi"><div class="lbl">ต้องขายวันละ (จุดคุ้มทุน)</div>
-        <div class="val num">${breakEven() ? Math.ceil(breakEven()) + ' จาน' : '—'}</div></div>
-    </div>
-    <p class="hint">จุดคุ้มทุน = ต้นทุนคงที่ต่อวัน ÷ กำไรเฉลี่ยต่อจาน ขายได้มากกว่านี้คือเริ่มมีกำไรจริง</p>
   </div>`;
 }
-function setFixed(k,v){ db.fixed[k]=n(v); save(); if(k==='days') render(); else refreshKpis(); }
+function setFixed(k,v){ db.fixed[k]=n(v); save(); refreshFixed(); }
 function setTarget(v){ db.targetMargin=n(v); save(); }
-function refreshKpis(){
-  const old = document.querySelector('#view .kpis');
-  if(!old) return render();
+function refreshFixed(){
+  // อัปเดตเฉพาะตัวเลขด้านบน เพื่อไม่ให้ช่องที่กำลังพิมพ์อยู่เสียโฟกัส
   const tmp = document.createElement('div');
   tmp.innerHTML = viewFixed();
-  old.replaceWith(tmp.querySelector('.kpis'));
+  const cur = document.querySelector('#view .card');
+  if(cur) cur.replaceWith(tmp.querySelector('.card'));
 }
 
-/* --- แท็บสรุป --- */
+/* --------- แท็บ 4: สรุป --------- */
 function viewSum(){
-  if(!db.menus.length) return `<div class="card"><h2>สรุป</h2><p class="empty">ยังไม่มีเมนู</p></div>`;
+  if(!db.menus.length){
+    return `<div class="card"><h2>สรุป</h2>
+      <div class="empty">${icon('sum',34)}ยังไม่มีเมนูให้เปรียบเทียบ</div>
+      <button class="btn primary block" onclick="go('menu')">ไปสร้างเมนู</button></div>`;
+  }
   const sorted = [...db.menus].sort((a,b) => marginPct(b) - marginPct(a));
-  const rows = sorted.map((m,i) => {
+  const best = sorted[0], worst = sorted[sorted.length-1];
+
+  const bars = sorted.map(m => {
+    const mg = marginPct(m), lv = level(mg);
+    return `<div class="rank-row">
+      <div class="rank-name">${esc(m.name||'(ไม่มีชื่อ)')}</div>
+      <div class="rank-val ${lv}">${mg.toFixed(1)}%</div>
+      <div class="meter is-${lv}"><i style="width:${clamp(mg,0,100)}%"></i></div>
+      <div class="rank-sub">ขาย ${baht(m.price)} · ต้นทุน ${baht(menuCost(m))} · กำไร ${baht(profit(m))} บาท</div>
+    </div>`;
+  }).join('');
+
+  const rows = sorted.map(m => {
     const mg = marginPct(m);
-    const cls = mg >= n(db.targetMargin) ? 'good' : mg >= n(db.targetMargin)-15 ? 'warn' : 'bad';
     return `<tr>
-      <td>${i===0?'⭐ ':''}${esc(m.name||'(ไม่มีชื่อ)')}</td>
-      <td class="num">${baht(menuCost(m))}</td>
-      <td class="num">${baht(m.price)}</td>
-      <td class="num ${profit(m)>=0?'good':'bad'}">${baht(profit(m))}</td>
-      <td class="num ${cls}">${mg.toFixed(1)}%</td>
-      <td class="num">${baht(suggestPrice(m))}</td>
+      <td>${esc(m.name||'(ไม่มีชื่อ)')}</td>
+      <td class="n">${baht(menuCost(m))}</td>
+      <td class="n">${baht(m.price)}</td>
+      <td class="n ${profit(m)>=0?'good':'bad'}">${baht(profit(m))}</td>
+      <td class="n ${level(mg)}">${mg.toFixed(1)}%</td>
+      <td class="n">${baht(suggestPrice(m))}</td>
     </tr>`;
   }).join('');
 
-  const worst = sorted[sorted.length-1];
   const tips = [];
   if(worst && marginPct(worst) < n(db.targetMargin))
-    tips.push(`เมนู <b>${esc(worst.name||'(ไม่มีชื่อ)')}</b> กำไรบางสุด (${marginPct(worst).toFixed(1)}%) — ลองขึ้นราคาเป็น ${baht(suggestPrice(worst))} บาท หรือลดปริมาณไส้ลง`);
+    tips.push(`<b>${esc(worst.name||'(ไม่มีชื่อ)')}</b> กำไรบางสุดที่ ${marginPct(worst).toFixed(1)}% — ลองขึ้นราคาเป็น ${baht(suggestPrice(worst))} บาท หรือลดปริมาณไส้ลง`);
   if(breakEven())
-    tips.push(`ต้องขายให้ได้วันละ <b>${Math.ceil(breakEven())} จาน</b> ถึงจะคุ้มค่าเช่า/ค่าไฟ/ค่าแรง`);
+    tips.push(`ต้องขายให้ได้วันละ <b>${Math.ceil(breakEven())} จาน</b> ถึงจะคุ้มค่าเช่าและค่าไฟ`);
   if(!fixedPerMonth())
-    tips.push(`ยังไม่ได้ใส่ต้นทุนคงที่ — ตัวเลขกำไรที่เห็นยังไม่ได้หักค่าเช่ากับค่าไฟนะ`);
+    tips.push(`ยังไม่ได้ใส่ต้นทุนคงที่ — ตัวเลขกำไรที่เห็นยังไม่ได้หักค่าเช่ากับค่าไฟ`);
 
   return `
   <div class="card">
-    <h2>เปรียบเทียบทุกเมนู <span class="pill">เป้ากำไร ${n(db.targetMargin)}%</span></h2>
+    <h2>เมนูที่กำไรดีที่สุด</h2>
+    <p class="sub">จาก ${db.menus.length} เมนู เทียบด้วยกำไรขั้นต้น</p>
+    <div class="hero tnum">${marginPct(best).toFixed(1)}<small>% · ${esc(best.name||'(ไม่มีชื่อ)')}</small></div>
+  </div>
+
+  <div class="card">
+    <h2>เทียบกำไรทุกเมนู</h2>
+    <p class="sub">เส้นเต็มคือ 100% · เป้าที่ตั้งไว้ ${n(db.targetMargin)}%</p>
+    <div class="rank">${bars}</div>
+  </div>
+
+  <div class="card">
+    <h2>ตารางรายละเอียด</h2>
+    <p class="sub">เลื่อนตารางไปทางซ้ายเพื่อดูคอลัมน์ที่เหลือ</p>
     <div class="scroll">
       <table>
-        <thead><tr><th>เมนู</th><th>ต้นทุน</th><th>ราคาขาย</th><th>กำไร/จาน</th><th>%กำไร</th><th>ราคาที่ควรขาย</th></tr></thead>
+        <thead><tr><th>เมนู</th><th>ต้นทุน</th><th>ราคาขาย</th><th>กำไร</th><th>%</th><th>ควรขาย</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
-    <p class="hint">บนมือถือ: เลื่อนตารางไปทางซ้ายเพื่อดูคอลัมน์ที่เหลือ</p>
   </div>
-  ${tips.length ? `<div class="card"><h2>ข้อสังเกต</h2><ul style="margin:0; padding-left:20px">
-    ${tips.map(t=>`<li style="margin-bottom:6px">${t}</li>`).join('')}</ul></div>` : ''}`;
+
+  ${tips.length ? `<div class="card"><h2>ข้อสังเกต</h2>
+    ${tips.map(t=>`<div class="note">${t}</div>`).join('')}</div>` : ''}`;
 }
 
-/* ---------- สำรอง / กู้คืน ---------- */
+/* ===================== สำรอง / กู้คืน ===================== */
 function openBackup(){
   const box = document.getElementById('backup');
   document.getElementById('dump').value = JSON.stringify(db);
@@ -511,16 +733,16 @@ async function copyDump(){
   const ta = document.getElementById('dump');
   try{
     await navigator.clipboard.writeText(ta.value);
-    bkMsg('✅ คัดลอกแล้ว — เอาไปวางเก็บไว้ที่ไหนก็ได้');
+    bkMsg('คัดลอกแล้ว — เอาไปวางเก็บไว้ที่ไหนก็ได้');
   }catch(e){
     ta.select(); bkMsg('กดค้างที่ข้อความแล้วเลือก "คัดลอก" เองนะครับ');
   }
 }
 function restoreText(){
   const txt = document.getElementById('paste').value.trim();
-  if(!txt) return bkMsg('⚠ ยังไม่ได้วางข้อความ');
-  if(!applyData(txt)) return bkMsg('⚠ ข้อความไม่ถูกต้อง ลองคัดลอกมาใหม่ทั้งก้อน');
-  bkMsg('✅ กู้คืนเรียบร้อย');
+  if(!txt) return bkMsg('ยังไม่ได้วางข้อความ');
+  if(!applyData(txt)) return bkMsg('ข้อความไม่ถูกต้อง ลองคัดลอกมาใหม่ทั้งก้อน');
+  bkMsg('กู้คืนเรียบร้อย');
 }
 function applyData(raw){
   try{
@@ -531,7 +753,6 @@ function applyData(raw){
     return true;
   }catch(e){ return false; }
 }
-
 function exportJSON(){
   const blob = new Blob([JSON.stringify(db,null,2)], {type:'application/json'});
   const a = document.createElement('a');
@@ -543,17 +764,13 @@ function importJSON(input){
   const file = input.files[0]; if(!file) return;
   const r = new FileReader();
   r.onload = () => {
-    bkMsg(applyData(r.result) ? '✅ กู้คืนจากไฟล์เรียบร้อย' : '⚠ ไฟล์ไม่ถูกต้อง');
+    bkMsg(applyData(r.result) ? 'กู้คืนจากไฟล์เรียบร้อย' : 'ไฟล์ไม่ถูกต้อง');
     input.value = '';
   };
   r.readAsText(file);
 }
-function resetAll(){
-  if(!confirm('ล้างข้อมูลทั้งหมด? กู้คืนไม่ได้ (แนะนำให้สำรองไฟล์ก่อน)')) return;
-  db = blank(); save(); render();
-}
 
-/* ---------- ข้อมูลตัวอย่าง ---------- */
+/* ===================== ข้อมูลตัวอย่าง ===================== */
 function loadDemo(){
   if(db.ingredients.length && !db.isDemo && !confirm('จะทับข้อมูลเดิมทั้งหมด ยืนยันไหม?')) return;
   db = buildDemo(); save(); tab='sum'; render();
@@ -589,7 +806,7 @@ function buildDemo(){
         {ingId:g('ไส้กรอก'),qty:40},{ingId:g('ชีสสไลซ์'),qty:1},
         {ingId:g('กระดาษห่อ + ถุง'),qty:1}
       ]},
-      {id:uid(), name:'เครปน้ำตาลเนย (ธรรมดา)', price:25, items:[
+      {id:uid(), name:'เครปน้ำตาลเนย', price:25, items:[
         {ingId:g('แป้งเครปสำเร็จ'),qty:40},{ingId:g('ไข่ไก่'),qty:0.3},
         {ingId:g('นมสด'),qty:50},{ingId:g('เนยสด'),qty:10},
         {ingId:g('น้ำตาลทราย'),qty:12},{ingId:g('กระดาษห่อ + ถุง'),qty:1}
@@ -600,13 +817,13 @@ function buildDemo(){
   };
 }
 
-// เปิดผ่านลิงก์ (ไม่ใช่ไฟล์ในเครื่อง) จะดาวน์โหลดไฟล์ไม่ได้ — ซ่อนปุ่มนั้นไว้ ใช้ปุ่มคัดลอกแทน
+/* ===================== เริ่มทำงาน ===================== */
+// เปิดผ่านลิงก์จะดาวน์โหลดไฟล์ไม่ได้ — ซ่อนปุ่มนั้น ใช้ปุ่มคัดลอกแทน
 if(window.claude){
   const b = document.getElementById('dlBtn');
   if(b) b.hidden = true;
 }
-
-// ติดตั้งเป็นแอป + ใช้งานตอนไม่มีเน็ต (ต้องเปิดผ่าน https หรือ localhost เท่านั้น)
+// ติดตั้งเป็นแอป + ใช้งานตอนไม่มีเน็ต (ต้องเป็น https หรือ localhost)
 if('serviceWorker' in navigator && !window.claude
    && (location.protocol === 'https:' || location.hostname === 'localhost')){
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));

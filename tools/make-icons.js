@@ -38,13 +38,13 @@ function png(width, height, rgba){
   ]);
 }
 
-/* ---------- วาดไอคอน: เครปห่อกรวยบนพื้นส้ม ---------- */
+/* ---------- วาดไอคอน: เครปห่อกรวยบนพื้นฟ้า ---------- */
 const mix = (a,b,t) => [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t];
 
-const BG_TOP = [212,116,58], BG_BOT = [166,74,28];   // ส้มอบ
-const CREPE  = [251,240,224];                        // ครีม
-const CHOC   = [92,56,34];                           // ช็อกโกแลต
-const SHADE  = [226,205,178];                        // เงาบนตัวเครป
+const BG_TOP = [58,142,245], BG_BOT = [19,88,201];   // ฟ้า (ธีมขาว-ฟ้า)
+const CREPE  = [255,255,255];                        // ตัวเครปสีขาว
+const CHOC   = [11,79,174];                          // ไส้ — น้ำเงินเข้ม
+const SHADE  = [214,229,248];                        // เงาบนตัวเครป
 
 const draw = S => png(S, S, drawPixels(S));
 
@@ -66,7 +66,7 @@ function drawPixels(S){
   const circle  = (x,y,ex,ey,r) => (x-ex)**2 + (y-ey)**2 <= r*r;
 
   const inRim    = (x,y) => ellipse(x,y, cx, topY, halfW, 0.072);              // ขอบปากกรวย
-  const inFill   = (x,y) => ellipse(x,y, cx, topY+0.006, halfW*0.80, 0.053);   // ไส้ช็อกโกแลต
+  const inFill   = (x,y) => ellipse(x,y, cx, topY+0.006, halfW*0.80, 0.053);   // ไส้
   const inCream  = (x,y) => circle(x,y, 0.443, topY-0.018, 0.047)              // วิปครีม
                          || circle(x,y, 0.556, topY-0.002, 0.036);
 
@@ -95,7 +95,7 @@ function drawPixels(S){
 /* ---------- ภาพ splash ตอนเปิดแอป: พื้นหลังล้วน + โลโก้เล็ก ๆ กลางจอ ---------- */
 function drawSplash(S, dark){
   const buf = Buffer.alloc(S*S*4);
-  const BG = dark ? [26,24,22] : [246,244,239];
+  const BG = dark ? [10,20,32] : [242,246,251];
   const L = Math.round(S*0.26);                   // โลโก้กินพื้นที่ 26% ของจอ
   const o = Math.round((S - L) / 2);
   const sub = drawPixels(L);
