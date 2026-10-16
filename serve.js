@@ -7,7 +7,8 @@ const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
 
-const PORT = Number(process.argv[2]) || 8080;
+// เลี่ยง 8080 เพราะบนเครื่องที่ลง IIS ไว้ พอร์ตนั้นมักถูกจองอยู่แล้ว
+const PORT = Number(process.argv[2]) || 8787;
 const ROOT = __dirname;
 
 const TYPES = {
@@ -34,7 +35,8 @@ http.createServer((req, res) => {
     });
     res.end(data);
   });
-}).listen(PORT, '0.0.0.0', () => {
+// ไม่ระบุ host เพื่อให้รับทั้ง IPv4 และ IPv6 — เบราว์เซอร์บางตัวเข้า localhost ผ่าน ::1
+}).listen(PORT, () => {
   const ips = Object.values(os.networkInterfaces()).flat()
     .filter(i => i && i.family === 'IPv4' && !i.internal)
     .map(i => i.address);

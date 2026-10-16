@@ -38,7 +38,7 @@
 ## รันบนเครื่องตัวเอง
 
 ```bash
-node serve.js          # เปิดที่ http://localhost:8080
+node serve.js          # เปิดที่ http://localhost:8787
 ```
 
 จะขึ้น URL สำหรับเปิดบนมือถือผ่าน Wi-Fi วงเดียวกันให้ด้วย
