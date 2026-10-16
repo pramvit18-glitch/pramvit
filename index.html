@@ -230,6 +230,28 @@
     background:var(--accent-soft); color:var(--accent-ink); font-size:12px; font-weight:700;
     font-variant-numeric:tabular-nums; white-space:nowrap;
   }
+  /* ============ รายการแบบ list ============ */
+  .list{display:flex; flex-direction:column}
+  .li{
+    display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    padding:12px 10px; margin:0 -10px; border:none; background:none; cursor:pointer;
+    border-bottom:1px solid var(--line-2); border-radius:10px; transition:background .12s;
+    font:inherit; color:inherit;
+  }
+  .li:hover{background:var(--surface-2)}
+  .li:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+  .li:last-of-type{border-bottom:none}
+  .li-main{flex:1; min-width:0}
+  .li-title{font-weight:600; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .li-sub{font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums}
+  .li-end{display:flex; align-items:center; gap:8px; flex:0 0 auto}
+  .li-del{
+    width:32px; height:32px; border-radius:9px; border:1px solid var(--line);
+    background:var(--surface); color:var(--muted); cursor:pointer; display:grid; place-items:center;
+  }
+  .li-del:hover{color:var(--bad); border-color:var(--bad)}
+  .li-chev{color:var(--muted); flex:0 0 auto; opacity:.6}
+
   .empty{color:var(--muted); font-size:13.5px; text-align:center; padding:26px 10px}
   .empty svg{width:34px; height:34px; opacity:.4; display:block; margin:0 auto 8px}
   .hint{color:var(--muted); font-size:12.5px; margin:10px 0 0}
@@ -463,6 +485,8 @@ const SVG = {
   fixed:'<path d="M4 10h16v10H4z"/><path d="M4 10 6 4h12l2 6"/><path d="M10 20v-5h4v5"/>',
   sum:'<path d="M5 20v-7M12 20V5M19 20v-4"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
+  chev:'<path d="m9 5 7 7-7 7"/>',
+  edit:'<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5 17.5 9.5"/>',
   trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   x:'<path d="M6 6l12 12M18 6 6 18"/>',
   box:'<path d="M3 8l9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/>'
@@ -566,49 +590,43 @@ dlg.addEventListener('close', () => dlg.removeEventListener('input', dlgLive));
 /* --------- แท็บ 1: วัตถุดิบ --------- */
 function viewIng(){
   const rows = db.ingredients.map(i => `
-    <div class="row">
-      <div class="f">
-        <label>ชื่อวัตถุดิบ</label>
-        <input value="${esc(i.name)}" placeholder="เช่น แป้งเครป" oninput="setIng('${i.id}','name',this.value)">
-        <div class="grid g2" style="margin-top:8px">
-          <div class="f"><label>ปริมาณที่ได้</label>
-            <input type="number" step="any" value="${i.packQty}" oninput="setIng('${i.id}','packQty',this.value)"></div>
-          <div class="f"><label>หน่วย</label>
-            <select onchange="setIng('${i.id}','unit',this.value)">
-              ${UNITS.map(u=>`<option ${u===i.unit?'selected':''}>${u}</option>`).join('')}
-            </select></div>
-          <div class="f"><label>ราคาที่จ่าย (บาท)</label>
-            <input type="number" step="any" value="${i.packPrice}" oninput="setIng('${i.id}','packPrice',this.value)"></div>
-          <div class="f"><label>คิดเป็นหน่วยละ</label>
-            <div style="display:flex; align-items:center; gap:8px; height:39px">
-              <span class="chip">${unitCost(i).toFixed(4)} บาท/${esc(i.unit)}</span>
-            </div></div>
-        </div>
+    <div class="li" role="button" tabindex="0" onclick="editIng('${i.id}')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editIng('${i.id}')}">
+      <div class="li-main">
+        <div class="li-title">${esc(i.name || '(ยังไม่มีชื่อ)')}</div>
+        <div class="li-sub">${n(i.packQty).toLocaleString('th-TH')} ${esc(i.unit)} · ${baht(i.packPrice)} บาท</div>
       </div>
-      <div style="display:flex; align-items:flex-start">
-        <button class="btn sm danger" onclick="delIng('${i.id}')">${icon('trash',14)} ลบ</button>
+      <div class="li-end">
+        <span class="chip">${unitCost(i).toFixed(4)}/${esc(i.unit)}</span>
+        <span class="li-del" role="button" tabindex="0" title="ลบ"
+              onclick="event.stopPropagation(); delIng('${i.id}')"
+              onkeydown="if(event.key==='Enter'){event.stopPropagation();delIng('${i.id}')}">${icon('trash',15)}</span>
+        <span class="li-chev">${icon('chev',16)}</span>
       </div>
     </div>`).join('');
 
   return `
   <div class="card">
     <h2>วัตถุดิบที่ซื้อมา</h2>
-    <p class="sub">กรอกตามบิลที่ซื้อจริง เช่น แป้งเครป 1,000 กรัม 45 บาท — ระบบคิดราคาต่อหน่วยให้เอง</p>
-    ${rows || `<div class="empty">${icon('box',34)}ยังไม่มีวัตถุดิบ<br>กดปุ่มด้านล่างเพื่อเพิ่มรายการแรก</div>`}
+    <p class="sub">${db.ingredients.length ? 'แตะที่รายการเพื่อแก้ไข' : 'กรอกตามบิลที่ซื้อจริง ระบบคิดราคาต่อหน่วยให้เอง'}</p>
+    <div class="list">
+      ${rows || `<div class="empty">${icon('box',34)}ยังไม่มีวัตถุดิบ<br>กดปุ่มด้านล่างเพื่อเพิ่มรายการแรก</div>`}
+    </div>
     <div style="margin-top:14px">
       <button class="btn primary block" onclick="addIng()">${icon('plus',15)} เพิ่มวัตถุดิบ</button>
     </div>
   </div>`;
 }
-function addIng(){
+// หน้าต่างเดียวใช้ได้ทั้งเพิ่มและแก้ไข (ส่ง null = เพิ่มใหม่)
+function ingDialog(ing){
   openDialog({
-    title:'เพิ่มวัตถุดิบ',
+    title: ing ? 'แก้ไขวัตถุดิบ' : 'เพิ่มวัตถุดิบ',
     sub:'กรอกตามบิลที่ซื้อจริง ระบบคิดราคาต่อหน่วยให้เอง',
     fields:[
-      {k:'name', label:'ชื่อวัตถุดิบ', type:'text', value:'', placeholder:'เช่น แป้งเครป', wide:true},
-      {k:'packQty', label:'ปริมาณที่ได้', type:'number', value:1000},
-      {k:'unit', label:'หน่วย', type:'select', value:'กรัม', options:UNITS.map(u=>({value:u,label:u}))},
-      {k:'packPrice', label:'ราคาที่จ่าย (บาท)', type:'number', value:'', wide:true}
+      {k:'name', label:'ชื่อวัตถุดิบ', type:'text', value:ing?.name ?? '', placeholder:'เช่น แป้งเครป', wide:true},
+      {k:'packQty', label:'ปริมาณที่ได้', type:'number', value:ing?.packQty ?? 1000},
+      {k:'unit', label:'หน่วย', type:'select', value:ing?.unit ?? 'กรัม', options:UNITS.map(u=>({value:u,label:u}))},
+      {k:'packPrice', label:'ราคาที่จ่าย (บาท)', type:'number', value:ing?.packPrice ?? '', wide:true}
     ],
     live: v => v.packQty > 0 && v.packPrice > 0
       ? `คิดเป็น ${(v.packPrice / v.packQty).toFixed(4)} บาท ต่อ 1 ${esc(v.unit)}`
@@ -617,17 +635,15 @@ function addIng(){
               : v.packQty <= 0 ? 'ปริมาณที่ได้ต้องมากกว่า 0'
               : v.packPrice < 0 ? 'ราคาติดลบไม่ได้' : null,
     save: v => {
-      db.ingredients.push({id:uid(), name:v.name.trim(), packQty:v.packQty, unit:v.unit, packPrice:v.packPrice});
+      const data = {name:v.name.trim(), packQty:v.packQty, unit:v.unit, packPrice:v.packPrice};
+      if(ing) Object.assign(ing, data);
+      else db.ingredients.push(Object.assign({id:uid()}, data));
       save(); render();
     }
   });
 }
-function setIng(id,k,v){
-  const i = findIng(id); if(!i) return;
-  i[k] = (k==='name'||k==='unit') ? v : n(v);
-  save();
-  if(k!=='name') render();
-}
+function addIng(){ ingDialog(null); }
+function editIng(id){ const i = findIng(id); if(i) ingDialog(i); }
 function delIng(id){
   const i = findIng(id);
   const used = db.menus.filter(m => (m.items||[]).some(it => it.ingId===id)).map(m=>m.name||'(ไม่มีชื่อ)');
@@ -670,40 +686,36 @@ function viewMenu(){
     const cost = menuCost(m), mg = marginPct(m), lv = level(mg);
     const items = (m.items||[]).map((it,idx) => {
       const ing = findIng(it.ingId);
-      return `<div class="row" style="grid-template-columns:1fr auto; align-items:end">
-        <div class="grid g2">
-          <div class="f" style="grid-column:1/-1"><label>วัตถุดิบ</label>
-            <select onchange="setItem('${m.id}',${idx},'ingId',this.value)">
-              ${db.ingredients.map(i=>`<option value="${i.id}" ${i.id===it.ingId?'selected':''}>${esc(i.name||'(ไม่มีชื่อ)')}</option>`).join('')}
-            </select></div>
-          <div class="f"><label>ใช้กี่${esc(ing?.unit||'หน่วย')}</label>
-            <input type="number" step="any" value="${it.qty}" oninput="setItem('${m.id}',${idx},'qty',this.value)"></div>
-          <div class="f"><label>เป็นเงิน</label>
-            <div style="display:flex; align-items:center; height:39px">
-              <span class="chip">${ing ? baht(unitCost(ing)*n(it.qty)) : '–'} บาท</span>
-            </div></div>
+      return `<div class="li" role="button" tabindex="0" onclick="editItem('${m.id}',${idx})"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editItem('${m.id}',${idx})}">
+        <div class="li-main">
+          <div class="li-title">${esc(ing?.name || '(วัตถุดิบถูกลบไปแล้ว)')}</div>
+          <div class="li-sub">ใช้ ${n(it.qty).toLocaleString('th-TH')} ${esc(ing?.unit||'')}</div>
         </div>
-        <button class="btn sm danger" onclick="delItem('${m.id}',${idx})">${icon('x',13)}</button>
+        <div class="li-end">
+          <span class="chip">${ing ? baht(unitCost(ing)*n(it.qty)) : '–'}</span>
+          <span class="li-del" role="button" tabindex="0" title="ลบ"
+                onclick="event.stopPropagation(); delItem('${m.id}',${idx})"
+                onkeydown="if(event.key==='Enter'){event.stopPropagation();delItem('${m.id}',${idx})}">${icon('x',15)}</span>
+          <span class="li-chev">${icon('chev',16)}</span>
+        </div>
       </div>`;
     }).join('');
 
     return `<div class="card">
-      <div class="grid g2" style="margin-bottom:4px">
-        <div class="f" style="grid-column:1/-1"><label>ชื่อเมนู</label>
-          <input value="${esc(m.name)}" placeholder="เช่น เครปกรอบ นูเทลล่า" oninput="setMenu('${m.id}','name',this.value)"></div>
-        <div class="f"><label>ราคาขาย (บาท)</label>
-          <input type="number" step="any" value="${m.price}" oninput="setMenu('${m.id}','price',this.value)"></div>
-        <div class="f"><label>ขายได้วันละ (จาน)</label>
-          <input type="number" step="any" value="${m.qtyPerDay ?? ''}" placeholder="กะคร่าว ๆ"
-                 oninput="setMenu('${m.id}','qtyPerDay',this.value)"></div>
-        <div class="f wide"><label>&nbsp;</label>
-          <button class="btn danger" onclick="delMenu('${m.id}')">${icon('trash',14)} ลบเมนูนี้</button></div>
+      <div class="row-head" style="margin-bottom:2px">
+        <div class="li-main">
+          <h2 style="margin:0">${esc(m.name || '(ยังไม่มีชื่อ)')}</h2>
+          <div class="li-sub">ขาย ${baht(m.price)} บาท · วันละ ${n(m.qtyPerDay)} จาน</div>
+        </div>
+        <button class="btn sm" onclick="editMenu('${m.id}')">${icon('edit',14)} แก้ไข</button>
+        <button class="li-del" title="ลบเมนูนี้" onclick="delMenu('${m.id}')">${icon('trash',15)}</button>
       </div>
 
       ${costSplit(m)}
 
       <div class="sec">สูตร — ใช้วัตถุดิบอะไรบ้าง</div>
-      ${items || `<div class="empty" style="padding:16px">ยังไม่ได้ใส่สูตร</div>`}
+      <div class="list">${items || `<div class="empty" style="padding:16px">ยังไม่ได้ใส่สูตร</div>`}</div>
       <div style="margin-top:10px">
         <button class="btn block" onclick="addItem('${m.id}')">${icon('plus',15)} เพิ่มวัตถุดิบในสูตร</button>
       </div>
@@ -725,43 +737,50 @@ function viewMenu(){
   return cards + `<button class="btn primary block" onclick="addMenu()">${icon('plus',15)} เพิ่มเมนูใหม่</button>`;
 }
 const findMenu = id => db.menus.find(m => m.id===id);
-function addMenu(){
+// หน้าต่างเดียวใช้ได้ทั้งเพิ่มและแก้ไข (ส่ง null = เพิ่มใหม่)
+function menuDialog(m){
   openDialog({
-    title:'เพิ่มเมนูใหม่',
-    sub:'ใส่ชื่อกับราคาขายก่อน แล้วค่อยไปใส่สูตรทีหลัง',
+    title: m ? 'แก้ไขเมนู' : 'เพิ่มเมนูใหม่',
+    sub: m ? 'แก้ชื่อ ราคาขาย หรือยอดขายต่อวัน' : 'ใส่ชื่อกับราคาขายก่อน แล้วค่อยไปใส่สูตรทีหลัง',
     fields:[
-      {k:'name', label:'ชื่อเมนู', type:'text', value:'', placeholder:'เช่น เครปกรอบ นูเทลล่า', wide:true},
-      {k:'price', label:'ราคาขาย (บาท)', type:'number', value:''},
-      {k:'qtyPerDay', label:'ขายได้วันละ (จาน)', type:'number', value:''}
+      {k:'name', label:'ชื่อเมนู', type:'text', value:m?.name ?? '', placeholder:'เช่น เครปกรอบ นูเทลล่า', wide:true},
+      {k:'price', label:'ราคาขาย (บาท)', type:'number', value:m?.price ?? ''},
+      {k:'qtyPerDay', label:'ขายได้วันละ (จาน)', type:'number', value:m?.qtyPerDay ?? ''}
     ],
+    live: m ? (v => {
+      const c = menuCost(m), pf = v.price - c;
+      if(!(v.price > 0)) return `ต้นทุนวัตถุดิบจานละ ${baht(c)} บาท`;
+      return `กำไรจานละ ${baht(pf)} บาท (${(pf/v.price*100).toFixed(1)}%) · วันละ ${baht(pf * v.qtyPerDay)} บาท`;
+    }) : null,
     check: v => !v.name.trim() ? 'ยังไม่ได้ใส่ชื่อเมนู'
               : v.price < 0 ? 'ราคาติดลบไม่ได้'
               : v.qtyPerDay < 0 ? 'จำนวนจานติดลบไม่ได้' : null,
     save: v => {
-      db.menus.push({id:uid(), name:v.name.trim(), price:v.price, qtyPerDay:v.qtyPerDay, items:[]});
+      const data = {name:v.name.trim(), price:v.price, qtyPerDay:v.qtyPerDay};
+      if(m) Object.assign(m, data);
+      else db.menus.push(Object.assign({id:uid(), items:[]}, data));
       save(); render();
     }
   });
 }
-function setMenu(id,k,v){
-  const m = findMenu(id); if(!m) return;
-  m[k] = k==='name' ? v : n(v);
-  save(); if(k!=='name') render();
-}
+function addMenu(){ menuDialog(null); }
+function editMenu(id){ const m = findMenu(id); if(m) menuDialog(m); }
 function delMenu(id){
   const m = findMenu(id);
   if(!confirm(`ลบเมนู "${m?.name||'(ไม่มีชื่อ)'}" ?`)) return;
   db.menus = db.menus.filter(x => x.id!==id); save(); render();
 }
-function addItem(mid){
+// หน้าต่างเดียวใช้ได้ทั้งเพิ่มและแก้ไขรายการในสูตร (idx = -1 คือเพิ่มใหม่)
+function itemDialog(mid, idx){
   const m = findMenu(mid); if(!m) return;
+  const cur = idx >= 0 ? m.items[idx] : null;
   openDialog({
-    title:'เพิ่มวัตถุดิบในสูตร',
+    title: cur ? 'แก้ไขวัตถุดิบในสูตร' : 'เพิ่มวัตถุดิบในสูตร',
     sub:`เมนู: ${m.name || '(ยังไม่มีชื่อ)'}`,
     fields:[
-      {k:'ingId', label:'วัตถุดิบ', type:'select', value:db.ingredients[0].id, wide:true,
+      {k:'ingId', label:'วัตถุดิบ', type:'select', value: cur ? cur.ingId : db.ingredients[0].id, wide:true,
        options: db.ingredients.map(i => ({value:i.id, label:i.name || '(ไม่มีชื่อ)'}))},
-      {k:'qty', label:'ใช้เท่าไหร่ต่อ 1 จาน', type:'number', value:'', wide:true}
+      {k:'qty', label:'ใช้เท่าไหร่ต่อ 1 จาน', type:'number', value: cur ? cur.qty : '', wide:true}
     ],
     live: v => {
       const ing = findIng(v.ingId);
@@ -772,16 +791,14 @@ function addItem(mid){
     check: v => !findIng(v.ingId) ? 'ยังไม่ได้เลือกวัตถุดิบ'
               : !(v.qty > 0) ? 'ปริมาณที่ใช้ต้องมากกว่า 0' : null,
     save: v => {
-      (m.items = m.items||[]).push({ingId:v.ingId, qty:v.qty});
+      if(cur) Object.assign(cur, {ingId:v.ingId, qty:v.qty});
+      else (m.items = m.items||[]).push({ingId:v.ingId, qty:v.qty});
       save(); render();
     }
   });
 }
-function setItem(mid,idx,k,v){
-  const m = findMenu(mid); if(!m||!m.items[idx]) return;
-  m.items[idx][k] = k==='qty' ? n(v) : v;
-  save(); render();
-}
+function addItem(mid){ itemDialog(mid, -1); }
+function editItem(mid, idx){ itemDialog(mid, idx); }
 function delItem(mid,idx){
   const m = findMenu(mid); if(!m) return;
   m.items.splice(idx,1); save(); render();
