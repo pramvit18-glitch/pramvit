@@ -320,6 +320,44 @@
   details>summary::after{content:'▾'; font-size:11px; transition:transform .15s}
   details[open]>summary::after{transform:rotate(180deg)}
 
+  /* ============ หน้าเลือกของที่ใช้ในสูตร ============ */
+  .picks{display:flex; flex-direction:column}
+  .pick{
+    display:grid; grid-template-columns:26px 1fr; gap:6px 11px; align-items:center;
+    padding:11px 10px; margin:0 -10px; border-bottom:1px solid var(--line-2); border-radius:12px;
+  }
+  .pick:last-child{border-bottom:none}
+  .pick.on{background:var(--accent-soft)}
+  .pick-box{
+    width:26px; height:26px; border-radius:8px; border:2px solid var(--line);
+    background:var(--surface); color:transparent; cursor:pointer; padding:0;
+    display:grid; place-items:center; flex:0 0 auto;
+  }
+  .pick.on .pick-box{background:var(--accent); border-color:var(--accent); color:#fff}
+  .pick-main{cursor:pointer; min-width:0}
+  .pick-qtyrow{grid-column:2/-1; display:flex; align-items:center; gap:9px}
+  .pick-qty{width:96px; flex:0 0 auto; padding:8px 10px}
+  .pick-unit{font-size:12.5px; color:var(--muted); flex:0 0 auto}
+  .pick-cost{
+    margin-left:auto; font-size:13px; font-weight:700; color:var(--accent-ink);
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* แถบสรุป+บันทึก ลอยอยู่เหนือแถบเมนูล่าง */
+  .savebar{
+    position:sticky; bottom:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+    background:var(--surface); border:1px solid var(--line); border-radius:16px;
+    padding:12px 14px; box-shadow:0 -4px 20px rgba(13,36,64,.1); margin-top:14px;
+  }
+  .savebar .btnrow .btn{flex:1}
+  .recipe-sum{margin-bottom:10px; line-height:1.45}
+  .recipe-sum b{display:block; font-size:14.5px}
+  .recipe-sum span{font-size:12.5px; color:var(--muted)}
+
+  .li-read{display:flex; align-items:center; gap:11px; padding:11px 0;
+           border-bottom:1px solid var(--line-2)}
+  .li-read:last-child{border-bottom:none}
+
   .empty{color:var(--muted); font-size:13.5px; text-align:center; padding:28px 10px}
   .empty svg{width:34px; height:34px; opacity:.4; display:block; margin:0 auto 8px}
   .hint{color:var(--muted); font-size:12.5px; margin:10px 0 0}
@@ -414,6 +452,9 @@
     }
     .dlg-grip{display:none}
     .dlg-head{padding-top:20px}
+    .savebar{bottom:20px}
+    .pick{grid-template-columns:26px 1fr auto; }
+    .pick-qtyrow{grid-column:3; }
   }
 </style>
 </head>
@@ -649,7 +690,8 @@ const TABS = [
 const FAB = {
   dash:  () => db.menus.length ? {label:'ใส่ยอดขาย', fn:'editSales()'} : null,
   ing:   () => ({label:'เพิ่มวัตถุดิบ', fn:'addIng()'}),
-  menu:  () => db.ingredients.length ? {label:'เพิ่มเมนู', fn:'addMenu()'} : null,
+  menu:  () => (recipeDraft || openMenuId || !db.ingredients.length)
+                 ? null : {label:'เพิ่มเมนู', fn:'addMenu()'},
   fixed: () => null
 };
 
@@ -855,12 +897,114 @@ function costSplit(m){
     </div>`;
 }
 
+/* ===================== หน้าเลือกของที่ใช้ในสูตร =====================
+   เดิมต้องเปิดหน้าต่างทีละชิ้น เมนูหนึ่งใช้ของ 7 อย่างก็ 7 รอบ
+   เปลี่ยนเป็นเห็นของทั้งหมดในหน้าเดียว ติ๊กอันที่ใช้แล้วใส่จำนวน จบในครั้งเดียว */
+let recipeDraft = null;   // {menuId, map:{ingId: qty}}
+
+function openRecipe(menuId){
+  const m = findMenu(menuId); if(!m) return;
+  recipeDraft = { menuId, map: Object.fromEntries((m.items||[]).map(it => [it.ingId, n(it.qty)])) };
+  render(); window.scrollTo({top:0});
+}
+function closeRecipe(){ recipeDraft = null; render(); window.scrollTo({top:0}); }
+
+function toggleIng(id){
+  if(!recipeDraft) return;
+  if(id in recipeDraft.map) delete recipeDraft.map[id];
+  else recipeDraft.map[id] = '';            // ติ๊กแล้วค่อยพิมพ์จำนวน
+  render();
+  const el = document.getElementById('q_' + id);
+  if(el) el.focus();
+}
+function setDraftQty(id, v){
+  if(!recipeDraft) return;
+  recipeDraft.map[id] = v === '' ? '' : n(v);
+  refreshRecipeSum();                        // อัปเดตแค่แถบสรุป ช่องที่พิมพ์อยู่จะได้ไม่หลุด
+  const c = document.getElementById('c_' + id);
+  const ing = findIng(id);
+  if(c && ing) c.textContent = n(v) > 0 ? baht(unitCost(ing) * n(v)) : '';
+}
+function draftCost(){
+  if(!recipeDraft) return 0;
+  return Object.entries(recipeDraft.map).reduce((s,[id,q]) => {
+    const ing = findIng(id);
+    return s + (ing ? unitCost(ing) * n(q) : 0);
+  }, 0);
+}
+function refreshRecipeSum(){
+  const box = document.getElementById('recipeSum');
+  if(box) box.innerHTML = recipeSumHTML();
+}
+function recipeSumHTML(){
+  const m = findMenu(recipeDraft.menuId);
+  const cost = draftCost(), price = n(m.price), pf = price - cost;
+  const picked = Object.keys(recipeDraft.map).length;
+  if(!picked) return `<b>ยังไม่ได้เลือกของ</b><span>ติ๊กของที่ใช้ทำจานนี้</span>`;
+  if(price <= 0) return `<b>ค่าของจานละ ${baht(cost)} บาท</b><span>เลือกไว้ ${picked} อย่าง · ยังไม่ได้ใส่ราคาขาย</span>`;
+  return `<b>ค่าของ ${baht(cost)} · ขาย ${baht(price)} → เหลือ ${baht(pf)} บาท</b>
+          <span>เลือกไว้ ${picked} อย่าง · กำไร ${price > 0 ? (pf/price*100).toFixed(0) : 0}%</span>`;
+}
+function saveRecipe(){
+  const m = findMenu(recipeDraft.menuId);
+  if(m){
+    m.items = Object.entries(recipeDraft.map)
+      .filter(([,q]) => n(q) > 0)
+      .map(([ingId,q]) => ({ingId, qty:n(q)}));
+    save();
+  }
+  recipeDraft = null; render(); window.scrollTo({top:0});
+}
+
+function viewRecipe(){
+  const m = findMenu(recipeDraft.menuId);
+  if(!m){ recipeDraft = null; return viewMenu(); }
+
+  const rows = db.ingredients.map(i => {
+    const on = i.id in recipeDraft.map;
+    const q = on ? recipeDraft.map[i.id] : '';
+    const c = n(q) > 0 ? baht(unitCost(i) * n(q)) : '';
+    return `<div class="pick${on ? ' on' : ''}">
+      <button class="pick-box" onclick="toggleIng('${i.id}')" aria-pressed="${on}"
+              aria-label="${on ? 'เอาออก' : 'เลือก'} ${esc(i.name)}">${icon('check',15)}</button>
+      <div class="pick-main" onclick="toggleIng('${i.id}')">
+        <div class="li-title">${esc(i.name || '(ไม่มีชื่อ)')}</div>
+        <div class="li-sub">${perUnit(i)}</div>
+      </div>
+      ${on ? `<div class="pick-qtyrow">
+        <input id="q_${i.id}" type="number" step="any" inputmode="decimal" class="pick-qty"
+               value="${q}" placeholder="0" oninput="setDraftQty('${i.id}', this.value)">
+        <span class="pick-unit">${esc(i.unit)}</span>
+        <span class="pick-cost" id="c_${i.id}">${c}</span>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+
+  return `<button class="btn back" onclick="closeRecipe()">${icon('back',16)} กลับไปหน้าเมนู</button>
+  <div class="card">
+    <h2>${esc(m.name || '(ยังไม่มีชื่อ)')} ใช้ของอะไรบ้าง</h2>
+    <p class="sub">ติ๊กของที่ใช้ แล้วใส่ว่าใช้เท่าไหร่ต่อ 1 จาน — ติ๊กได้หลายอย่างในครั้งเดียว</p>
+    ${db.ingredients.length
+      ? `<div class="picks">${rows}</div>`
+      : `<div class="empty">${icon('box',34)}ยังไม่มีของให้เลือก<br>ไปใส่ของที่ซื้อมาก่อน</div>
+         <button class="btn primary block" onclick="go('ing')">ไปใส่ของที่ซื้อมา</button>`}
+  </div>
+  <div class="savebar">
+    <div class="recipe-sum" id="recipeSum">${recipeSumHTML()}</div>
+    <div class="btnrow">
+      <button class="btn ghost" onclick="closeRecipe()">ยกเลิก</button>
+      <button class="btn primary" onclick="saveRecipe()">บันทึกสูตร</button>
+    </div>
+  </div>`;
+}
+
 // เปิดเมนูไหนอยู่ (null = แสดงเป็นรายการรวม)
 let openMenuId = null;
 function openMenu(id){ openMenuId = id; render(); window.scrollTo({top:0}); }
 function backToMenus(){ openMenuId = null; render(); window.scrollTo({top:0}); }
 
 function viewMenu(){
+  if(recipeDraft) return viewRecipe();
   if(!db.ingredients.length){
     openMenuId = null;
     return `<div class="card">
@@ -904,21 +1048,14 @@ function viewMenu(){
   // --- หน้ารายละเอียดของเมนูเดียว ---
   const cards = [findMenu(openMenuId)].map(m => {
     const cost = menuCost(m), mg = marginPct(m), lv = level(mg);
-    const items = (m.items||[]).map((it,idx) => {
+    const items = (m.items||[]).map(it => {
       const ing = findIng(it.ingId);
-      return `<div class="li" role="button" tabindex="0" onclick="editItem('${m.id}',${idx})"
-           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editItem('${m.id}',${idx})}">
+      return `<div class="li-read">
         <div class="li-main">
-          <div class="li-title">${esc(ing?.name || '(วัตถุดิบถูกลบไปแล้ว)')}</div>
+          <div class="li-title">${esc(ing?.name || '(ของชิ้นนี้ถูกลบไปแล้ว)')}</div>
           <div class="li-sub">ใช้ ${n(it.qty).toLocaleString('th-TH')} ${esc(ing?.unit||'')}</div>
         </div>
-        <div class="li-end">
-          <span class="chip">${ing ? baht(unitCost(ing)*n(it.qty)) : '–'}</span>
-          <span class="li-del" role="button" tabindex="0" title="ลบ"
-                onclick="event.stopPropagation(); delItem('${m.id}',${idx})"
-                onkeydown="if(event.key==='Enter'){event.stopPropagation();delItem('${m.id}',${idx})}">${icon('x',15)}</span>
-          <span class="li-chev">${icon('chev',16)}</span>
-        </div>
+        <span class="chip">${ing ? baht(unitCost(ing)*n(it.qty)) : '–'}</span>
       </div>`;
     }).join('');
 
@@ -943,10 +1080,10 @@ function viewMenu(){
 
       ${costSplit(m)}
 
-      <div class="sec">สูตร — ใช้วัตถุดิบอะไรบ้าง</div>
-      <div class="list">${items || `<div class="empty" style="padding:16px">ยังไม่ได้ใส่สูตร</div>`}</div>
+      <div class="sec">จานนี้ใช้ของอะไรบ้าง</div>
+      <div class="list">${items || `<div class="empty" style="padding:16px">ยังไม่ได้ใส่ว่าใช้ของอะไร</div>`}</div>
       <div style="margin-top:10px">
-        <button class="btn block" onclick="addItem('${m.id}')">${icon('plus',15)} เพิ่มวัตถุดิบในสูตร</button>
+        <button class="btn primary block" onclick="openRecipe('${m.id}')">${icon('edit',15)} ${items ? 'แก้ว่าใช้ของอะไรบ้าง' : 'เลือกของที่ใช้'}</button>
       </div>
 
       <div class="sec">ผลลัพธ์</div>
