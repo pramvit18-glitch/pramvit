@@ -366,10 +366,11 @@
   @media(min-width:1000px){
     body{background:var(--bg)}
     .shell{
+      width:auto;                 /* ไม่งั้น 100% + margin-left จะดันจนเกิดแถบเลื่อนแนวนอน */
       max-width:none; margin:0 0 0 var(--side); min-height:100dvh;
       box-shadow:none; border-left:1px solid var(--line);
     }
-    .appbar{padding:18px 28px 12px}
+    .appbar{max-width:936px; margin:0 auto; padding:18px 28px 12px}  /* ให้หัวข้อตรงแนวกับการ์ด */
     .appbar .logo{display:none}            /* โลโก้ไปอยู่ในแถบซ้ายแล้ว */
     .titles h1{font-size:23px}
     main{max-width:880px; margin:0 auto; padding:8px 28px 60px}
