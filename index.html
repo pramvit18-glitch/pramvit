@@ -1071,14 +1071,8 @@ function headStat(){
 
   if(order) return {k:'กำลังเปิดบิล', v: baht(orderTotal()), u:'บาท',
                     s: orderCount() ? `${orderCount()} จานในบิลนี้` : 'กดเมนูที่ลูกค้าสั่ง'};
-  if(tab === 'today'){
-    const key = dayKey(), d = sumDay(key);
-    const has = (db.sales||[]).some(x=>x.d===key) || (db.expenses||[]).some(x=>x.d===key);
-    return {k: thaiDate(key, true) + ' · ' + (d.net>=0 ? 'วันนี้เหลือ' : 'วันนี้ขาดทุน'),
-            v: baht(Math.abs(d.net)), u:'บาท',
-            s: has ? `ขายได้ ${baht(d.sale)} · ซื้อของ ${baht(d.exp)} บาท`
-                   : 'ยังไม่ได้บันทึกอะไรวันนี้ — กดปุ่มด้านล่างได้เลย'};
-  }
+  if(tab === 'today') return null;    // การ์ดหลักบน Dashboard บอกอยู่แล้ว ไม่ต้องซ้ำ
+
   if(tab === 'hist'){
     const days = allDays();
     if(!days.length) return {k:'ย้อนหลัง', v:'', s:'ยังไม่มีประวัติ'};
