@@ -429,9 +429,10 @@
   }
   .top b{color:var(--muted); font-weight:700; font-variant-numeric:tabular-nums}
   .top:hover{border-color:var(--orange)}
+  .top::before{content:'✓'; margin-right:5px; font-weight:900; opacity:0; transition:opacity .12s}
   .top.on{background:var(--tint); border-color:var(--orange); color:var(--orange-d)}
   .top.on b{color:var(--orange-d)}
-  .top.on::before{content:'✓ '; font-weight:900}
+  .top.on::before{opacity:1}
 
   /* ย้อนหลังรายวัน */
   .days{display:flex; flex-direction:column}
