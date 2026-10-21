@@ -449,7 +449,10 @@
   .day-n{grid-column:2/-1; font-size:11.5px; font-variant-numeric:tabular-nums}
 
 
-  /* ===================== หน้าขายแบบ POS ===================== */
+  
+
+
+/* ===================== หน้าขายแบบ POS ===================== */
   .posgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px}
   .posbtn{
     display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between;
@@ -1458,6 +1461,60 @@ function stepsCard(){
 /* ===================== หน้าขายแบบ POS =====================
    เปิดบิล → กดเมนูที่ลูกค้าสั่ง (กดซ้ำ = เพิ่มจำนวน) → ใส่ท็อปปิ้ง → รับเงิน
    บันทึกเป็นรายการแยกตามเมนู แต่ผูก bill เดียวกัน จะได้ดูย้อนหลังได้เหมือนเดิม */
+/* ===================== เมนูจริงจากใบเมนูของร้าน =====================
+   เครป: แป้ง 15 บาท แล้วบวกไส้ที่เลือก (ไส้ละ 5–10 บาท) ซอสราดฟรี
+   โตเกียว: ไส้คาวคิดตามจำนวนไส้ (2 ไส้ 10 / 3 ไส้ 15) จึงแยกเป็น 2 เมนู */
+function shopMenu(){
+  const A = (name, price, group) => ({ id: uid(), name, price, group });
+
+  const ไส้คาวเครป = [
+    ['พิซซ่า',5], ['พริกเผา',5], ['ไก่หยอง',5],
+    ['โบโลน่า',5], ['ไก่สับ',5], ['ไส้กรอก',5],
+    ['ปูอัด',5], ['ไข่นก',5], ['ไข่ไก่',10], ['ยำสาหร่าย',10]
+  ].map(([n,p]) => A(n, p, 'ไส้คาว'));
+
+  const ไส้หวานเครป = [
+    ['แยมสตรอเบอร์รี่',5], ['แยมบลูเบอร์รี่',5], ['ช็อกโกแลต',5],
+    ['เยลลี่',5], ['โอริโอ้',5], ['ลูกเกด',5],
+    ['มาร์ชเมลโลว์',5], ['ฝอยทอง',10]
+  ].map(([n,p]) => A(n, p, 'ไส้หวาน'));
+
+  const ซอสฟรี = ['ซอสพริก','ซอสมะเขือเทศ','มายองเนส','นมข้น','ช็อกโกแลต']
+    .map(n => A(n, 0, 'ราดซอส (ฟรี)'));
+
+  const ไส้โตเกียว = ['พริกเผา','พิซซ่า','ไข่นก','ปูอัด','ไส้กรอก','ไก่สับ','โบโลน่า','ไก่หยอง','สาหร่าย']
+    .map(n => A(n, 0, 'เลือกไส้'));
+
+  const ไส้หวานโตเกียว = ['ครีม','ครีมข้าวโพด','เผือกกวน'].map(n => A(n, 0, 'เลือกไส้'));
+
+  const M = (name, price, addons) => ({ id: uid(), name, price, qtyPerDay: 0, items: [], addons });
+
+  return [
+    M('เครป แป้งวานิลา', 15, [...ไส้คาวเครป, ...ไส้หวานเครป, ...ซอสฟรี]),
+    M('เครป แป้งชาร์โคล', 15, [...ไส้คาวเครป.map(a=>({...a,id:uid()})),
+                               ...ไส้หวานเครป.map(a=>({...a,id:uid()})),
+                               ...ซอสฟรี.map(a=>({...a,id:uid()}))]),
+    M('โตเกียวไส้คาว 2 ไส้', 10, [...ไส้โตเกียว, ...ซอสฟรี.map(a=>({...a,id:uid()}))]),
+    M('โตเกียวไส้คาว 3 ไส้', 15, [...ไส้โตเกียว.map(a=>({...a,id:uid()})),
+                                  ...ซอสฟรี.map(a=>({...a,id:uid()}))]),
+    M('โตเกียวไส้หวาน 6 ชิ้น', 25, [...ไส้หวานโตเกียว,
+                                     ...ซอสฟรี.map(a=>({...a,id:uid()}))]),
+    M('ไข่ป๋วง 8 ชิ้น', 25, []),
+    M('แพนเค้กมินิ 15 ชิ้น', 25, []),
+    M('แพนเค้กไส้กรอก 3 ชิ้น', 20, [])
+  ];
+}
+
+// ใส่เมนูจริงลงแอป โดยไม่แตะยอดขาย/รายจ่ายที่บันทึกไว้แล้ว
+function loadShopMenu(){
+  const had = db.menus.length;
+  if(had && !confirm('จะแทนที่เมนูเดิมทั้งหมดด้วยเมนูจากใบเมนู\n(ยอดขายกับรายจ่ายที่บันทึกไว้ไม่หาย)\nยืนยันไหม?')) return;
+  db.menus = shopMenu();
+  delete db.isDemo;
+  save(); tab = 'menu'; openMenuId = null; render();
+  toast('ใส่เมนูให้แล้ว ' + db.menus.length + ' เมนู');
+}
+
 let order = null;   // {lines:[{menuId,name,price,qty,addons:[{name,price}]}]}
 
 function openPOS(){
@@ -1504,12 +1561,9 @@ function lineAddons(lid){
   const picked = new Set((l.addons||[]).map(a => a.name));
   window._topPick = picked;
   const draw = () => openDialog({
-    title:'ท็อปปิ้ง',
-    sub: `${l.name} — ติ๊กของที่ลูกค้าเพิ่ม`,
-    html: `<div class="tops">${tops.map(a => `
-      <button class="top${picked.has(a.name) ? ' on' : ''}" onclick="pickLineTop('${lid}','${esc(a.name)}')">
-        ${esc(a.name)} <b>+${baht(a.price)}</b>
-      </button>`).join('')}</div>`,
+    title:'เลือกไส้ / ท็อปปิ้ง',
+    sub: `${l.name} — ติ๊กของที่ลูกค้าเลือก`,
+    html: topsHTML(tops, picked, lid),
     foot:[{label:'เสร็จแล้ว', cls:'primary', fn:'dlg.close(); render()'}]
   });
   l._draw = draw;
@@ -1555,7 +1609,7 @@ function viewPOS(){
       <div class="bl-main">
         <div class="bl-name">${esc(l.name || '(ไม่มีชื่อ)')}</div>
         ${(l.addons||[]).length
-          ? `<div class="bl-add">${l.addons.map(a => esc(a.name) + ' +' + baht(a.price)).join(' · ')}</div>`
+          ? `<div class="bl-add">${l.addons.map(a => esc(a.name) + (n(a.price) > 0 ? ' +' + baht(a.price) : '')).join(' · ')}</div>`
           : ''}
         <button class="bl-top" onclick="lineAddons('${l.lid}')">+ ท็อปปิ้ง</button>
       </div>
@@ -1600,6 +1654,23 @@ function viewPOS(){
       <button class="btn primary" onclick="payBill()" ${lines.length ? '' : 'disabled'}>รับเงิน</button>
     </div>
   </div>`;
+}
+
+// จัดกลุ่มท็อปปิ้งตามหัวข้อในใบเมนู (ไส้คาว / ไส้หวาน / ราดซอส) จะได้หาเจอเร็ว
+function topsHTML(tops, picked, lid){
+  const groups = [];
+  tops.forEach(a => {
+    const g = a.group || '';
+    let row = groups.find(x => x.g === g);
+    if(!row) groups.push(row = {g, list:[]});
+    row.list.push(a);
+  });
+  return groups.map(row => `
+    ${row.g ? `<div class="sec">${esc(row.g)}</div>` : ''}
+    <div class="tops">${row.list.map(a => `
+      <button class="top${picked.has(a.name) ? ' on' : ''}" onclick="pickLineTop('${lid}','${esc(a.name)}')">
+        ${esc(a.name)} <b>${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</b>
+      </button>`).join('')}</div>`).join('');
 }
 
 /* ข้อความแจ้งสั้น ๆ มุมล่าง */
@@ -2076,6 +2147,7 @@ function viewMore(){
     <div class="list">
       ${moreRow('สำรอง / กู้คืนข้อมูล', 'คัดลอกเก็บไว้ กันข้อมูลหาย', 'openBackup()')}
       ${moreRow('คำในแอปแปลว่าอะไร', 'อ่านครั้งเดียวก็พอ', 'openHelp()')}
+      ${moreRow('ใส่เมนูจากใบเมนูร้าน', '8 เมนู พร้อมไส้และซอสครบตามใบเมนู', 'loadShopMenu()')}
       ${moreRow('ใส่ข้อมูลตัวอย่าง', 'ลองเล่นด้วยข้อมูลร้านสมมติ', 'loadDemo()')}
     </div>
     <div class="btnrow" style="margin-top:16px">
@@ -2115,9 +2187,12 @@ function addonList(m){
   const rows = (m.addons||[]).map((a,i) => `
     <div class="li" role="button" tabindex="0" onclick="addonDialog('${m.id}',${i})"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();addonDialog('${m.id}',${i})}">
-      <div class="li-main"><div class="li-title">${esc(a.name)}</div></div>
+      <div class="li-main">
+        <div class="li-title">${esc(a.name)}</div>
+        ${a.group ? `<div class="li-sub">${esc(a.group)}</div>` : ''}
+      </div>
       <div class="li-end">
-        <span class="chip">+${baht(a.price)}</span>
+        <span class="chip">${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</span>
         <span class="li-chev">${icon('chev',16)}</span>
       </div>
     </div>`).join('');

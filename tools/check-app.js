@@ -114,6 +114,28 @@ const probe = `
   const d = sumDay(key);
   logic.push(['เหลือ = ขายได้ − ซื้อของ', Math.abs(d.net - (d.sale - d.exp)) < 0.001]);
 
+  // ---- เมนูจริงจากใบเมนู ----
+  const ms = shopMenu();
+  logic.push(["ใบเมนูมีครบ 8 เมนู", ms.length === 8]);
+  const crepe = ms[0];
+  logic.push(["เครปราคาแป้ง 15 บาท", crepe.price === 15]);
+  logic.push(["เครปมีไส้+ซอสครบ 23 อย่าง", (crepe.addons||[]).length === 23]);
+  const egg = crepe.addons.find(a => a.name === "ไข่ไก่");
+  const jam = crepe.addons.find(a => a.name === "แยมสตรอเบอร์รี่");
+  const sauce = crepe.addons.find(a => a.name === "นมข้น");
+  logic.push(["ไข่ไก่ 10 บาท", egg && egg.price === 10]);
+  logic.push(["แยมสตรอเบอร์รี่ 5 บาท", jam && jam.price === 5]);
+  logic.push(["ซอสราดฟรี 0 บาท", sauce && sauce.price === 0]);
+  logic.push(["โตเกียว 2 ไส้ = 10 บาท", ms[2].price === 10 && ms[2].name.includes("2 ไส้")]);
+  logic.push(["โตเกียว 3 ไส้ = 15 บาท", ms[3].price === 15]);
+  logic.push(["ไส้หวานโตเกียว 25 บาท", ms[4].price === 25]);
+  logic.push(["แพนเค้กไส้กรอก 20 บาท", ms[7].price === 20]);
+  // เครป 1 ชิ้น + ไข่ไก่ + ช็อกโกแลต + นมข้น = 15+10+5+0 = 30
+  const groups = [...new Set(crepe.addons.map(a => a.group))];
+  logic.push(["จัดกลุ่มไส้ไว้ 3 กลุ่ม", groups.length === 3]);
+  logic.push(["คิดราคา เครป+ไข่ไก่+ช็อกโกแลต+นมข้น = 30",
+    15 + egg.price + crepe.addons.find(a=>a.name==="ช็อกโกแลต"&&a.group==="ไส้หวาน").price + sauce.price === 30]);
+
   const report = {};
   for (const [k,v] of Object.entries(views)) report[k] = { len: v.length, bad: check(v) };
   return { report, logic, day: d, month: sumMonth(monthKey(key)) };
