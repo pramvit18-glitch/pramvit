@@ -751,6 +751,53 @@
     .dash-i{grid-column:span 2}
   }
 
+
+  /* ===================== หน้าขาย ===================== */
+  .salewrap{display:grid; grid-template-columns:1fr; gap:14px}
+  .sale-side{display:flex; flex-direction:column; gap:14px}
+
+  /* ปุ่มสั่งสินค้า อยู่ในการ์ดหลัก เป็นปุ่มขาวบนพื้นส้ม */
+  .hero-card .orderbtn{
+    position:relative; z-index:1; width:100%; margin:18px 0 0;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    padding:15px; border:none; border-radius:14px;
+    background:#fff; color:var(--orange-d); cursor:pointer; font:inherit;
+    font-weight:800; font-size:16px; box-shadow:0 4px 14px rgba(120,45,0,.18);
+    transition:transform .14s;
+  }
+  .hero-card .orderbtn svg{width:20px; height:20px}
+  .hero-card .orderbtn:active{transform:scale(.97)}
+  .hero-card .orderbtn:hover{background:#fffaf5}
+
+  /* แถวบิล */
+  .bills{display:flex; flex-direction:column}
+  .billrow{
+    display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    padding:13px 10px; margin:0 -10px; border:none; background:none; cursor:pointer;
+    border-bottom:1px solid var(--line-2); border-radius:12px;
+    font:inherit; color:inherit; transition:background .14s;
+  }
+  .billrow:last-child{border-bottom:none}
+  .billrow:hover{background:var(--soft)}
+  .billrow:focus-visible{outline:2px solid var(--orange); outline-offset:-2px}
+  .billrow-t{
+    flex:0 0 auto; width:50px; height:30px; border-radius:9px; background:var(--tint);
+    color:var(--orange-d); display:grid; place-items:center;
+    font-size:12px; font-weight:800; font-variant-numeric:tabular-nums;
+  }
+  .billrow-m{flex:1; min-width:0}
+  .billrow-n{font-weight:700; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .billrow-s{font-size:12px; color:var(--muted)}
+  .billrow-v{
+    flex:0 0 auto; font-weight:800; font-size:15.5px; color:var(--good-ink);
+    font-variant-numeric:tabular-nums;
+  }
+
+  @media(min-width:1000px){
+    .salewrap{grid-template-columns:330px 1fr; gap:18px; align-items:start}
+    .sale-side{position:sticky; top:16px}
+  }
+
 </style>
 </head>
 <body>
@@ -2052,40 +2099,72 @@ function viewPOS(){
   const key = dayKey();
   const bills = billsToday(key);
   const d = sumDay(key);
+  const menus = topMenus(key).slice(0,3);
+  const topBaht = menus.length ? menus[0].baht : 1;
+  const avgBill = bills.length ? d.sale / bills.length : 0;
 
   const rows = bills.map(b => {
     const names = b.lines.map(l => esc(l.name) + (n(l.qty) > 1 ? ' ×' + n(l.qty) : '')).join(' · ');
-    const tops = b.lines.flatMap(l => (l.addons||[]).map(a => a.name));
-    return `<div class="li" role="button" tabindex="0" onclick="billDetail('${b.bill}')"
+    const tops = [...new Set(b.lines.flatMap(l => (l.addons||[]).map(a => a.name)))];
+    return `<div class="billrow" role="button" tabindex="0" onclick="billDetail('${b.bill}')"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();billDetail('${b.bill}')}">
-      <div class="li-main">
-        <div class="li-title">${names}</div>
-        <div class="li-sub">${b.t}${tops.length ? ' · ' + esc([...new Set(tops)].join(' ')) : ''}</div>
+      <span class="billrow-t">${esc(b.t || '--:--')}</span>
+      <div class="billrow-m">
+        <div class="billrow-n">${names}</div>
+        <div class="billrow-s">${b.qty} จาน${tops.length ? ' · ' + esc(tops.join(' ')) : ''}</div>
       </div>
-      <div class="li-end">
-        <span class="amt in">${baht(b.total)}</span>
-        <span class="li-chev">${icon('chev',16)}</span>
-      </div>
+      <span class="billrow-v">${baht(b.total)}</span>
+      <span class="li-chev">${icon('chev',16)}</span>
     </div>`;
   }).join('');
 
   return `
-  <button class="orderbtn" onclick="openOrderDialog()">
-    ${icon('cart',24)}
-    <span>สั่งสินค้า</span>
-  </button>
+  <div class="salewrap">
 
-  <div class="card">
-    <div class="head-row">
-      <h2>ขายไปแล้ววันนี้</h2>
-      <span class="chip">${bills.length} บิล · ${baht(d.sale)} บาท</span>
+    <div class="sale-side">
+      <div class="hero-card">
+        <div class="hero-main">
+          <div class="hero-row">
+            <span class="hero-ic">${icon('cart',20)}</span>
+            <div>
+              <div class="hero-k">ขายวันนี้</div>
+              <div class="hero-sub">${thaiDate(key)}</div>
+            </div>
+          </div>
+          <div class="hero-nums">
+            <div><span>ยอดขาย</span><b>${baht(d.sale)}</b></div>
+            <div><span>บิล</span><b>${bills.length}</b></div>
+          </div>
+        </div>
+        <button class="orderbtn" onclick="openOrderDialog()">
+          ${icon('plus',20)}<span>สั่งสินค้า</span>
+        </button>
+      </div>
+
+      ${menus.length ? `<div class="card">
+        ${cardHead('menu','ขายดีวันนี้', `เฉลี่ยบิลละ ${baht(avgBill)} บาท`)}
+        <div class="rankx">${menus.map((m,i) => `
+          <div class="rankx-row">
+            <span class="rankx-no${i===0?' top':''}">${i+1}</span>
+            <div class="rankx-main">
+              <div class="rankx-n">${esc(m.name)}</div>
+              <div class="meter"><i style="width:${clamp(m.baht/topBaht*100,4,100)}%"></i></div>
+            </div>
+            <div class="rankx-v">${baht(m.baht)}<span>${m.qty} จาน</span></div>
+          </div>`).join('')}</div>
+      </div>` : ''}
     </div>
-    <p class="sub">${bills.length ? 'แตะที่บิลเพื่อดูรายละเอียดหรือลบ' : ''}</p>
-    <div class="list">${rows || `<div class="empty">
-      <div class="empty-ic">${icon('cart',30)}</div>
-      <h3>ยังไม่ได้ขายอะไรวันนี้</h3>
-      <p>กดปุ่ม <b>สั่งสินค้า</b> ด้านบนเมื่อลูกค้าสั่ง</p>
-    </div>`}</div>
+
+    <div class="card sale-list">
+      ${cardHead('hist','บิลวันนี้', bills.length ? `${bills.length} บิล · แตะเพื่อดูหรือลบ` : 'ยังไม่มีบิล')}
+      ${bills.length ? `<div class="bills">${rows}</div>` : `<div class="empty">
+        <div class="empty-ic">${icon('cart',30)}</div>
+        <h3>ยังไม่ได้ขายอะไรวันนี้</h3>
+        <p>กดปุ่ม <b>สั่งสินค้า</b> เมื่อลูกค้าสั่ง แล้วบิลจะมาอยู่ตรงนี้</p>
+        <button class="btn primary" onclick="openOrderDialog()">${icon('plus',16)} เปิดบิลแรก</button>
+      </div>`}
+    </div>
+
   </div>`;
 }
 
