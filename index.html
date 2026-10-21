@@ -597,6 +597,17 @@
     .poswrap{grid-template-columns:1fr 320px}
   }
 
+
+  /* บิลคอลัมน์แคบ: ชื่ออยู่บรรทัดบนเต็มความกว้าง ปุ่มกับยอดอยู่บรรทัดล่าง ชื่อจะได้ไม่ตัดคำแตก */
+  .bill-line{grid-template-columns:1fr auto auto; gap:8px 10px}
+  .bill-line .bl-main{grid-column:1/-1}
+  .bl-name{line-height:1.35}
+  .bl-qty{justify-self:start}
+  .bl-sum{justify-self:end}
+
+  /* แถบข้อมูลตัวอย่างไม่ต้องโผล่ตอนกำลังขาย */
+  .hide-banner #banner{display:none}
+
 </style>
 </head>
 <body>
@@ -980,6 +991,8 @@ function render(){
     `<div class="k">${hs.k}</div>` +
     (hs.v ? `<div class="v">${hs.v}${hs.u ? `<small>${hs.u}</small>` : ''}</div>` : '') +
     `<div class="s">${hs.s}</div>`;
+
+  document.body.classList.toggle('hide-banner', tab === 'sale');
 
   const neg = tab === 'dash' && db.menus.length && hasSales() && daily().net < 0;
   document.getElementById('headStat').classList.toggle('is-bad', !!neg);
