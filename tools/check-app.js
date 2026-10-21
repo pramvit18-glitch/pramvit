@@ -97,6 +97,13 @@ const probe = `
   const d = sumDay(key);
   logic.push(['เหลือ = ขายได้ − ซื้อของ', Math.abs(d.net - (d.sale - d.exp)) < 0.001]);
 
+  /* ---- หน้าต่างถามยืนยัน (ต้องเปิดได้ ไม่พัง) ---- */
+  let confirmed = false;
+  askConfirm("ทดสอบ", "คำอธิบาย", "ตกลง", () => { confirmed = true; });
+  logic.push(["หน้าต่างถามยืนยันเปิดได้", !!dlgCfg && Array.isArray(dlgCfg.foot) && dlgCfg.foot.length === 2]);
+  window._confirmYes();
+  logic.push(["กดตกลงแล้วทำงานต่อ", confirmed === true]);
+
   /* ---- เมนูจริงจากใบเมนู ---- */
   const ms = shopMenu();
   const crepe = ms[0];

@@ -930,8 +930,9 @@ function openDialog(cfg){
     }
   }
 
-  // โหมดอ่านอย่างเดียว เช่น หน้าอธิบายคำศัพท์
-  if(cfg.html){
+  // โหมดอ่านอย่างเดียว เช่น หน้าอธิบายคำศัพท์ หรือหน้าถามยืนยัน
+  // (เช็กว่าส่ง html มาหรือเปล่า ไม่ใช่เช็กว่ามีเนื้อหา — ข้อความว่างก็ยังถือว่าโหมดนี้)
+  if(cfg.html !== undefined){
     document.getElementById('dlgBody').innerHTML = `<div style="grid-column:1/-1">${cfg.html}</div>`;
     if(!cfg.foot) foot.innerHTML = '<button type="button" class="btn primary" onclick="dlg.close()">เข้าใจแล้ว</button>';
     dlg.showModal();
