@@ -1297,6 +1297,13 @@ const dlg = document.getElementById('dlg');
 let dlgCfg = null;
 
 // fields: [{k, label, type:'text'|'number'|'select', value, options, placeholder, wide, step}]
+// ปุ่มใน <form> ที่ไม่ได้ใส่ type จะเป็น submit โดยปริยาย กดแล้วกล่องปิดทันที
+// บังคับให้เป็นปุ่มธรรมดาทั้งหมด เหลือแต่ปุ่มบันทึกที่ตั้ง type="submit" ไว้เอง
+function plainButtons(){
+  const body = document.getElementById('dlgBody');
+  if(body && body.querySelectorAll) body.querySelectorAll('button:not([type])').forEach(b => b.type = 'button');
+}
+
 function openDialog(cfg){
   dlgCfg = cfg;
   document.getElementById('dlgTitle').textContent = cfg.title;
@@ -1326,8 +1333,9 @@ function openDialog(cfg){
   // (เช็กว่าส่ง html มาหรือเปล่า ไม่ใช่เช็กว่ามีเนื้อหา — ข้อความว่างก็ยังถือว่าโหมดนี้)
   if(cfg.html !== undefined){
     document.getElementById('dlgBody').innerHTML = `<div style="grid-column:1/-1">${cfg.html}</div>`;
+    plainButtons();
     if(!cfg.foot) foot.innerHTML = '<button type="button" class="btn primary" onclick="dlg.close()">เข้าใจแล้ว</button>';
-    dlg.showModal();
+    if(!dlg.open) dlg.showModal();
     return;
   }
 
@@ -1346,9 +1354,10 @@ function openDialog(cfg){
     + (cfg.live ? `<div class="dlg-live" id="dlgLive"></div>` : '')
     + `<div class="dlg-err" id="dlgErr"></div>`;
 
+  plainButtons();
   if(cfg.live) dlg.addEventListener('input', dlgLive);
   dlgLive();
-  dlg.showModal();
+  if(!dlg.open) dlg.showModal();
   const first = dlg.querySelector('[data-k]');
   if(first) setTimeout(() => first.focus(), 60);
 }
@@ -1368,6 +1377,7 @@ function dlgLive(){
 }
 function dlgSubmit(e){
   e.preventDefault();
+  if(typeof dlgCfg.save !== 'function') return false;   // กล่องอ่านอย่างเดียว ไม่มีอะไรให้บันทึก
   const v = dlgValues();
   const err = dlgCfg.check ? dlgCfg.check(v) : null;
   if(err){ document.getElementById('dlgErr').textContent = err; return false; }
@@ -2100,8 +2110,8 @@ function orderDialogHTML(){
   const shown = posCat ? db.menus.filter(m => menuCat(m) === posCat) : db.menus;
 
   const catTabs = cats.length > 1 ? `<div class="cats">
-      <button class="cat${posCat ? '' : ' on'}" onclick="pickCat('*')">ทั้งหมด <b>${db.menus.length}</b></button>
-      ${cats.map(c => `<button class="cat${posCat === c ? ' on' : ''}" onclick="pickCat('${esc(c)}')">
+      <button type="button" class="cat${posCat ? '' : ' on'}" onclick="pickCat('*')">ทั้งหมด <b>${db.menus.length}</b></button>
+      ${cats.map(c => `<button type="button" class="cat${posCat === c ? ' on' : ''}" onclick="pickCat('${esc(c)}')">
         ${esc(c)} <b>${db.menus.filter(m => menuCat(m) === c).length}</b></button>`).join('')}
     </div>` : '';
 
@@ -2109,7 +2119,7 @@ function orderDialogHTML(){
     const inBill = lines.filter(l => l.menuId === m.id).reduce((a,l) => a + n(l.qty), 0);
     const tops = menuAddons(m).length;
     return `
-    <button class="posrow${inBill ? ' has' : ''}" onclick="tapMenu('${m.id}')">
+    <button type="button" class="posrow${inBill ? ' has' : ''}" onclick="tapMenu('${m.id}')">
       <span class="posrow-n">${esc(m.name || '(ไม่มีชื่อ)')}${tops ? `<small class="posrow-top">เลือกไส้ได้ ${tops}</small>` : ''}</span>
       ${inBill ? `<span class="posrow-c">${inBill}</span>` : ''}
       <span class="posrow-p">${baht(m.price)}</span>
@@ -2127,15 +2137,15 @@ function orderDialogHTML(){
         ${picked
           ? `<div class="bl-add">${l.addons.map(a => esc(a.name) + (n(a.price) > 0 ? ' +' + baht(a.price) : '')).join(' · ')}</div>`
           : ''}
-        ${tops ? `<button class="bl-top${picked ? ' on' : ''}" onclick="lineAddons('${l.lid}')">${picked ? `แก้ไส้ (${picked} อย่าง)` : `+ เลือกไส้ · มี ${tops} อย่าง`}</button>` : ''}
+        ${tops ? `<button type="button" class="bl-top${picked ? ' on' : ''}" onclick="lineAddons('${l.lid}')">${picked ? `แก้ไส้ (${picked} อย่าง)` : `+ เลือกไส้ · มี ${tops} อย่าง`}</button>` : ''}
       </div>
       <div class="bl-qty">
-        <button onclick="lineQty('${l.lid}',-1)" aria-label="ลด">−</button>
+        <button type="button" onclick="lineQty('${l.lid}',-1)" aria-label="ลด">−</button>
         <span>${n(l.qty)}</span>
-        <button onclick="lineQty('${l.lid}',1)" aria-label="เพิ่ม">+</button>
+        <button type="button" onclick="lineQty('${l.lid}',1)" aria-label="เพิ่ม">+</button>
       </div>
       <div class="bl-sum">${baht(lineTotal(l))}</div>
-      <button class="bl-del" onclick="delLine('${l.lid}')" aria-label="ลบ">${icon('x',14)}</button>
+      <button type="button" class="bl-del" onclick="delLine('${l.lid}')" aria-label="ลบ">${icon('x',14)}</button>
     </div>`;
   }).join('');
 
@@ -2298,7 +2308,7 @@ function topsHTML(tops, picked, lid){
   return groups.map(row => `
     ${row.g ? `<div class="sec">${esc(row.g)}</div>` : ''}
     <div class="tops">${row.list.map(a => `
-      <button class="top${picked.has(a.name) ? ' on' : ''}" aria-pressed="${picked.has(a.name)}" onclick="pickLineTop('${lid}','${esc(a.name)}',this)">
+      <button type="button" class="top${picked.has(a.name) ? ' on' : ''}" aria-pressed="${picked.has(a.name)}" onclick="pickLineTop('${lid}','${esc(a.name)}',this)">
         ${esc(a.name)} <b>${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</b>
       </button>`).join('')}</div>`).join('');
 }

@@ -97,10 +97,17 @@ const probe = `
   tapMenu(plain.id);
   out.push(['กดเมนูเดิมซ้ำแค่เพิ่มจำนวน', n(plainLine.qty) === 2 && seen.length === 0]);
 
+  // ปุ่มในกล่องที่ไม่ได้บอก type จะเป็น submit ของ form แล้วกดทีกล่องปิดที
+  const noType = h => h.split('<button').slice(1).filter(x => x.slice(0, x.indexOf('>')).indexOf('type=') < 0);
+  out.push(['ปุ่มในหน้าต่างสั่งสินค้าบอก type ครบ ไม่ไปปิดกล่องเอง', noType(orderDialogHTML()).length === 0]);
+  out.push(['ปุ่มเลือกไส้บอก type ครบ',
+    noType(topsHTML(menuAddons(crepe), new Set(), lid)).length === 0]);
+
   const o = t => (orderDialogHTML().match(new RegExp('<' + t + '[ >]', 'g'))||[]).length;
   const c = t => (orderDialogHTML().match(new RegExp('</' + t + '>', 'g'))||[]).length;
   out.push(['แท็กครบ', ['div','span','button','p','small','b'].every(t => o(t) === c(t))]);
 
+  if(noType(orderDialogHTML()).length) console.log('  ปุ่มที่ยังไม่บอก type:', noType(orderDialogHTML()).map(x => x.slice(0, x.indexOf('>'))));
   return { out, groups: (db.groups||[]).map(g => g.name + '(' + g.items.length + ')') };
 })()
 `;
