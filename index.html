@@ -506,6 +506,37 @@
   .toast.on{opacity:1; transform:translateX(-50%) translateY(0)}
   @media(min-width:760px){ .toast{bottom:30px} }
 
+
+  /* ===================== หน้าขาย: เมนูซ้าย บิลขวา ===================== */
+  .poswrap{display:grid; grid-template-columns:1fr; gap:0}
+  .billbox{padding:22px 0 0; border-top:1px solid var(--line)}
+  .billfoot{margin-top:16px; padding-top:16px; border-top:1px solid var(--line)}
+  .billfoot .btnrow .btn{flex:1}
+
+  @media(min-width:860px){
+    /* จอกว้างพอ: เมนูอยู่ซ้าย บิลอยู่ขวาและติดหน้าจอตอนเลื่อน */
+    .poswrap{grid-template-columns:1fr 340px; gap:0 30px; align-items:start}
+    .billbox{
+      position:sticky; top:20px; padding:20px;
+      border:1px solid var(--line); border-top:1px solid var(--line);
+      border-radius:16px; background:var(--bg);
+      box-shadow:0 6px 24px rgba(27,23,21,.07);
+      max-height:calc(100dvh - 40px); display:flex; flex-direction:column;
+    }
+    .billbox .bill{overflow-y:auto; flex:1 1 auto; min-height:60px}
+    .billfoot{flex:0 0 auto}
+    .posgrid{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}
+  }
+
+  @media(max-width:859px){
+    /* จอแคบ: บิลอยู่ล่าง แต่ยอดรวมกับปุ่มรับเงินติดขอบจอไว้ */
+    .billfoot{
+      position:sticky; bottom:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
+      background:var(--bg); border:1px solid var(--line); border-radius:14px;
+      padding:14px 16px; box-shadow:0 6px 24px rgba(27,23,21,.1); margin-top:18px;
+    }
+  }
+
 </style>
 </head>
 <body>
@@ -1562,6 +1593,7 @@ function openPOS(){
   order = { lines: [] };
   render(); window.scrollTo({top:0});
 }
+function clearBill(){ if(order) order.lines = []; render(); }
 function closePOS(){ order = null; render(); window.scrollTo({top:0}); }
 
 const lineTotal = l => (n(l.price) + (l.addons||[]).reduce((s,a) => s + n(a.price), 0)) * n(l.qty);
@@ -1661,33 +1693,41 @@ function viewPOS(){
   return `
   <button class="btn back" onclick="closePOS()">${icon('back',16)} ปิดบิล</button>
 
-  <div class="card">
-    <div class="head-row">
-      <h2>ลูกค้าสั่งอะไร</h2>
-      <button class="btn sm" onclick="go('menu')">แก้เมนู</button>
+  <div class="poswrap">
+    <div class="pos-left">
+      <div class="card">
+        <div class="head-row">
+          <h2>ลูกค้าสั่งอะไร</h2>
+          <button class="btn sm" onclick="go('menu')">แก้เมนู</button>
+        </div>
+        <p class="sub">กดที่เมนูเพื่อเพิ่มลงบิล · กดซ้ำ = เพิ่มจำนวน</p>
+        <div class="posgrid">${menuBtns}</div>
+      </div>
     </div>
-    <p class="sub">กดที่เมนูเพื่อเพิ่มลงบิล · กดซ้ำ = เพิ่มจำนวน</p>
-    <div class="posgrid">${menuBtns}</div>
-  </div>
 
-  <div class="card">
-    <h2>บิลนี้</h2>
-    <p class="sub">${lines.length ? `${orderCount()} จาน` : 'ยังไม่ได้เลือกอะไร'}</p>
-    <div class="bill">${billRows || `<div class="empty" style="padding:26px 10px">
-      <div class="empty-ic">${icon('today',30)}</div>
-      <h3>บิลยังว่าง</h3>
-      <p>กดเมนูด้านบนที่ลูกค้าสั่ง</p>
-    </div>`}</div>
-  </div>
-
-  <div class="savebar">
-    <div class="recipe-sum">
-      <b>รวม ${baht(orderTotal())} บาท</b>
-      <span>${orderCount()} จาน${lines.length ? ' · กดรับเงินเพื่อบันทึกลงสมุด' : ''}</span>
-    </div>
-    <div class="btnrow">
-      <button class="btn ghost" onclick="closePOS()">ยกเลิกบิล</button>
-      <button class="btn primary" onclick="payBill()" ${lines.length ? '' : 'disabled'}>รับเงิน</button>
+    <div class="pos-right">
+      <div class="billbox">
+        <div class="head-row">
+          <h2>บิลนี้</h2>
+          ${lines.length ? `<button class="btn sm ghost" onclick="clearBill()">ล้างบิล</button>` : ''}
+        </div>
+        <p class="sub">${lines.length ? `${orderCount()} จาน` : 'ยังไม่ได้เลือกอะไร'}</p>
+        <div class="bill">${billRows || `<div class="empty" style="padding:22px 10px">
+          <div class="empty-ic">${icon('today',26)}</div>
+          <h3 style="font-size:16px">บิลยังว่าง</h3>
+          <p style="margin-bottom:0">กดเมนูทางซ้ายที่ลูกค้าสั่ง</p>
+        </div>`}</div>
+        <div class="billfoot">
+          <div class="recipe-sum">
+            <b>รวม ${baht(orderTotal())} บาท</b>
+            <span>${orderCount()} จาน${lines.length ? ' · กดรับเงินเพื่อบันทึกลงสมุด' : ''}</span>
+          </div>
+          <div class="btnrow">
+            <button class="btn ghost" onclick="closePOS()">ยกเลิก</button>
+            <button class="btn primary" onclick="payBill()" ${lines.length ? '' : 'disabled'}>รับเงิน</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>`;
 }
