@@ -738,6 +738,45 @@
     background:var(--tint); border-radius:99px; padding:5px 11px; white-space:nowrap;
   }
   /* ===================== ตั้งค่า ===================== */
+  .shoplist{display:flex; flex-direction:column; gap:8px}
+  .shoprow{display:flex; align-items:center; gap:8px}
+  .shoprow-main{
+    flex:1; min-width:0; display:flex; align-items:center; gap:12px; text-align:left; cursor:pointer;
+    border:1px solid var(--line); border-radius:14px; background:var(--bg);
+    padding:11px 13px; font:inherit; color:inherit; transition:.16s;
+  }
+  .shoprow-main:hover{border-color:var(--orange); background:var(--soft)}
+  .shoprow.on .shoprow-main{border-color:var(--orange); background:var(--tint)}
+  .shoprow-m{flex:1; min-width:0}
+  .shoprow-n{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    font-weight:800; font-size:14.5px; letter-spacing:-.02em;
+  }
+  .shoprow-n em{
+    font-style:normal; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:99px;
+    background:var(--orange); color:#fff;
+  }
+  .shoprow-s{
+    display:block; margin-top:3px; font-size:11.5px; color:var(--muted); font-weight:600;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .shoprow .btn.sm{flex:0 0 auto; padding:9px 11px}
+
+  /* ชื่อร้านบนหัว กดเพื่อสลับร้าน */
+  .shopswitch{
+    display:flex; align-items:center; gap:5px; margin:1px 0 0; padding:0;
+    border:none; background:none; cursor:pointer; font:inherit;
+    font-size:12px; color:var(--muted); font-weight:600; max-width:100%;
+  }
+  .shopswitch > span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .shopswitch svg{width:13px; height:13px; flex:0 0 auto}
+  .shopswitch b{
+    flex:0 0 auto; font-size:10.5px; font-weight:800; padding:1px 7px; border-radius:99px;
+    background:var(--tint); color:var(--orange-d);
+  }
+  .shopswitch:hover{color:var(--orange-d)}
+  .shopswitch[hidden]{display:none}
+
   .shopcard{display:flex; align-items:center; gap:13px}
   .ic-tile.big{width:46px; height:46px; border-radius:14px;
     background:linear-gradient(145deg, var(--orange), var(--orange-d)); color:#fff}
@@ -1033,7 +1072,7 @@
   <span class="appbar-ic" id="appbarIc" aria-hidden="true"></span>
   <div class="titles">
     <h1 id="pageTitle">ภาพรวม</h1>
-    <p id="pageSub" hidden></p>
+    <button type="button" class="shopswitch" id="pageSub" onclick="shopHub()" hidden></button>
   </div>
   <button class="icon-btn" onclick="openBackup()" title="สำรอง / กู้คืนข้อมูล" aria-label="สำรอง / กู้คืนข้อมูล">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1113,7 +1152,11 @@
 
 <script>
 /* ===================== ข้อมูล ===================== */
-const KEY = 'crepe-cost-v1';
+const KEY = 'crepe-cost-v1';        // ของเดิม เก็บร้านเดียว (ยังอ่านไว้เผื่อย้ายข้อมูล)
+const HUB = 'crepe-hub-v1';         // ของใหม่ เก็บได้หลายร้าน
+
+// store = ก้อนใหญ่ที่เก็บทุกร้าน / db = ร้านที่กำลังใช้อยู่ (โค้ดที่เหลือใช้ db เหมือนเดิม)
+let store = null;
 const UNITS = ['กรัม','มิลลิลิตร','ชิ้น','แผ่น','ใบ','ช้อนโต๊ะ'];
 
 const blank = () => ({
@@ -1170,12 +1213,36 @@ function allDays(){
 let db = load();
 let tab = 'today';
 
+// ทำให้ข้อมูลร้านหนึ่งร้านอยู่ในรูปที่ใช้ได้เสมอ
+function fixShop(raw, fallbackName){
+  const d = migrateGroups(Object.assign(blank(), raw || {}));
+  if(!d.id) d.id = uid();
+  if(!String(d.shopName || '').trim()) d.shopName = fallbackName || 'ร้านของฉัน';
+  return d;
+}
+
 function load(){
   try{
+    const hub = localStorage.getItem(HUB);
+    if(hub){
+      const st = JSON.parse(hub);
+      if(st && Array.isArray(st.shops) && st.shops.length){
+        store = { shops: st.shops.map((x,i) => fixShop(x, 'ร้านที่ ' + (i+1))), active: st.active };
+        if(!store.shops.some(x => x.id === store.active)) store.active = store.shops[0].id;
+        return store.shops.find(x => x.id === store.active);
+      }
+    }
+    // ยังไม่เคยมีหลายร้าน — ย้ายของเดิมเข้ามาเป็นร้านแรก
     const raw = localStorage.getItem(KEY);
-    if(!raw) return migrateGroups(seedHistory(buildDemo()));   // เปิดครั้งแรก มีข้อมูลตัวอย่างให้เห็นภาพก่อน
-    return migrateGroups(Object.assign(blank(), JSON.parse(raw)));
-  }catch(e){ return migrateGroups(seedHistory(buildDemo())); }
+    const first = raw ? fixShop(JSON.parse(raw), 'ร้านเครป')
+                      : fixShop(seedHistory(buildDemo()), 'ร้านเครป');
+    store = { shops:[first], active: first.id };
+    return first;
+  }catch(e){
+    const first = fixShop(seedHistory(buildDemo()), 'ร้านเครป');
+    store = { shops:[first], active: first.id };
+    return first;
+  }
 }
 /* ===================== ชุดไส้ที่ใช้ร่วมกันหลายเมนู =====================
    เดิมไส้ถูกก๊อปเก็บไว้ในแต่ละเมนู แก้ทีต้องไล่แก้ทุกเมนู
@@ -1217,9 +1284,18 @@ function menuAddons(m){
 const findGroup = id => (db.groups||[]).find(g => g.id === id);
 
 function save(){
-  try{ localStorage.setItem(KEY, JSON.stringify(db)); }
+  try{ localStorage.setItem(HUB, JSON.stringify(store)); }
   catch(e){ /* เบราว์เซอร์ปิดการเก็บข้อมูล — ใช้ต่อได้แต่ไม่บันทึก */ }
 }
+// เปลี่ยนข้อมูลของร้านที่กำลังใช้อยู่ทั้งก้อน (ชื่อร้านกับ id ยังเป็นของเดิม)
+function setShopData(data){
+  const keep = { id: db.id, shopName: db.shopName, shopBranch: db.shopBranch, shopOpen: db.shopOpen };
+  const next = Object.assign(blank(), data, keep);
+  const i = store.shops.findIndex(x => x.id === keep.id);
+  if(i >= 0) store.shops[i] = next; else store.shops.push(next);
+  db = next; save();
+}
+const curShop = () => store.shops.find(x => x.id === store.active) || store.shops[0];
 // ตัวอักษรแทนรายการในวงกลม — ข้ามสระหน้าของไทยเพื่อให้แต่ละรายการต่างกันจริง
 function initial(name){
   const t = String(name || '').trim();
@@ -1403,8 +1479,9 @@ function render(){
   document.getElementById('pageTitle').textContent = t[3] || t[1];
   document.getElementById('appbarIc').innerHTML = icon(t[2] || 'dash', 19);
   const sub = document.getElementById('pageSub');
-  sub.textContent = shopLine();
-  sub.hidden = !sub.textContent;
+  sub.innerHTML = `<span>${esc(shopLine())}</span>${icon('down',13)}`
+    + (store.shops.length > 1 ? `<b>${store.shops.length} ร้าน</b>` : '');
+  sub.hidden = !shopLine();
 
   const hs = headStat();
   document.getElementById('headStat').innerHTML = !hs ? '' :
@@ -1456,15 +1533,15 @@ function renderBanner(){
       </div>
     </div>` : '';
 }
-function startFresh(){ db = blank(); save(); tab='today'; render(); }
+function startFresh(){ setShopData(blank()); tab='today'; render(); }
 function keepDemo(){ delete db.isDemo; save(); render(); }
 
 function resetAll(){
-  askConfirm('ล้างข้อมูลทั้งหมด',
-    'ยอดขาย รายจ่าย เมนู และทุกอย่างจะหายหมด กู้คืนไม่ได้ — ควรกดสำรองข้อมูลเก็บไว้ก่อน',
+  askConfirm('ล้างข้อมูลของร้านนี้',
+    `ยอดขาย รายจ่าย และเมนูของ "${db.shopName}" จะหายหมด กู้คืนไม่ได้ — ร้านอื่นไม่กระทบ`,
     'ล้างทิ้ง', () => {
-      db = blank(); save(); tab = 'today'; openMenuId = null; order = null; render();
-      toast('ล้างข้อมูลแล้ว');
+      setShopData(blank()); tab = 'today'; openMenuId = null; order = null; render();
+      toast('ล้างข้อมูลของร้านนี้แล้ว');
     });
 }
 
@@ -2436,6 +2513,7 @@ function billsToday(key){
 // เครื่องนี้ยังเป็นเมนูตัวอย่างอยู่ไหม (ดูจากว่ามีโตเกียวหรือยัง)
 function needShopMenu(){
   if(db.hideShopHint) return false;
+  if(!db.isDemo) return false;                      // ร้านที่ตั้งเอง ไม่ต้องชวนใส่เมนูเครป
   return !db.menus.some(m => String(m.name||'').includes('โตเกียว'));
 }
 function hideShopHint(){ db.hideShopHint = 1; save(); render(); }
@@ -2456,16 +2534,105 @@ function shopLine(){
   return [db.shopName, db.shopBranch].filter(x => String(x||'').trim()).join(' · ');
 }
 function toggleShopOpen(){ db.shopOpen = db.shopOpen ? 0 : 1; save(); render(); }
-function shopDialog(){
+
+/* ===================== หลายร้านในแอปเดียว =====================
+   แต่ละร้านมีเมนู ไส้ ยอดขาย รายจ่าย ของตัวเองแยกขาดจากกัน
+   store.shops เก็บทุกร้าน / db คือร้านที่กำลังใช้อยู่ */
+function shopTitle(x){ return [x.shopName, x.shopBranch].filter(v => String(v||'').trim()).join(' · '); }
+function shopSaleToday(x){
+  const k = dayKey();
+  return (x.sales||[]).filter(v => v.d === k).reduce((a,v) => a + n(v.total), 0);
+}
+
+function switchShop(id){
+  if(id === store.active) return dlg.close();
+  const x = store.shops.find(v => v.id === id); if(!x) return;
+  store.active = id; db = x; save();
+  order = null; orderOpen = false; openMenuId = null;
+  histMonth = null; posCat = null; posQ = ''; quickPick = false;
+  dlg.close(); tab = 'sale'; render(); window.scrollTo({top:0});
+  toast('สลับมาที่ ' + db.shopName);
+}
+
+// รายการร้านทั้งหมด ใช้ได้ทั้งในหน้าต่างสลับร้านและในหน้าตั้งค่า
+function shopListHTML(withEdit){
+  return store.shops.map(x => {
+    const on = x.id === store.active;
+    const sale = shopSaleToday(x);
+    return `<div class="shoprow${on ? ' on' : ''}">
+      <button type="button" class="shoprow-main" onclick="switchShop('${x.id}')">
+        <span class="ic-tile${on ? ' big' : ''}">${icon('store', on ? 19 : 17)}</span>
+        <span class="shoprow-m">
+          <span class="shoprow-n">${esc(x.shopName)}${on ? '<em>กำลังใช้อยู่</em>' : ''}</span>
+          <span class="shoprow-s">${esc(x.shopBranch || 'ไม่ได้ใส่สาขา')} · วันนี้ ฿${baht(sale)} · ${(x.menus||[]).length} เมนู</span>
+        </span>
+      </button>
+      ${withEdit ? `<button type="button" class="btn sm" onclick="shopDialog('${x.id}')">${icon('edit',14)}</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function shopHub(){
   openDialog({
-    title:'ชื่อร้าน', sub:'ใส่ชื่อร้านกับสาขา เว้นว่างไว้ก็ได้',
+    title:'ร้านของฉัน',
+    sub:'แต่ละร้านแยกเมนู ไส้ ยอดขาย และรายจ่ายของตัวเอง',
+    html:`<div class="shoplist">${shopListHTML(false)}</div>`,
+    foot:[{label:'ปิด', cls:'ghost', fn:'dlg.close()'},
+          {label:'เพิ่มร้านใหม่', cls:'primary wide', fn:'dlg.close(); addShop()'}]
+  });
+}
+
+function addShop(){
+  openDialog({
+    title:'เพิ่มร้านใหม่',
+    sub:'เช่น ร้านน้ำปั่น — ข้อมูลจะแยกจากร้านเดิมสนิท',
     fields:[
-      {k:'shopName', label:'ชื่อร้าน', value: db.shopName || '', placeholder:'เช่น เครปป้าแดง', wide:true},
-      {k:'shopBranch', label:'สาขา / จุดที่ขาย', value: db.shopBranch || '', placeholder:'เช่น หน้าโรงเรียน', wide:true}
+      {k:'name', label:'ชื่อร้าน', value:'', placeholder:'เช่น ร้านน้ำปั่น', wide:true},
+      {k:'branch', label:'สาขา / จุดที่ขาย', value:'', placeholder:'เว้นว่างก็ได้', wide:true}
     ],
+    saveLabel:'สร้างร้าน',
+    check: v => String(v.name||'').trim() ? null : 'ใส่ชื่อร้านก่อนครับ',
     save: v => {
-      db.shopName = String(v.shopName || '').trim();
-      db.shopBranch = String(v.shopBranch || '').trim();
+      const x = fixShop(blank(), String(v.name).trim());
+      x.shopName = String(v.name).trim();
+      x.shopBranch = String(v.branch||'').trim();
+      store.shops.push(x);
+      store.active = x.id; db = x; save();
+      order = null; orderOpen = false; histMonth = null;
+      tab = 'setup'; render(); window.scrollTo({top:0});
+      toast('สร้าง ' + x.shopName + ' แล้ว — ใส่เมนูได้เลย');
+    }
+  });
+}
+
+function delShop(id){
+  if(store.shops.length < 2) return toast('ต้องเหลืออย่างน้อย 1 ร้าน');
+  const x = store.shops.find(v => v.id === id); if(!x) return;
+  dlg.close();
+  askConfirm('ลบร้านนี้ทิ้ง?',
+    `"${x.shopName}" กับยอดขาย รายจ่าย และเมนูทั้งหมดของร้านนี้จะหายไป กู้คืนไม่ได้`,
+    'ลบร้าน', () => {
+      store.shops = store.shops.filter(v => v.id !== id);
+      if(store.active === id){ store.active = store.shops[0].id; db = store.shops[0]; }
+      save(); order = null; orderOpen = false; histMonth = null;
+      tab = 'setup'; render(); toast('ลบร้านแล้ว');
+    });
+}
+function shopDialog(id){
+  const x = id ? store.shops.find(v => v.id === id) : db;
+  if(!x) return;
+  openDialog({
+    title:'แก้ไขร้าน', sub: shopTitle(x) || 'ใส่ชื่อร้านกับสาขา',
+    fields:[
+      {k:'shopName', label:'ชื่อร้าน', value: x.shopName || '', placeholder:'เช่น เครปป้าแดง', wide:true},
+      {k:'shopBranch', label:'สาขา / จุดที่ขาย', value: x.shopBranch || '', placeholder:'เช่น หน้าโรงเรียน', wide:true}
+    ],
+    extraFoot: store.shops.length > 1
+      ? {label:'ลบร้านนี้', cls:'danger', fn:`delShop('${x.id}')`} : null,
+    check: v => String(v.shopName||'').trim() ? null : 'ใส่ชื่อร้านก่อนครับ',
+    save: v => {
+      x.shopName = String(v.shopName || '').trim();
+      x.shopBranch = String(v.shopBranch || '').trim();
       save(); render(); toast('บันทึกชื่อร้านแล้ว');
     }
   });
@@ -3588,14 +3755,12 @@ function viewSetup(){
   }).join('');
 
   return `
-  <div class="card shopcard">
-    <span class="ic-tile big">${icon('store',20)}</span>
-    <div class="shopcard-m">
-      <div class="shopcard-n">${esc(db.shopName || 'ยังไม่ได้ตั้งชื่อร้าน')}
-        <span class="statepill${db.shopOpen ? ' on' : ''}">${db.shopOpen ? 'เปิดอยู่' : 'ปิดอยู่'}</span></div>
-      <div class="shopcard-s">${esc(db.shopBranch || 'ยังไม่ได้ใส่สาขา')} · ชื่อนี้โชว์ใต้หัวข้อหน้าขาย</div>
-    </div>
-    <button type="button" class="btn sm" onclick="shopDialog()">${icon('edit',14)} แก้ไข</button>
+  <div class="card">
+    ${cardHead('store','ร้านของฉัน','แต่ละร้านแยกเมนู ไส้ ยอดขาย และรายจ่ายของตัวเอง',
+      `<span class="head-tag">${store.shops.length} ร้าน</span>
+       <button type="button" class="btn sm primary" onclick="addShop()">${icon('plus',14)} เพิ่มร้าน</button>`)}
+    <div class="shoplist">${shopListHTML(true)}</div>
+    <p class="hint" style="margin:12px 0 0">แตะชื่อร้านเพื่อสลับไปใช้ร้านนั้น · กดรูปดินสอเพื่อแก้ชื่อหรือลบ</p>
   </div>
 
   <div class="card">
@@ -3759,7 +3924,7 @@ function delGroupItem(gid, idx){
 /* ===================== สำรอง / กู้คืน ===================== */
 function openBackup(){
   const box = document.getElementById('backup');
-  document.getElementById('dump').value = JSON.stringify(db);
+  document.getElementById('dump').value = JSON.stringify(store);
   document.getElementById('bkMsg').textContent = '';
   box.hidden = false;
   box.scrollIntoView({behavior:'smooth', block:'start'});
@@ -3785,17 +3950,23 @@ function restoreText(){
 function applyData(raw){
   try{
     const data = JSON.parse(raw);
+    // ก้อนใหม่ = มีหลายร้าน / ก้อนเก่า = ร้านเดียว ใส่ทับร้านที่กำลังใช้อยู่
+    if(data && Array.isArray(data.shops) && data.shops.length){
+      store = { shops: data.shops.map((x,i) => fixShop(x, 'ร้านที่ ' + (i+1))), active: data.active };
+      if(!store.shops.some(x => x.id === store.active)) store.active = store.shops[0].id;
+      db = curShop(); save(); render();
+      return true;
+    }
     if(!data || !Array.isArray(data.ingredients)) return false;
-    db = Object.assign(blank(), data);
-    save(); render();
+    setShopData(data); render();
     return true;
   }catch(e){ return false; }
 }
 function exportJSON(){
-  const blob = new Blob([JSON.stringify(db,null,2)], {type:'application/json'});
+  const blob = new Blob([JSON.stringify(store,null,2)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `ต้นทุนร้านเครป-${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `สมุดร้าน-${new Date().toISOString().slice(0,10)}.json`;
   a.click(); URL.revokeObjectURL(a.href);
 }
 function importJSON(input){
@@ -3810,7 +3981,7 @@ function importJSON(input){
 
 /* ===================== ข้อมูลตัวอย่าง ===================== */
 function loadDemo(){
-  const go = () => { db = seedHistory(buildDemo()); save(); tab='today'; render(); };
+  const go = () => { setShopData(seedHistory(buildDemo())); tab='today'; render(); };
   if(db.ingredients.length && !db.isDemo)
     askConfirm('ใส่ข้อมูลตัวอย่าง', 'จะทับข้อมูลเดิมทั้งหมด รวมถึงยอดขายที่บันทึกไว้', 'ทับเลย', go);
   else go();
