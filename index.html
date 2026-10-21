@@ -3771,7 +3771,7 @@ function viewSetup(){
       <h3 style="font-size:16px">ยังไม่มีเมนู</h3>
       <p style="margin-bottom:14px">กดเพิ่มเพื่อใส่แป้งหรือเมนูแรก</p>
     </div>`}</div>
-    <button type="button" class="seeall" onclick="loadShopMenu()">${icon('plus',14)} ใส่เมนูจากใบเมนูร้าน (8 เมนู พร้อมไส้)</button>
+    ${db.menus.length ? '' : `<button type="button" class="seeall" onclick="loadShopMenu()">${icon('plus',14)} ใส่ชุดเมนูร้านเครป 8 เมนู พร้อมไส้ (ถ้าร้านนี้ขายเครป)</button>`}
   </div>
 
   <div class="card">
