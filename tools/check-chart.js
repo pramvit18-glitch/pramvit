@@ -14,8 +14,8 @@ global.navigator = {};
 const probe = `
 (() => {
   const key = dayKey();
-  const svg = salesChart(key);
   const days = lastNDays(key, 7);
+  const svg = chartBody(key, days);
   const out = [];
 
   out.push(['สร้างกราฟได้', svg.length > 0]);
