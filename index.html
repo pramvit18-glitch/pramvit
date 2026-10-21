@@ -602,6 +602,39 @@ const TABS = [
   ['fixed', 'รายจ่าย',    'fixed']
 ];
 
+// ตัวเลขสำคัญของแต่ละแท็บ แสดงไว้บนสุดของหน้า
+function headStat(){
+  if(recipeDraft) return {k:'กำลังเลือกของที่ใช้', v:'', s:'ติ๊กของที่ใช้ แล้วใส่จำนวนต่อ 1 จาน'};
+  if(tab === 'ing'){
+    const c = db.ingredients.length;
+    return {k:'ของที่ซื้อมา', v:String(c), u:'อย่าง',
+            s: c ? 'แตะที่รายการเพื่อแก้ราคาหรือปริมาณ' : 'ยังไม่ได้ใส่ของที่ซื้อมา'};
+  }
+  if(tab === 'menu'){
+    const ms = db.menus.filter(m => (m.items||[]).length);
+    const avg = ms.length ? ms.reduce((a,m)=>a+marginPct(m),0)/ms.length : 0;
+    if(openMenuId){
+      const m = findMenu(openMenuId);
+      if(m) return {k:'กำไรของเมนูนี้', v: n(m.price)>0 ? marginPct(m).toFixed(0) : '–', u:'%',
+                    s: n(m.price)>0 ? `ขาย ${baht(m.price)} · ค่าของ ${baht(menuCost(m))} · เหลือ ${baht(profit(m))} บาท` : 'ยังไม่ได้ใส่ราคาขาย'};
+    }
+    return {k:'เมนูที่ขาย', v:String(db.menus.length), u:'เมนู',
+            s: ms.length ? `กำไรเฉลี่ย ${avg.toFixed(0)}% ต่อจาน` : 'ยังไม่ได้ใส่ว่าแต่ละเมนูใช้ของอะไร'};
+  }
+  if(tab === 'fixed'){
+    const be = breakEven();
+    return {k:'รายจ่ายประจำเดือน', v: baht(fixedPerMonth()), u:'บาท',
+            s: be ? `ต้องขายวันละ ${Math.ceil(be)} จาน ถึงจะไม่ขาดทุน` : 'ใส่ค่าเช่า ค่าไฟ ค่าแก๊ส ให้ครบ'};
+  }
+  if(!db.menus.length) return {k:'ยินดีต้อนรับ', v:'', s:'เริ่มจากใส่ของที่ซื้อมา แล้วแอปจะคิดกำไรให้เอง'};
+  if(!hasSales()) return {k:'ภาพรวมร้าน', v:'', s:'ใส่ยอดขายต่อวัน แล้วจะรู้ว่าเดือนนี้เหลือเท่าไหร่'};
+  const d = daily();
+  return {k: d.net>=0 ? 'กำไรสุทธิเดือนนี้' : 'ขาดทุนเดือนนี้',
+          v: baht(Math.abs(d.month)), u:'บาท',
+          s: d.net>=0 ? `วันละ ${baht(d.net)} บาท จากการขาย ${d.plates} จาน`
+                      : `ขาดทุนวันละ ${baht(-d.net)} บาท — ต้องขายเพิ่ม`};
+}
+
 function render(){
   document.getElementById('pageTitle').textContent =
     (TABS.find(t => t[0] === tab) || ['','ภาพรวม'])[1];
