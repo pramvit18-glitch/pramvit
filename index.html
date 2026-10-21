@@ -1363,19 +1363,8 @@ function headStat(){
                     s: orderCount() ? `${orderCount()} จานในบิลนี้` : 'กดเมนูที่ลูกค้าสั่ง'};
   if(tab === 'today') return null;    // การ์ดหลักบน Dashboard บอกอยู่แล้ว ไม่ต้องซ้ำ
 
-  if(tab === 'hist'){
-    const days = allDays();
-    if(!days.length) return {k:'ย้อนหลัง', v:'', s:'ยังไม่มีประวัติ'};
-    const m = sumMonth(monthKey(days[0]));
-    return {k: thaiMonth(monthKey(days[0])) + ' · ' + (m.net>=0 ? 'เหลือ' : 'ขาดทุน'),
-            v: baht(Math.abs(m.net)), u:'บาท',
-            s: `ขายได้ ${baht(m.sale)} · ซื้อของ ${baht(m.exp)} บาท · ${m.days} วัน`};
-  }
-  if(tab === 'setup'){
-    const items = (db.groups||[]).reduce((a,g) => a + g.items.length, 0);
-    return {k:'ตั้งค่า', v:String(db.menus.length), u:'เมนู',
-            s: `ไส้ที่ใส่ได้ ${items} อย่าง ใน ${(db.groups||[]).length} ชุด`};
-  }
+  if(tab === 'hist') return null;     // การ์ดเดือนบอกครบแล้ว
+  if(tab === 'setup') return null;    // การ์ดร้านบอกครบแล้ว
   if(tab === 'more'){
     return {k:'อื่น ๆ', v:'', s:'ของที่นาน ๆ ใช้ที'};
   }
