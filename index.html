@@ -1319,7 +1319,11 @@ function viewDash(){
         <div class="empty-ic">${icon('dash',34)}</div>
         <h3>ยินดีต้อนรับ</h3>
         <p>ใส่ของที่ซื้อมากับเมนูที่ขาย แล้วแอปจะบอกให้ว่าเดือนนี้เหลือกำไรเท่าไหร่ และต้องขายกี่จานถึงไม่ขาดทุน</p>
-        <button class="btn primary" onclick="go('ing')">${icon('plus',16)} เริ่มใส่ของที่ซื้อมา</button>
+        <div class="btnrow" style="justify-content:center">
+          <button class="btn primary" onclick="go('ing')">${icon('plus',16)} เริ่มใส่ของที่ซื้อมา</button>
+          <button class="btn" onclick="loadDemo()">ดูตัวอย่างก่อน</button>
+        </div>
+        <p class="hint">กด "ดูตัวอย่างก่อน" เพื่อลองเล่นด้วยข้อมูลร้านสมมติ ลบทิ้งทีหลังได้</p>
       </div></div>`;
   }
 
