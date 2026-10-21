@@ -603,6 +603,13 @@ function save(){
   try{ localStorage.setItem(KEY, JSON.stringify(db)); }
   catch(e){ /* เบราว์เซอร์ปิดการเก็บข้อมูล — ใช้ต่อได้แต่ไม่บันทึก */ }
 }
+// ตัวอักษรแทนรายการในวงกลม — ข้ามสระหน้าของไทยเพื่อให้แต่ละรายการต่างกันจริง
+function initial(name){
+  const t = String(name || '').trim();
+  if(!t) return '?';
+  const m = t.match(/[^sเ-ไ]/);   // ตัวแรกที่ไม่ใช่ เ แ โ ใ ไ
+  return (m ? m[0] : t[0]);
+}
 function uid(){ return Math.random().toString(36).slice(2,9); }
 const n = v => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
 // เจ้าของร้านคิดเป็นบาทเต็ม ไม่ได้คิดเป็นสตางค์ — แสดงทศนิยมเฉพาะตอนเงินน้อยกว่า 10 บาท
@@ -852,7 +859,7 @@ function viewIng(){
   const rows = db.ingredients.map(i => `
     <div class="li" role="button" tabindex="0" onclick="editIng('${i.id}')"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editIng('${i.id}')}">
-      <span class="av">${esc((i.name || '?').trim().charAt(0) || '?')}</span>
+      <span class="av">${esc(initial(i.name))}</span>
       <div class="li-main">
         <div class="li-title">${esc(i.name || '(ยังไม่มีชื่อ)')}</div>
         <div class="li-sub">${n(i.packQty).toLocaleString('th-TH')} ${esc(i.unit)} · ${baht(i.packPrice)} บาท</div>
@@ -1073,7 +1080,7 @@ function viewMenu(){
       const noRecipe = !(m.items||[]).length;
       return `<div class="li" role="button" tabindex="0" onclick="openMenu('${m.id}')"
            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMenu('${m.id}')}">
-        <span class="av ${noRecipe ? 'w' : st.lv === 'good' ? 'g' : st.lv === 'bad' ? 'b' : 'w'}">${esc((m.name || '?').trim().charAt(0) || '?')}</span>
+        <span class="av ${noRecipe ? 'w' : st.lv === 'good' ? 'g' : st.lv === 'bad' ? 'b' : 'w'}">${esc(initial(m.name))}</span>
         <div class="li-main">
           <div class="li-title">${esc(m.name || '(ยังไม่มีชื่อ)')}</div>
           <div class="li-sub">${noRecipe ? 'ยังไม่ได้ใส่ว่าใช้อะไรบ้าง'
