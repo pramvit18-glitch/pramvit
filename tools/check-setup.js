@@ -3,7 +3,7 @@ const fs=require('fs');
 const src=fs.readFileSync(process.argv[2],'utf8');
 const script=src.split('<script>')[1].split('</script>')[0].replace(/^render\(\);$/m,'');
 global.localStorage={getItem:()=>null,setItem:()=>{}};
-const stub=()=>({innerHTML:'',textContent:'',hidden:false,value:'',dataset:{},addEventListener(){},removeEventListener(){},showModal(){},close(){},querySelectorAll:()=>[],querySelector:()=>stub(),focus(){},setAttribute(){},classList:{toggle(){}},scrollIntoView(){},replaceWith(){},insertAdjacentHTML(){}});
+const stub=()=>({innerHTML:'',textContent:'',hidden:false,value:'',dataset:{},addEventListener(){},removeEventListener(){},showModal(){},close(){},querySelectorAll:()=>[],querySelector:()=>stub(),focus(){},setAttribute(){},classList:{toggle(){},add(){},remove(){},contains:()=>false},scrollIntoView(){},replaceWith(){},insertAdjacentHTML(){}});
 global.document = { body: stub(), getElementById: stub,querySelector:()=>stub(),createElement:stub};
 global.window={addEventListener(){},scrollTo(){}}; global.navigator={};
 global.setTimeout=fn=>fn();

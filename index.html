@@ -644,6 +644,23 @@
   .chart svg{display:block; width:100%; height:auto}
   .chart text{font-family:inherit}
 
+
+  /* ===================== ปุ่มสั่งสินค้าหน้าขาย ===================== */
+  .orderbtn{
+    display:flex; align-items:center; justify-content:center; gap:12px;
+    width:100%; padding:22px; margin-bottom:22px; border:none; border-radius:18px;
+    background:var(--orange); color:#fff; cursor:pointer; font:inherit;
+    font-weight:800; font-size:19px; letter-spacing:-.02em;
+    box-shadow:0 8px 22px rgba(226,96,10,.3); transition:transform .14s, box-shadow .18s;
+  }
+  .orderbtn svg{width:25px; height:25px}
+  .orderbtn:hover{box-shadow:0 12px 30px rgba(226,96,10,.38)}
+  .orderbtn:active{transform:scale(.97)}
+
+  /* หน้าต่างสั่งสินค้าให้สูงได้เต็มที่ รายการเมนูเลื่อนในตัวเอง */
+  .dlg-body .poslist{max-height:46vh; overflow-y:auto; margin:0 -4px; padding:0 4px}
+  .dlg-body .cats{margin-bottom:6px}
+
 </style>
 </head>
 <body>
@@ -1762,7 +1779,7 @@ function allCats(){
   return out;
 }
 let posCat = null;              // null = ดูทุกหมวด
-function pickCat(c){ posCat = (c === '*' ? null : c); render(); }
+function pickCat(c){ posCat = (c === '*' ? null : c); repaintOrder(); }
 
 function openPOS(){
   if(!db.menus.length){
@@ -1773,7 +1790,7 @@ function openPOS(){
   order = { lines: [] }; posCat = null;
   render(); window.scrollTo({top:0});
 }
-function clearBill(){ if(order) order.lines = []; render(); }
+function clearBill(){ if(order) order.lines = []; repaintOrder(); }
 function closePOS(){ order = null; tab = 'today'; render(); window.scrollTo({top:0}); }
 
 const lineTotal = l => (n(l.price) + (l.addons||[]).reduce((s,a) => s + n(a.price), 0)) * n(l.qty);
@@ -1786,15 +1803,15 @@ function tapMenu(id){
   const last = order.lines.find(l => l.menuId === id && !(l.addons||[]).length);
   if(last) last.qty = n(last.qty) + 1;
   else order.lines.push({ lid: uid(), menuId:id, name:m.name, price:n(m.price), qty:1, addons:[] });
-  render();
+  repaintOrder();
 }
 function lineQty(lid, v){
   const l = order.lines.find(x => x.lid === lid); if(!l) return;
   l.qty = n(l.qty) + v;
   if(l.qty <= 0) order.lines = order.lines.filter(x => x.lid !== lid);
-  render();
+  repaintOrder();
 }
-function delLine(lid){ order.lines = order.lines.filter(x => x.lid !== lid); render(); }
+function delLine(lid){ order.lines = order.lines.filter(x => x.lid !== lid); repaintOrder(); }
 
 // ใส่ท็อปปิ้งให้บรรทัดนั้น
 function lineAddons(lid){
@@ -1812,7 +1829,7 @@ function lineAddons(lid){
     title:'เลือกไส้ / ท็อปปิ้ง',
     sub: `${l.name} — ติ๊กของที่ลูกค้าเลือก`,
     html: topsHTML(tops, picked, lid),
-    foot:[{label:'เสร็จแล้ว', cls:'primary', fn:'dlg.close(); render()'}]
+    foot:[{label:'เสร็จแล้ว', cls:'primary', fn:'repaintOrder()'}]
   });
   l._draw = draw;
   draw();
@@ -1840,13 +1857,50 @@ function payBill(){
     });
   });
   const paid = orderTotal();
-  order = null; tab = 'today'; save(); render();
+  order = null; orderOpen = false; save();
+  dlg.close(); render();
   toast(`รับเงินแล้ว ${baht(paid)} บาท`);
 }
 
-function viewPOS(){
-  if(!order) order = { lines: [] };
-  const lines = order.lines;
+
+/* ===================== สั่งสินค้า (เปิดเป็นหน้าต่าง) ===================== */
+let orderOpen = false;      // กำลังเปิดหน้าต่างสั่งสินค้าอยู่ไหม
+
+// ฟังก์ชันในบิลเรียกตัวนี้แทน render() จะได้วาดใหม่ถูกที่
+function repaintOrder(){
+  if(orderOpen) drawOrderDialog(); else render();
+}
+
+function openOrderDialog(){
+  if(!db.menus.length){
+    openDialog({ title:'ยังไม่มีเมนู', sub:'ตั้งเมนูกับราคาไว้ก่อน แล้วค่อยมาสั่ง',
+      html:'<p style="margin:0;color:var(--ink-2)">ไปที่แท็บ <b>ตั้งค่า</b> แล้วเพิ่มเมนูที่ขายก่อนครับ</p>' });
+    return;
+  }
+  order = { lines: [] };
+  posCat = null;
+  orderOpen = true;
+  drawOrderDialog();
+}
+function closeOrderDialog(){
+  orderOpen = false; order = null;
+  dlg.close(); render();
+}
+
+function drawOrderDialog(){
+  openDialog({
+    title: 'สั่งสินค้า',
+    sub: (order && order.lines.length) ? `${orderCount()} จาน · รวม ${baht(orderTotal())} บาท` : 'กดเมนูที่ลูกค้าสั่ง',
+    html: orderDialogHTML(),
+    foot: (order && order.lines.length)
+      ? [{label:'ยกเลิก', cls:'ghost', fn:'closeOrderDialog()'},
+         {label:'รับเงิน', cls:'primary', fn:'payBill()'}]
+      : [{label:'ปิด', cls:'ghost', fn:'closeOrderDialog()'}]
+  });
+}
+
+function orderDialogHTML(){
+  const lines = order ? order.lines : [];
   const cats = allCats();
   const shown = posCat ? db.menus.filter(m => menuCat(m) === posCat) : db.menus;
 
@@ -1856,7 +1910,7 @@ function viewPOS(){
         ${esc(c)} <b>${db.menus.filter(m => menuCat(m) === c).length}</b></button>`).join('')}
     </div>` : '';
 
-  const menuBtns = shown.map(m => {
+  const rows = shown.map(m => {
     const inBill = lines.filter(l => l.menuId === m.id).reduce((a,l) => a + n(l.qty), 0);
     return `
     <button class="posrow${inBill ? ' has' : ''}" onclick="tapMenu('${m.id}')">
@@ -1874,7 +1928,7 @@ function viewPOS(){
         ${(l.addons||[]).length
           ? `<div class="bl-add">${l.addons.map(a => esc(a.name) + (n(a.price) > 0 ? ' +' + baht(a.price) : '')).join(' · ')}</div>`
           : ''}
-        <button class="bl-top" onclick="lineAddons('${l.lid}')">+ ท็อปปิ้ง</button>
+        <button class="bl-top" onclick="lineAddons('${l.lid}')">+ ไส้ / ท็อปปิ้ง</button>
       </div>
       <div class="bl-qty">
         <button onclick="lineQty('${l.lid}',-1)" aria-label="ลด">−</button>
@@ -1886,43 +1940,99 @@ function viewPOS(){
     </div>`).join('');
 
   return `
-  <div class="poswrap">
-    <div class="pos-left">
       ${catTabs}
-      <div class="poslist">${menuBtns || `<div class="empty" style="padding:30px 10px">
-        <h3 style="font-size:16px">${db.menus.length ? 'ไม่มีเมนูในหมวดนี้' : 'ยังไม่มีเมนู'}</h3>
-        <p style="margin-bottom:14px">${db.menus.length ? 'ลองเลือกหมวดอื่น' : 'ไปตั้งค่าเมนูที่ขายก่อน'}</p>
-        ${db.menus.length ? '' : `<button class="btn primary" onclick="go('setup')">ไปตั้งค่าเมนู</button>`}
-      </div>`}</div>
-    </div>
+      <div class="poslist">${rows || '<div class="empty" style="padding:22px">ไม่มีเมนูในหมวดนี้</div>'}</div>
+      ${lines.length ? `
+        <div class="sec" style="margin-top:20px">บิลนี้</div>
+        <div class="bill">${billRows}</div>
+        <div class="bill-total" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line)">
+          <span>รวม</span><b>${baht(orderTotal())}<small> บาท</small></b>
+        </div>` : ''}`;
+}
 
-    <div class="pos-right">
-      <div class="billbox">
-        <div class="bill-top">
-          <h2>บิลนี้</h2>
-          <span class="bill-n">${lines.length ? orderCount() + ' จาน' : ''}</span>
-          ${lines.length ? `<button class="btn sm ghost" onclick="clearBill()">ล้าง</button>` : ''}
-        </div>
+/* ===================== หน้าขาย = รายการที่ขายไปแล้ววันนี้ ===================== */
+// รวมรายการขายของวันนั้นเป็น "บิล"
+function billsToday(key){
+  const map = new Map();
+  (db.sales||[]).filter(x => x.d === key).forEach(x => {
+    const k = x.bill || x.id;
+    const b = map.get(k) || {bill:k, t:x.t || '', lines:[], total:0, qty:0};
+    b.lines.push(x); b.total += n(x.total); b.qty += n(x.qty);
+    if((x.t||'') > b.t) b.t = x.t || b.t;
+    map.set(k, b);
+  });
+  return [...map.values()].sort((a,b) => String(b.t).localeCompare(String(a.t)));
+}
 
-        <div class="bill">${billRows || `<div class="bill-empty">
-          กดเมนูที่ลูกค้าสั่ง<br>
-          <span>กดซ้ำ = เพิ่มจำนวน · แตะชื่อในบิลเพื่อใส่ไส้</span>
-        </div>`}</div>
+function viewPOS(){
+  const key = dayKey();
+  const bills = billsToday(key);
+  const d = sumDay(key);
 
-        <div class="billfoot">
-          <div class="bill-total">
-            <span>รวม</span>
-            <b>${baht(orderTotal())}<small> บาท</small></b>
-          </div>
-          <button class="btn primary block pay" onclick="payBill()" ${lines.length ? '' : 'disabled'}>
-            ${icon('check',17)} รับเงิน
-          </button>
-          ${lines.length ? `<button class="btn ghost block" onclick="closePOS()">ยกเลิกบิล</button>` : ''}
-        </div>
+  const rows = bills.map(b => {
+    const names = b.lines.map(l => esc(l.name) + (n(l.qty) > 1 ? ' ×' + n(l.qty) : '')).join(' · ');
+    const tops = b.lines.flatMap(l => (l.addons||[]).map(a => a.name));
+    return `<div class="li" role="button" tabindex="0" onclick="billDetail('${b.bill}')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();billDetail('${b.bill}')}">
+      <div class="li-main">
+        <div class="li-title">${names}</div>
+        <div class="li-sub">${b.t}${tops.length ? ' · ' + esc([...new Set(tops)].join(' ')) : ''}</div>
       </div>
+      <div class="li-end">
+        <span class="amt in">${baht(b.total)}</span>
+        <span class="li-chev">${icon('chev',16)}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <button class="orderbtn" onclick="openOrderDialog()">
+    ${icon('cart',24)}
+    <span>สั่งสินค้า</span>
+  </button>
+
+  <div class="card">
+    <div class="head-row">
+      <h2>ขายไปแล้ววันนี้</h2>
+      <span class="chip">${bills.length} บิล · ${baht(d.sale)} บาท</span>
     </div>
+    <p class="sub">${bills.length ? 'แตะที่บิลเพื่อดูรายละเอียดหรือลบ' : ''}</p>
+    <div class="list">${rows || `<div class="empty">
+      <div class="empty-ic">${icon('cart',30)}</div>
+      <h3>ยังไม่ได้ขายอะไรวันนี้</h3>
+      <p>กดปุ่ม <b>สั่งสินค้า</b> ด้านบนเมื่อลูกค้าสั่ง</p>
+    </div>`}</div>
   </div>`;
 }
+
+function billDetail(billId){
+  const key = dayKey();
+  const b = billsToday(key).find(x => x.bill === billId);
+  if(!b) return;
+  openDialog({
+    title: `บิล ${b.t}`,
+    sub: `${b.qty} จาน · รวม ${baht(b.total)} บาท`,
+    html: `<div class="list">${b.lines.map(l => `
+      <div class="li-read">
+        <div class="li-main">
+          <div class="li-title">${esc(l.name)}${n(l.qty) > 1 ? ' ×' + n(l.qty) : ''}</div>
+          ${(l.addons||[]).length ? `<div class="li-sub">${esc(l.addons.map(a => a.name).join(' · '))}</div>` : ''}
+        </div>
+        <span class="amt in">${baht(l.total)}</span>
+      </div>`).join('')}</div>`,
+    foot: [
+      {label:'ปิด', cls:'ghost', fn:'dlg.close()'},
+      {label:'ลบบิลนี้', cls:'danger', fn:`dlg.close(); delBill('${billId}')`}
+    ]
+  });
+}
+function delBill(billId){
+  askConfirm('ลบบิลนี้?', 'ยอดขายของวันนี้จะลดลงตามบิลที่ลบ', 'ลบ', () => {
+    db.sales = (db.sales||[]).filter(x => (x.bill || x.id) !== billId);
+    save(); render(); toast('ลบบิลแล้ว');
+  });
+}
+
 
 // จัดกลุ่มท็อปปิ้งตามหัวข้อในใบเมนู (ไส้คาว / ไส้หวาน / ราดซอส) จะได้หาเจอเร็ว
 function topsHTML(tops, picked, lid){
@@ -2192,13 +2302,12 @@ function compareLine(key){
 function viewToday(){
   const key = dayKey();
   const d = sumDay(key);
-  const rows = entriesOf(key);
 
   return `
   <div class="card">
     <div class="daybtns">
-      <button class="daybtn in" onclick="go('sale')">${icon('up',20)}<span>ขายได้</span></button>
-      <button class="daybtn out" onclick="expenseDialog(null)">${icon('down',20)}<span>ซื้อของ</span></button>
+      <button class="daybtn in" onclick="go('sale')">${icon('cart',20)}<span>ไปหน้าขาย</span></button>
+      <button class="daybtn out" onclick="expenseDialog(null)">${icon('down',20)}<span>บันทึกซื้อของ</span></button>
     </div>
     <div class="quick" style="margin-top:20px">
       <div class="q"><div class="k">ขายได้</div><div class="v">${baht(d.sale)}</div></div>
@@ -2210,18 +2319,7 @@ function viewToday(){
 
   ${salesChart(key)}
 
-  ${dashStats(key)}
-
-  <div class="card">
-    <h2>รายการวันนี้</h2>
-    <p class="sub">${rows.length ? 'แตะที่รายการเพื่อแก้หรือลบ' : 'ยังไม่ได้บันทึกอะไรวันนี้'}</p>
-    <div class="list">${rows.length ? rows.map(e => entryRow(e,false)).join('')
-      : `<div class="empty">
-          <div class="empty-ic">${icon('today',30)}</div>
-          <h3>เริ่มบันทึกวันนี้</h3>
-          <p>ขายได้กดปุ่มเขียว ซื้อของกดปุ่มส้ม — บันทึกตอนเกิดขึ้นจริงทีละครั้ง</p>
-        </div>`}</div>
-  </div>`;
+  ${dashStats(key)}`;
 }
 
 /* ---------- บันทึกการขาย (เลือกเมนู + ท็อปปิ้ง) ---------- */
