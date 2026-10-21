@@ -798,6 +798,45 @@
     .sale-side{position:sticky; top:16px}
   }
 
+
+  /* ===================== หน้าต่างสั่งสินค้า: กระชับขึ้น ===================== */
+  dialog{max-height:88dvh}
+  .dlg-body .cats{margin:0 0 8px; padding-bottom:10px}
+  .dlg-body .poslist{max-height:min(38vh, 300px); overflow-y:auto; margin:0 -4px; padding:0 4px}
+
+  /* แถวเมนูในหน้าต่างเล็กลง กดได้เยอะขึ้นโดยไม่ต้องเลื่อน */
+  .dlg-body .posrow{padding:10px; gap:10px}
+  .dlg-body .posrow-n{font-size:14px}
+  .dlg-body .posrow-p{font-size:15.5px}
+  .dlg-body .posrow-add{width:26px; height:26px; border-radius:8px}
+  .dlg-body .posrow-add svg{width:14px; height:14px}
+  .dlg-body .posrow-c{min-width:21px; height:21px; font-size:11.5px}
+
+  /* บิลเลื่อนในกรอบของตัวเอง */
+  .dlg-bill{max-height:min(26vh, 210px); overflow-y:auto; margin:0 -4px; padding:0 4px}
+  .dlg-body .bill-line{padding:10px 0; gap:6px 10px}
+  .dlg-body .bl-name{font-size:14px}
+  .dlg-body .bl-qty button{width:30px; height:30px; font-size:17px}
+  .dlg-body .bl-qty span{min-width:28px; font-size:14px}
+  .dlg-body .bl-top{font-size:12px}
+
+  /* ยอดรวมกับปุ่มติดอยู่ล่างหน้าต่างเสมอ ไม่ต้องเลื่อนหา */
+  .dlg-sum{
+    position:sticky; bottom:0; z-index:2; background:var(--bg);
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding:12px 0 2px; margin-top:4px; border-top:1px solid var(--line);
+  }
+  .dlg-sum span{font-size:13.5px; color:var(--ink-2); font-weight:700}
+  .dlg-sum b{font-size:24px; font-weight:800; letter-spacing:-.03em; font-variant-numeric:tabular-nums}
+  .dlg-sum b small{font-size:13px; font-weight:700; color:var(--ink-2); margin-left:4px}
+  .dlg-foot{position:sticky; bottom:0; z-index:3; background:var(--bg); padding-top:12px}
+
+  @media(min-width:720px){
+    /* จอกว้าง: เมนูเรียง 2 คอลัมน์ในหน้าต่าง เห็นเยอะขึ้นอีก */
+    .dlg-body .poslist{display:grid; grid-template-columns:1fr 1fr; gap:0 14px; align-content:start}
+    .dlg-body .posrow{margin:0}
+  }
+
 </style>
 </head>
 <body>
@@ -2074,9 +2113,9 @@ function orderDialogHTML(){
       ${catTabs}
       <div class="poslist">${rows || '<div class="empty" style="padding:22px">ไม่มีเมนูในหมวดนี้</div>'}</div>
       ${lines.length ? `
-        <div class="sec" style="margin-top:20px">บิลนี้</div>
-        <div class="bill">${billRows}</div>
-        <div class="bill-total" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--line)">
+        <div class="sec" style="margin:14px 0 6px">บิลนี้ · ${orderCount()} จาน</div>
+        <div class="dlg-bill"><div class="bill">${billRows}</div></div>
+        <div class="dlg-sum">
           <span>รวม</span><b>${baht(orderTotal())}<small> บาท</small></b>
         </div>` : ''}`;
 }
