@@ -660,7 +660,9 @@ function n(v){ const x = parseFloat(v); return isFinite(x) ? x : 0; }
 // เจ้าของร้านคิดเป็นบาทเต็ม ไม่ได้คิดเป็นสตางค์ — แสดงทศนิยมเฉพาะตอนเงินน้อยกว่า 10 บาท
 function baht(v){
   const x = n(v);
-  return Math.abs(x) > 0 && Math.abs(x) < 10
+  // เลขกลม ๆ ไม่ต้องมีจุดทศนิยม (5 ไม่ใช่ 5.00) · เลขน้อยกว่า 10 ที่มีเศษค่อยโชว์สตางค์
+  if(Number.isInteger(x)) return x.toLocaleString('th-TH');
+  return Math.abs(x) < 10
     ? x.toLocaleString('th-TH',{minimumFractionDigits:2, maximumFractionDigits:2})
     : Math.round(x).toLocaleString('th-TH');
 }
