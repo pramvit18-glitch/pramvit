@@ -41,10 +41,10 @@ function png(width, height, rgba){
 /* ---------- วาดไอคอน: เครปห่อกรวยบนพื้นฟ้า ---------- */
 const mix = (a,b,t) => [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t];
 
-const BG_TOP = [47,132,242], BG_BOT = [11,64,152];   // ไล่เฉดน้ำเงินชุดใหม่
+const BG_TOP = [242,138,58], BG_BOT = [196,80,10];   // ไล่เฉดส้ม
 const CREPE  = [255,255,255];                        // ตัวเครปสีขาว
-const CHOC   = [11,79,174];                          // ไส้ — น้ำเงินเข้ม
-const SHADE  = [214,229,248];                        // เงาบนตัวเครป
+const CHOC   = [150,62,8];                           // ไส้ — ส้มเข้ม
+const SHADE  = [250,232,214];                        // เงาบนตัวเครป
 
 const draw = S => png(S, S, drawPixels(S));
 
@@ -95,7 +95,7 @@ function drawPixels(S){
 /* ---------- ภาพ splash ตอนเปิดแอป: พื้นหลังล้วน + โลโก้เล็ก ๆ กลางจอ ---------- */
 function drawSplash(S, dark){
   const buf = Buffer.alloc(S*S*4);
-  const BG = dark ? [10,20,32] : [244,247,253];
+  const BG = dark ? [26,20,16] : [255,255,255];
   const L = Math.round(S*0.26);                   // โลโก้กินพื้นที่ 26% ของจอ
   const o = Math.round((S - L) / 2);
   const sub = drawPixels(L);
