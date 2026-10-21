@@ -27,7 +27,8 @@
 
     --orange:#e2600a;        /* สีหลัก ใช้กับตัวเลขใหญ่และปุ่มหลัก */
     --orange-d:#a8450a;      /* ส้มเข้ม สำหรับตัวหนังสือเล็ก */
-    --orange-l:#f4a460;
+    --orange-l:#f8cfa6;      /* ส้มอ่อน */
+    --orange-mid:#f0a055;    /* ส้มกลาง */
 
     --good:#15803d;  --good-ink:#15803d;  --good-bg:#edf7f0;
     --warn:#a16207;  --warn-ink:#8a5a06;  --warn-bg:#fdf6e3;
@@ -841,7 +842,7 @@ function costSplit(m){
     </div>
     <div class="legend">
       <span><i style="background:var(--orange)"></i>ต้นทุน <b>${baht(cost)}</b></span>
-      <span><i style="background:#bcd9fd"></i>กำไร <b>${baht(pf)}</b></span>
+      <span><i style="background:var(--orange-l)"></i>กำไร <b>${baht(pf)}</b></span>
     </div>`;
 }
 
@@ -1292,13 +1293,13 @@ function viewDash(){
         <h2>เงินที่ขายได้ไปไหนบ้าง</h2>
         <p class="sub">จากรายได้ ${baht(d.revenue)} บาทต่อวัน</p>
         <div class="split" style="height:16px">
-          <i style="width:${fw}%; background:#bcd9fd"></i>
-          <i style="width:${xw}%; background:#f0a868"></i>
+          <i style="width:${fw}%; background:var(--orange-l)"></i>
+          <i style="width:${xw}%; background:var(--orange-mid)"></i>
           <i style="width:${pw}%; background:${d.net>=0?'var(--orange-d)':'var(--bad)'}"></i>
         </div>
         <div class="legend">
-          <span><i style="background:#bcd9fd"></i>วัตถุดิบ <b>${fw.toFixed(0)}%</b> · ${baht(d.food)}</span>
-          <span><i style="background:#f0a868"></i>ค่าเช่า/ค่าไฟ <b>${xw.toFixed(0)}%</b> · ${baht(d.fixed)}</span>
+          <span><i style="background:var(--orange-l)"></i>วัตถุดิบ <b>${fw.toFixed(0)}%</b> · ${baht(d.food)}</span>
+          <span><i style="background:var(--orange-mid)"></i>ค่าเช่า/ค่าไฟ <b>${xw.toFixed(0)}%</b> · ${baht(d.fixed)}</span>
           <span><i style="background:${d.net>=0?'var(--orange-d)':'var(--bad)'}"></i>${d.net>=0?'เหลือเป็นกำไร':'ขาดทุน'} <b>${pw.toFixed(0)}%</b> · ${baht(d.net)}</span>
         </div>
       </div>`);
