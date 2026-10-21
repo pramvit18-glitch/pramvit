@@ -778,6 +778,9 @@
   .shopswitch[hidden]{display:none}
 
   .shopcard{display:flex; align-items:center; gap:13px}
+  .lockcard{display:flex; align-items:center; gap:13px}
+  .shopswitch.fixed{cursor:default}
+  .shopswitch.fixed:hover{color:var(--muted)}
   .ic-tile.big{width:46px; height:46px; border-radius:14px;
     background:linear-gradient(145deg, var(--orange), var(--orange-d)); color:#fff}
   .ic-tile.big svg{width:20px; height:20px}
@@ -1211,6 +1214,7 @@ function allDays(){
 }
 
 let db = load();
+applyShopLink();
 let tab = 'today';
 
 // ทำให้ข้อมูลร้านหนึ่งร้านอยู่ในรูปที่ใช้ได้เสมอ
@@ -1228,7 +1232,9 @@ function load(){
       const st = JSON.parse(hub);
       if(st && Array.isArray(st.shops) && st.shops.length){
         store = { shops: st.shops.map((x,i) => fixShop(x, 'ร้านที่ ' + (i+1))), active: st.active };
+        if(st.locked && st.shops.some(x => x.id === st.locked)) store.locked = st.locked;
         if(!store.shops.some(x => x.id === store.active)) store.active = store.shops[0].id;
+        if(store.locked) store.active = store.locked;      // เครื่องที่ผูกไว้ เปิดมาเจอร้านนั้นเสมอ
         return store.shops.find(x => x.id === store.active);
       }
     }
@@ -1296,6 +1302,89 @@ function setShopData(data){
   db = next; save();
 }
 const curShop = () => store.shops.find(x => x.id === store.active) || store.shops[0];
+
+/* ===================== ลิงก์เฉพาะร้าน =====================
+   ส่งลิงก์คนละอันให้แต่ละร้าน เปิดในมือถือตัวเองครั้งเดียว
+   เครื่องนั้นจะผูกกับร้านนั้นร้านเดียว ไม่เห็นร้านอื่น ไม่ต้อง login
+   (เป็นการกันพลาดกันงง ไม่ใช่ระบบความปลอดภัย — ใครแก้ URL เองก็ยังเปลี่ยนได้) */
+function isLocked(){
+  return !!store.locked && store.shops.some(x => x.id === store.locked);
+}
+
+function applyShopLink(){
+  let q;
+  try{ q = new URLSearchParams(location.search); }catch(e){ return; }
+  const id = (q.get('shop') || '').trim();
+  if(!id) return;
+  const name = (q.get('n') || '').trim();
+  const branch = (q.get('b') || '').trim();
+
+  let x = store.shops.find(v => v.id === id);
+  if(!x){
+    const only = store.shops.length === 1 ? store.shops[0] : null;
+    const fresh = fixShop(blank(), name || 'ร้านของฉัน');
+    fresh.id = id;
+    fresh.shopName = name || 'ร้านของฉัน';
+    fresh.shopBranch = branch;
+    // เครื่องใหม่ที่มีแต่ข้อมูลตัวอย่าง ให้แทนที่ไปเลย จะได้ไม่มีร้านขยะค้าง
+    if(only && only.isDemo) store.shops = [fresh]; else store.shops.push(fresh);
+    x = fresh;
+  }else{
+    if(name) x.shopName = name;
+    if(branch) x.shopBranch = branch;
+  }
+  store.active = x.id;
+  store.locked = x.id;
+  db = x; save();
+  try{ history.replaceState(null, '', location.pathname); }catch(e){}
+}
+
+function shopLink(id){
+  const x = store.shops.find(v => v.id === id); if(!x) return '';
+  const base = location.origin + location.pathname;
+  const q = new URLSearchParams();
+  q.set('shop', x.id);
+  if(String(x.shopName||'').trim()) q.set('n', x.shopName);
+  if(String(x.shopBranch||'').trim()) q.set('b', x.shopBranch);
+  return base + '?' + q.toString();
+}
+
+function shopLinkDialog(id){
+  const x = store.shops.find(v => v.id === id); if(!x) return;
+  const url = shopLink(id);
+  openDialog({
+    title:'ลิงก์ของร้านนี้',
+    sub: shopTitle(x),
+    html:`
+      <p style="margin:0 0 12px; color:var(--ink-2); font-size:13.5px; line-height:1.65">
+        ส่งลิงก์นี้ให้คนที่ดูแลร้านนี้ (ทางไลน์ก็ได้) ให้เขาเปิดใน<b>มือถือของเขาเอง</b>ครั้งเดียว
+        แล้วเครื่องนั้นจะเห็นแค่ร้านนี้ร้านเดียว ไม่ต้องเข้าสู่ระบบ ไม่ต้องตั้งอะไรเพิ่ม
+        แนะนำให้เขากด "เพิ่มลงหน้าจอโฮม" ไว้ด้วย
+      </p>
+      <textarea id="shopLinkBox" readonly rows="3"
+        style="width:100%; border:1px solid var(--line); border-radius:12px; background:var(--soft);
+               padding:11px 13px; font:inherit; font-size:12.5px; color:var(--ink-2); resize:none">${esc(url)}</textarea>
+      <p class="hint" style="margin:10px 0 0">ข้อมูลของแต่ละเครื่องแยกกันอยู่แล้ว ลิงก์นี้มีไว้กันเปิดผิดร้านกับกันงงเฉย ๆ
+        ไม่ได้ล็อกแน่นหนาแบบรหัสผ่าน</p>`,
+    foot:[{label:'ปิด', cls:'ghost', fn:'dlg.close()'},
+          {label:'คัดลอกลิงก์', cls:'primary wide', fn:'copyShopLink()'}]
+  });
+}
+async function copyShopLink(){
+  const ta = document.getElementById('shopLinkBox'); if(!ta) return;
+  try{
+    await navigator.clipboard.writeText(ta.value);
+    toast('คัดลอกลิงก์แล้ว — เอาไปวางในไลน์ส่งให้เขาได้เลย');
+  }catch(e){
+    ta.select(); toast('กดค้างที่ลิงก์แล้วเลือก "คัดลอก" เองนะครับ');
+  }
+}
+
+function unlockDevice(){
+  askConfirm('ปลดล็อกเครื่องนี้',
+    'หลังปลดล็อกจะสลับร้านและเพิ่มร้านอื่นในเครื่องนี้ได้ ข้อมูลที่บันทึกไว้ไม่หาย',
+    'ปลดล็อก', () => { delete store.locked; save(); render(); toast('ปลดล็อกแล้ว'); });
+}
 // ตัวอักษรแทนรายการในวงกลม — ข้ามสระหน้าของไทยเพื่อให้แต่ละรายการต่างกันจริง
 function initial(name){
   const t = String(name || '').trim();
@@ -1417,7 +1506,9 @@ const SVG = {
   x:'<path d="M6 6l12 12M18 6 6 18"/>',
   box:'<path d="M3 8l9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/>',
   search:'<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
-  store:'<path d="M4 10h16v10H4z"/><path d="M4 10 6 4h12l2 6"/><path d="M9 20v-6h6v6"/>'
+  store:'<path d="M4 10h16v10H4z"/><path d="M4 10 6 4h12l2 6"/><path d="M9 20v-6h6v6"/>',
+  link:'<path d="M10 13.5a4 4 0 0 0 5.7.3l2.6-2.6a4 4 0 0 0-5.7-5.7L11.5 7"/><path d="M14 10.5a4 4 0 0 0-5.7-.3l-2.6 2.6a4 4 0 0 0 5.7 5.7L12.5 17"/>',
+  lock:'<rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>'
 };
 const icon = (k,s=18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SVG[k]}</svg>`;
 
@@ -1479,8 +1570,12 @@ function render(){
   document.getElementById('pageTitle').textContent = t[3] || t[1];
   document.getElementById('appbarIc').innerHTML = icon(t[2] || 'dash', 19);
   const sub = document.getElementById('pageSub');
-  sub.innerHTML = `<span>${esc(shopLine())}</span>${icon('down',13)}`
-    + (store.shops.length > 1 ? `<b>${store.shops.length} ร้าน</b>` : '');
+  const many = !isLocked() && store.shops.length > 1;
+  sub.innerHTML = `<span>${esc(shopLine())}</span>`
+    + (isLocked() ? '' : icon('down',13))
+    + (many ? `<b>${store.shops.length} ร้าน</b>` : '');
+  sub.classList.toggle('fixed', isLocked());
+  sub.disabled = isLocked();
   sub.hidden = !shopLine();
 
   const hs = headStat();
@@ -2567,12 +2662,16 @@ function shopListHTML(withEdit){
           <span class="shoprow-s">${esc(x.shopBranch || 'ไม่ได้ใส่สาขา')} · วันนี้ ฿${baht(sale)} · ${(x.menus||[]).length} เมนู</span>
         </span>
       </button>
-      ${withEdit ? `<button type="button" class="btn sm" onclick="shopDialog('${x.id}')">${icon('edit',14)}</button>` : ''}
+      ${withEdit ? `<button type="button" class="btn sm" onclick="shopLinkDialog('${x.id}')"
+                      aria-label="ลิงก์ของร้านนี้">${icon('link',14)}</button>
+         <button type="button" class="btn sm" onclick="shopDialog('${x.id}')"
+                 aria-label="แก้ไขร้านนี้">${icon('edit',14)}</button>` : ''}
     </div>`;
   }).join('');
 }
 
 function shopHub(){
+  if(isLocked()) return;
   openDialog({
     title:'ร้านของฉัน',
     sub:'แต่ละร้านแยกเมนู ไส้ ยอดขาย และรายจ่ายของตัวเอง',
@@ -2583,6 +2682,7 @@ function shopHub(){
 }
 
 function addShop(){
+  if(isLocked()) return toast('เครื่องนี้ตั้งไว้สำหรับร้านเดียว');
   openDialog({
     title:'เพิ่มร้านใหม่',
     sub:'เช่น ร้านน้ำปั่น — ข้อมูลจะแยกจากร้านเดิมสนิท',
@@ -2627,7 +2727,7 @@ function shopDialog(id){
       {k:'shopName', label:'ชื่อร้าน', value: x.shopName || '', placeholder:'เช่น เครปป้าแดง', wide:true},
       {k:'shopBranch', label:'สาขา / จุดที่ขาย', value: x.shopBranch || '', placeholder:'เช่น หน้าโรงเรียน', wide:true}
     ],
-    extraFoot: store.shops.length > 1
+    extraFoot: (store.shops.length > 1 && !isLocked())
       ? {label:'ลบร้านนี้', cls:'danger', fn:`delShop('${x.id}')`} : null,
     check: v => String(v.shopName||'').trim() ? null : 'ใส่ชื่อร้านก่อนครับ',
     save: v => {
@@ -3755,13 +3855,30 @@ function viewSetup(){
   }).join('');
 
   return `
-  <div class="card">
+  ${isLocked() ? `<div class="card shopcard">
+    <span class="ic-tile big">${icon('store',20)}</span>
+    <div class="shopcard-m">
+      <div class="shopcard-n">${esc(db.shopName)}
+        <span class="statepill${db.shopOpen ? ' on' : ''}">${db.shopOpen ? 'เปิดอยู่' : 'ปิดอยู่'}</span></div>
+      <div class="shopcard-s">${esc(db.shopBranch || 'ยังไม่ได้ใส่สาขา')}</div>
+    </div>
+    <button type="button" class="btn sm" onclick="shopDialog()">${icon('edit',14)} แก้ไข</button>
+  </div>
+
+  <div class="card lockcard">
+    <span class="ic-tile tone-o">${icon('lock',17)}</span>
+    <div class="shopcard-m">
+      <div class="shopcard-n" style="font-size:14.5px">เครื่องนี้ใช้ร้านนี้ร้านเดียว</div>
+      <div class="shopcard-s">เปิดมาเจอร้านนี้เลย ไม่มีร้านอื่นให้สับสน</div>
+    </div>
+    <button type="button" class="btn sm ghost" onclick="unlockDevice()">ปลดล็อก</button>
+  </div>` : `<div class="card">
     ${cardHead('store','ร้านของฉัน','แต่ละร้านแยกเมนู ไส้ ยอดขาย และรายจ่ายของตัวเอง',
       `<span class="head-tag">${store.shops.length} ร้าน</span>
        <button type="button" class="btn sm primary" onclick="addShop()">${icon('plus',14)} เพิ่มร้าน</button>`)}
     <div class="shoplist">${shopListHTML(true)}</div>
-    <p class="hint" style="margin:12px 0 0">แตะชื่อร้านเพื่อสลับไปใช้ร้านนั้น · กดรูปดินสอเพื่อแก้ชื่อหรือลบ</p>
-  </div>
+    <p class="hint" style="margin:12px 0 0">แตะชื่อร้านเพื่อสลับไปใช้ร้านนั้น · กดรูปลิงก์เพื่อส่งให้คนดูแลร้านนั้นเปิดในมือถือตัวเอง · ดินสอคือแก้ชื่อหรือลบ</p>
+  </div>`}
 
   <div class="card">
     ${cardHead('menu','แป้ง / เมนูที่ขาย','แตะชื่อเพื่อแก้ราคา · ปุ่ม "ชุดไส้" คือเลือกว่าเมนูนี้ใส่อะไรได้',
@@ -3952,7 +4069,9 @@ function applyData(raw){
     const data = JSON.parse(raw);
     // ก้อนใหม่ = มีหลายร้าน / ก้อนเก่า = ร้านเดียว ใส่ทับร้านที่กำลังใช้อยู่
     if(data && Array.isArray(data.shops) && data.shops.length){
+      const wasLocked = store && store.locked;
       store = { shops: data.shops.map((x,i) => fixShop(x, 'ร้านที่ ' + (i+1))), active: data.active };
+      if(wasLocked && store.shops.some(x => x.id === wasLocked)){ store.locked = wasLocked; store.active = wasLocked; }
       if(!store.shops.some(x => x.id === store.active)) store.active = store.shops[0].id;
       db = curShop(); save(); render();
       return true;

@@ -22,6 +22,8 @@ const stub = () => {
 global.document = { body: stub(), getElementById: stub, querySelector: () => stub(), createElement: stub };
 global.window = { addEventListener(){}, scrollTo(){} };
 global.navigator = {};
+global.location = { origin:'https://example.test', pathname:'/app/', search:'', href:'https://example.test/app/' };
+global.history = { replaceState(){} };
 
 // --- จำลองว่าเครื่องนี้เคยใช้เวอร์ชันร้านเดียวมาก่อน ---
 const oldShop = {
@@ -107,12 +109,66 @@ const probe = `
     db.menus.length === 0 && (store.shops.find(x => x.id === other.id).menus||[]).length === otherMenus]);
   out.push(['ล้างข้อมูลแล้วชื่อร้านยังอยู่', !!String(db.shopName||'').trim()]);
 
-  return { out, shops: store.shops.map(x => x.shopName + ' (' + (x.menus||[]).length + ' เมนู)') };
+  // ===== ลิงก์เฉพาะร้าน =====
+  // เครื่องของเจ้าของ: ยังไม่ถูกผูก สลับร้านได้ตามปกติ
+  out.push(['เครื่องที่ยังไม่ได้ผูก ไม่ถูกล็อก', isLocked() === false]);
+
+  const shakeShop = store.shops.find(x => x.shopName === 'ร้านน้ำปั่น')
+                 || (store.shops[1] || store.shops[0]);
+  shakeShop.shopName = 'ร้านน้ำปั่น'; shakeShop.shopBranch = 'หน้าปากซอย';
+  const url = shopLink(shakeShop.id);
+  out.push(['สร้างลิงก์ของร้านได้ และมี id ร้านอยู่ในลิงก์',
+    url.indexOf('shop=' + shakeShop.id) > 0]);
+  out.push(['ลิงก์พาชื่อร้านกับสาขาไปด้วย',
+    url.indexOf(encodeURIComponent('ร้านน้ำปั่น')) > 0 && url.indexOf(encodeURIComponent('หน้าปากซอย')) > 0]);
+  out.push(['ลิงก์ไม่มียอดขายหรือเมนูติดไปด้วย', url.length < 300 && url.indexOf('sales') < 0]);
+
+  // --- จำลองมือถือเครื่องใหม่ของทางร้าน: ยังไม่เคยเปิดแอปเลย ---
+  const q = url.slice(url.indexOf('?'));
+  const keep = JSON.parse(localStorage.getItem('crepe-hub-v1'));
+  localStorage.removeItem('crepe-hub-v1');
+  localStorage.removeItem('crepe-cost-v1');
+  db = load();                       // เครื่องใหม่ได้ข้อมูลตัวอย่างมาก่อน
+  const demoFirst = store.shops.length === 1 && !!db.isDemo;
+  location.search = q;
+  applyShopLink();
+  out.push(['เครื่องใหม่เปิดลิงก์แล้วได้ร้านที่ถูกส่งมา',
+    demoFirst && db.id === shakeShop.id && db.shopName === 'ร้านน้ำปั่น']);
+  out.push(['ข้อมูลตัวอย่างถูกแทนที่ ไม่มีร้านขยะค้าง', store.shops.length === 1]);
+  out.push(['เครื่องของทางร้านเริ่มจากศูนย์ ไม่มียอดขายของเจ้าของติดมา',
+    (db.sales||[]).length === 0 && db.menus.length === 0]);
+  out.push(['เครื่องนี้ถูกผูกกับร้านเดียว', isLocked() === true && store.locked === shakeShop.id]);
+
+  // เครื่องที่ถูกผูกแล้ว ต้องเพิ่ม/สลับร้านไม่ได้
+  const before = store.shops.length;
+  addShop();
+  out.push(['เครื่องที่ผูกแล้วเพิ่มร้านไม่ได้', store.shops.length === before]);
+
+  // เปิดลิงก์ซ้ำ ต้องไม่สร้างร้านซ้ำ
+  applyShopLink();
+  out.push(['เปิดลิงก์เดิมซ้ำ ไม่ได้ร้านซ้ำ', store.shops.length === 1]);
+
+  // เปิดแอปใหม่ ต้องยังผูกอยู่
+  location.search = '';
+  db = load(); applyShopLink();
+  out.push(['ปิดแล้วเปิดใหม่ยังผูกร้านเดิมอยู่', isLocked() === true && db.shopName === 'ร้านน้ำปั่น']);
+
+  // ขายของในเครื่องของทางร้าน แล้วต้องไม่ไปโผล่ที่อื่น
+  db.menus.push({id:'x1', name:'นมสดปั่น', price:35, groupIds:[]});
+  order = { lines: [] }; tapMenu('x1'); payBill();
+  out.push(['เครื่องของทางร้านขายได้ตามปกติ', sumDay(dayKey()).sale === 35]);
+
+  // ปลดล็อกได้ถ้าเจ้าของเผลอเปิดลิงก์ในเครื่องตัวเอง
+  delete store.locked; save();
+  out.push(['ปลดล็อกแล้วกลับมาสลับร้านได้', isLocked() === false]);
+
+  return { out, shops: store.shops.map(x => x.shopName + ' (' + (x.menus||[]).length + ' เมนู)'), link: url };
 })()
 `;
 const r = eval(script + probe);
 let bad = 0;
 r.out.forEach(([name, v]) => { if (!v) bad++; console.log('  ' + (v ? '✓' : '✗'), name); });
 console.log('\n  ร้านที่เหลืออยู่:', r.shops.join(' · '));
+console.log('  ตัวอย่างลิงก์เฉพาะร้าน:', decodeURI(r.link));
 console.log(' ', bad ? bad + ' ข้อไม่ผ่าน' : 'ผ่านทุกข้อ');
 process.exit(bad ? 1 : 0);
