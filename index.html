@@ -743,7 +743,7 @@ window.addEventListener('scroll', () => {
 function renderBanner(){
   const el = document.getElementById('banner');
   el.innerHTML = db.isDemo ? `
-    <div class="card" style="border-color:var(--accent)">
+    <div class="card" style="border-color:var(--blue)">
       <h2>กำลังดูข้อมูลตัวอย่าง</h2>
       <p class="sub">ใส่ไว้ให้เห็นภาพก่อนว่าใช้ยังไง กดดูได้ทุกแท็บ ยังไม่ใช่ตัวเลขของร้านคุณ</p>
       <div class="btnrow">
@@ -913,8 +913,8 @@ function costSplit(m){
       <i class="seg-profit" style="width:${100-cw}%"></i>
     </div>
     <div class="legend">
-      <span><i style="background:var(--bar-cost)"></i>ต้นทุน <b>${baht(cost)}</b></span>
-      <span><i style="background:var(--bar-profit)"></i>กำไร <b>${baht(pf)}</b></span>
+      <span><i style="background:var(--blue)"></i>ต้นทุน <b>${baht(cost)}</b></span>
+      <span><i style="background:#bcd9fd"></i>กำไร <b>${baht(pf)}</b></span>
     </div>`;
 }
 
@@ -1362,14 +1362,14 @@ function viewDash(){
         <h2>เงินที่ขายได้ไปไหนบ้าง</h2>
         <p class="sub">จากรายได้ ${baht(d.revenue)} บาทต่อวัน</p>
         <div class="split" style="height:16px">
-          <i style="width:${fw}%; background:var(--bar-profit)"></i>
+          <i style="width:${fw}%; background:#bcd9fd"></i>
           <i style="width:${xw}%; background:#4a90ed"></i>
-          <i style="width:${pw}%; background:${d.net>=0?'var(--accent-ink)':'var(--bad)'}"></i>
+          <i style="width:${pw}%; background:${d.net>=0?'var(--blue-d)':'var(--bad)'}"></i>
         </div>
         <div class="legend">
-          <span><i style="background:var(--bar-profit)"></i>วัตถุดิบ <b>${fw.toFixed(0)}%</b> · ${baht(d.food)}</span>
+          <span><i style="background:#bcd9fd"></i>วัตถุดิบ <b>${fw.toFixed(0)}%</b> · ${baht(d.food)}</span>
           <span><i style="background:#4a90ed"></i>ค่าเช่า/ค่าไฟ <b>${xw.toFixed(0)}%</b> · ${baht(d.fixed)}</span>
-          <span><i style="background:${d.net>=0?'var(--accent-ink)':'var(--bad)'}"></i>${d.net>=0?'เหลือเป็นกำไร':'ขาดทุน'} <b>${pw.toFixed(0)}%</b> · ${baht(d.net)}</span>
+          <span><i style="background:${d.net>=0?'var(--blue-d)':'var(--bad)'}"></i>${d.net>=0?'เหลือเป็นกำไร':'ขาดทุน'} <b>${pw.toFixed(0)}%</b> · ${baht(d.net)}</span>
         </div>
       </div>`);
     }
