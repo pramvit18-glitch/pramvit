@@ -378,6 +378,76 @@
     dialog{max-width:540px; margin:auto; border-radius:20px; animation:none; padding-bottom:0}
     .dlg-grip{display:none}
   }
+
+  /* ===================== สมุดรายวัน ===================== */
+  .daybtns{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .daybtn{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px;
+    padding:22px 12px; border-radius:16px; border:1.5px solid var(--line);
+    background:var(--bg); cursor:pointer; font:inherit; font-weight:800; font-size:16px;
+    color:var(--ink); transition:.16s;
+  }
+  .daybtn svg{width:22px; height:22px}
+  .daybtn:active{transform:scale(.97)}
+  .daybtn.in{background:var(--good-bg); border-color:transparent; color:var(--good-ink)}
+  .daybtn.in:hover{border-color:var(--good)}
+  .daybtn.out{background:var(--tint); border-color:transparent; color:var(--orange-d)}
+  .daybtn.out:hover{border-color:var(--orange)}
+
+  .amt{font-weight:800; font-size:15px; font-variant-numeric:tabular-nums; white-space:nowrap}
+  .amt.in{color:var(--good-ink)}
+  .amt.out{color:var(--orange-d)}
+
+  /* เลือกเมนูตอนบันทึกการขาย */
+  .pills{display:flex; flex-wrap:wrap; gap:8px}
+  .pill{
+    border:1.5px solid var(--line); background:var(--bg); color:var(--ink);
+    border-radius:12px; padding:10px 14px; cursor:pointer; font:inherit;
+    font-weight:700; font-size:14px; display:inline-flex; align-items:center; gap:8px;
+    transition:.16s;
+  }
+  .pill b{color:var(--muted); font-weight:700; font-size:12.5px; font-variant-numeric:tabular-nums}
+  .pill:hover{border-color:var(--orange)}
+  .pill.on{background:var(--orange); border-color:var(--orange); color:#fff}
+  .pill.on b{color:rgba(255,255,255,.8)}
+
+  .stepper{display:flex; align-items:center; gap:0; width:fit-content;
+           border:1.5px solid var(--line); border-radius:12px; overflow:hidden}
+  .stepper button{
+    width:46px; height:46px; border:none; background:var(--soft); color:var(--ink);
+    font-size:22px; font-weight:700; cursor:pointer; line-height:1;
+  }
+  .stepper button:hover{background:var(--tint); color:var(--orange-d)}
+  .stepper span{min-width:62px; text-align:center; font-weight:800; font-size:19px;
+                font-variant-numeric:tabular-nums}
+
+  .tops{display:flex; flex-wrap:wrap; gap:8px}
+  .top{
+    border:1.5px solid var(--line); background:var(--bg); color:var(--ink);
+    border-radius:99px; padding:9px 15px; cursor:pointer; font:inherit;
+    font-weight:700; font-size:13.5px; transition:.16s;
+  }
+  .top b{color:var(--muted); font-weight:700; font-variant-numeric:tabular-nums}
+  .top:hover{border-color:var(--orange)}
+  .top.on{background:var(--tint); border-color:var(--orange); color:var(--orange-d)}
+  .top.on b{color:var(--orange-d)}
+
+  /* ย้อนหลังรายวัน */
+  .days{display:flex; flex-direction:column}
+  .day{
+    display:grid; grid-template-columns:76px 1fr auto; gap:4px 12px; align-items:center;
+    padding:12px 10px; margin:0 -10px; border:none; background:none; cursor:pointer;
+    border-bottom:1px solid var(--line-2); border-radius:10px; font:inherit; color:inherit;
+    text-align:left; transition:background .14s;
+  }
+  .day:last-child{border-bottom:none}
+  .day:hover{background:var(--soft)}
+  .day-d{font-weight:700; font-size:13.5px}
+  .day-bar{height:8px; border-radius:99px; background:var(--line-2); overflow:hidden}
+  .day-bar>i{display:block; height:100%; border-radius:99px; background:var(--orange)}
+  .day-v{font-weight:800; font-size:14px; font-variant-numeric:tabular-nums; text-align:right}
+  .day-n{grid-column:2/-1; font-size:11.5px; font-variant-numeric:tabular-nums}
+
 </style>
 </head>
 <body>
@@ -447,7 +517,7 @@
       <p id="dlgSub"></p>
     </div>
     <div class="dlg-body" id="dlgBody"></div>
-    <div class="dlg-foot">
+    <div class="dlg-foot" id="dlgFoot">
       <button type="button" class="btn ghost" id="dlgCancel" onclick="dlg.close()">ยกเลิก</button>
       <button type="submit" class="btn primary" id="dlgSave">บันทึก</button>
     </div>
@@ -461,20 +531,60 @@ const UNITS = ['กรัม','มิลลิลิตร','ชิ้น','แ�
 
 const blank = () => ({
   ingredients: [],
-  menus: [],
+  menus: [],                 // {id,name,price,addons:[{id,name,price}],items:[]}
+  sales: [],                 // {id, d:'YYYY-MM-DD', t:'HH:MM', menuId, name, qty, addons:[{name,price}], total}
+  expenses: [],              // {id, d:'YYYY-MM-DD', t:'HH:MM', note, amount}
   fixed: { rent:0, electric:0, gas:0, water:0, other:0, days:26, labor:0 },
   targetMargin: 65
 });
 
+/* ---------- วันที่ ---------- */
+const pad2 = v => String(v).padStart(2,'0');
+const dayKey = (dt = new Date()) => `${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())}`;
+const nowTime = () => { const d = new Date(); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+const TH_MON = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+function thaiDate(key, withYear){
+  const [y,m,d] = key.split('-').map(Number);
+  return `${d} ${TH_MON[m-1]}${withYear ? ' ' + (y+543).toString().slice(-2) : ''}`;
+}
+const monthKey = key => key.slice(0,7);
+function thaiMonth(mk){
+  const [y,m] = mk.split('-').map(Number);
+  return `${TH_MON[m-1]} ${y+543}`;
+}
+
+/* ---------- สรุปของวัน / เดือน ---------- */
+function sumDay(key){
+  const sale = (db.sales||[]).filter(x => x.d === key).reduce((a,x) => a + n(x.total), 0);
+  const exp  = (db.expenses||[]).filter(x => x.d === key).reduce((a,x) => a + n(x.amount), 0);
+  return { sale, exp, net: sale - exp };
+}
+function sumMonth(mk){
+  const sale = (db.sales||[]).filter(x => monthKey(x.d) === mk).reduce((a,x) => a + n(x.total), 0);
+  const exp  = (db.expenses||[]).filter(x => monthKey(x.d) === mk).reduce((a,x) => a + n(x.amount), 0);
+  const days = new Set([...(db.sales||[]), ...(db.expenses||[])].filter(x => monthKey(x.d) === mk).map(x => x.d));
+  return { sale, exp, net: sale - exp, days: days.size };
+}
+// รายการทั้งหมดของวันนั้น เรียงเวลาใหม่สุดขึ้นก่อน
+function entriesOf(key){
+  const a = (db.sales||[]).filter(x => x.d === key).map(x => ({...x, kind:'sale'}));
+  const b = (db.expenses||[]).filter(x => x.d === key).map(x => ({...x, kind:'exp'}));
+  return [...a,...b].sort((x,y) => String(y.t||'').localeCompare(String(x.t||'')));
+}
+function allDays(){
+  const set = new Set([...(db.sales||[]), ...(db.expenses||[])].map(x => x.d));
+  return [...set].sort().reverse();
+}
+
 let db = load();
-let tab = db.isDemo ? 'dash' : 'ing';
+let tab = 'today';
 
 function load(){
   try{
     const raw = localStorage.getItem(KEY);
-    if(!raw) return buildDemo();   // เปิดครั้งแรก ใส่ข้อมูลตัวอย่างให้เห็นภาพก่อน
+    if(!raw) return seedHistory(buildDemo());   // เปิดครั้งแรก มีข้อมูลตัวอย่างให้เห็นภาพก่อน
     return Object.assign(blank(), JSON.parse(raw));
-  }catch(e){ return buildDemo(); }
+  }catch(e){ return seedHistory(buildDemo()); }
 }
 function save(){
   try{ localStorage.setItem(KEY, JSON.stringify(db)); }
@@ -488,16 +598,16 @@ function initial(name){
   return (m ? m[0] : t[0]);
 }
 function uid(){ return Math.random().toString(36).slice(2,9); }
-const n = v => { const x = parseFloat(v); return isFinite(x) ? x : 0; };
+function n(v){ const x = parseFloat(v); return isFinite(x) ? x : 0; }
 // เจ้าของร้านคิดเป็นบาทเต็ม ไม่ได้คิดเป็นสตางค์ — แสดงทศนิยมเฉพาะตอนเงินน้อยกว่า 10 บาท
-const baht = v => {
+function baht(v){
   const x = n(v);
   return Math.abs(x) > 0 && Math.abs(x) < 10
     ? x.toLocaleString('th-TH',{minimumFractionDigits:2, maximumFractionDigits:2})
     : Math.round(x).toLocaleString('th-TH');
-};
-const esc = s => String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+}
+function esc(s){ return String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 
 // ราคาต่อหน่วยมักเป็นเลขจุดทศนิยมยาว ๆ (0.0450) คนทั่วไปอ่านยาก
 // ถ้าต่ำกว่า 1 บาทให้บอกเป็นสตางค์แทน
@@ -580,6 +690,11 @@ function level(mg){
 /* ===================== ไอคอน ===================== */
 const SVG = {
   dash:'<path d="M3 12l9-8 9 8"/><path d="M5.5 10v10h13V10"/><path d="M9.5 20v-5h5v5"/>',
+  today:'<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/>',
+  hist:'<path d="M5 20v-6M12 20V8M19 20v-9"/><path d="M3 20h18"/>',
+  more:'<circle cx="12" cy="5.5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18.5" r="1.6"/>',
+  up:'<path d="M12 19V5M6 11l6-6 6 6"/>',
+  down:'<path d="M12 5v14M6 13l6 6 6-6"/>',
   ing:'<path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9.5 8a2.5 2.5 0 0 1 5 0"/>',
   menu:'<path d="M4 7h16M4 12h16M4 17h10"/>',
   fixed:'<path d="M4 10h16v10H4z"/><path d="M4 10 6 4h12l2 6"/><path d="M10 20v-5h4v5"/>',
@@ -597,15 +712,35 @@ const icon = (k,s=18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fi
 
 /* ===================== หน้าจอ ===================== */
 const TABS = [
-  ['dash',  'ภาพรวม',    'dash'],
-  ['ing',   'วัตถุดิบ',   'ing'],
-  ['menu',  'เมนู',       'menu'],
-  ['fixed', 'รายจ่าย',    'fixed']
+  ['today', 'วันนี้',    'today'],
+  ['hist',  'ย้อนหลัง',  'hist'],
+  ['menu',  'เมนู',      'menu'],
+  ['more',  'อื่น ๆ',    'more']
 ];
 
 // ตัวเลขสำคัญของแต่ละแท็บ แสดงไว้บนสุดของหน้า
 function headStat(){
   if(recipeDraft) return {k:'กำลังเลือกของที่ใช้', v:'', s:'ติ๊กของที่ใช้ แล้วใส่จำนวนต่อ 1 จาน'};
+
+  if(tab === 'today'){
+    const key = dayKey(), d = sumDay(key);
+    const has = (db.sales||[]).some(x=>x.d===key) || (db.expenses||[]).some(x=>x.d===key);
+    return {k: thaiDate(key, true) + ' · ' + (d.net>=0 ? 'วันนี้เหลือ' : 'วันนี้ขาดทุน'),
+            v: baht(Math.abs(d.net)), u:'บาท',
+            s: has ? `ขายได้ ${baht(d.sale)} · ซื้อของ ${baht(d.exp)} บาท`
+                   : 'ยังไม่ได้บันทึกอะไรวันนี้ — กดปุ่มด้านล่างได้เลย'};
+  }
+  if(tab === 'hist'){
+    const days = allDays();
+    if(!days.length) return {k:'ย้อนหลัง', v:'', s:'ยังไม่มีประวัติ'};
+    const m = sumMonth(monthKey(days[0]));
+    return {k: thaiMonth(monthKey(days[0])) + ' · ' + (m.net>=0 ? 'เหลือ' : 'ขาดทุน'),
+            v: baht(Math.abs(m.net)), u:'บาท',
+            s: `ขายได้ ${baht(m.sale)} · ซื้อของ ${baht(m.exp)} บาท · ${m.days} วัน`};
+  }
+  if(tab === 'more'){
+    return {k:'อื่น ๆ', v:'', s:'ของที่นาน ๆ ใช้ที — ตั้งราคา สำรองข้อมูล คำอธิบายศัพท์'};
+  }
   if(tab === 'ing'){
     const c = db.ingredients.length;
     return {k:'ของที่ซื้อมา', v:String(c), u:'อย่าง',
@@ -655,7 +790,12 @@ function render(){
 
   renderBanner();
   document.getElementById('view').innerHTML =
-    tab==='ing' ? viewIng() : tab==='menu' ? viewMenu() : tab==='fixed' ? viewFixed() : viewDash();
+    tab==='today' ? viewToday() :
+    tab==='hist'  ? viewHist()  :
+    tab==='menu'  ? viewMenu()  :
+    tab==='ing'   ? viewIng()   :
+    tab==='fixed' ? viewFixed() :
+    tab==='dash'  ? viewDash()  : viewMore();
 }
 function go(t){ tab=t; render(); window.scrollTo({top:0}); }
 
@@ -677,7 +817,7 @@ function renderBanner(){
       </div>
     </div>` : '';
 }
-function startFresh(){ db = blank(); save(); tab='ing'; render(); }
+function startFresh(){ db = blank(); save(); tab='today'; render(); }
 function keepDemo(){ delete db.isDemo; save(); render(); }
 
 /* ===================== หน้าต่างกรอกข้อมูล ===================== */
@@ -691,21 +831,31 @@ function openDialog(cfg){
   document.getElementById('dlgSub').textContent = cfg.sub || '';
   document.getElementById('dlgSave').textContent = cfg.saveLabel || 'บันทึก';
 
-  const saveBtn = document.getElementById('dlgSave');
-  const cancelBtn = document.getElementById('dlgCancel');
+
+  const foot = document.getElementById('dlgFoot');
+  const defFoot = '<button type="button" class="btn ghost" id="dlgCancel" onclick="dlg.close()">ยกเลิก</button>'
+                + '<button type="submit" class="btn primary" id="dlgSave">บันทึก</button>';
+
+  // ปุ่มท้ายกล่องแบบกำหนดเอง
+  if(cfg.foot){
+    foot.innerHTML = cfg.foot.map(b =>
+      '<button type="button" class="btn ' + (b.cls||'') + '" onclick="' + b.fn + '">' + b.label + '</button>').join('');
+  }else{
+    foot.innerHTML = defFoot;
+    if(cfg.extraFoot){
+      foot.insertAdjacentHTML('beforeend',
+        '<button type="button" class="btn ' + (cfg.extraFoot.cls||'') + '" onclick="' + cfg.extraFoot.fn + '">'
+        + cfg.extraFoot.label + '</button>');
+    }
+  }
 
   // โหมดอ่านอย่างเดียว เช่น หน้าอธิบายคำศัพท์
   if(cfg.html){
     document.getElementById('dlgBody').innerHTML = `<div style="grid-column:1/-1">${cfg.html}</div>`;
-    saveBtn.hidden = true;
-    cancelBtn.textContent = 'เข้าใจแล้ว';
-    cancelBtn.className = 'btn primary';
+    if(!cfg.foot) foot.innerHTML = '<button type="button" class="btn primary" onclick="dlg.close()">เข้าใจแล้ว</button>';
     dlg.showModal();
     return;
   }
-  saveBtn.hidden = false;
-  cancelBtn.textContent = 'ยกเลิก';
-  cancelBtn.className = 'btn ghost';
 
   document.getElementById('dlgBody').innerHTML = cfg.fields.map(f => {
     const cls = `f${f.wide ? ' wide' : ''}`;
@@ -756,6 +906,7 @@ dlg.addEventListener('close', () => dlg.removeEventListener('input', dlgLive));
 
 /* --------- แท็บ 1: วัตถุดิบ --------- */
 function viewIng(){
+  const back = `<button class="btn back" onclick="go('more')">${icon('back',16)} อื่น ๆ</button>`;
   const rows = db.ingredients.map(i => `
     <div class="li" role="button" tabindex="0" onclick="editIng('${i.id}')"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editIng('${i.id}')}">
@@ -773,7 +924,7 @@ function viewIng(){
       </div>
     </div>`).join('');
 
-  return `
+  return back + `
   <div class="card">
     <div class="head-row">
       <h2>วัตถุดิบที่ซื้อมา</h2>
@@ -1041,6 +1192,8 @@ function viewMenu(){
 
       ${costSplit(m)}
 
+      ${addonList(m)}
+
       <div class="sec">จานนี้ใช้ของอะไรบ้าง</div>
       <div class="list">${items || `<div class="empty" style="padding:16px">ยังไม่ได้ใส่ว่าใช้ของอะไร</div>`}</div>
       <div style="margin-top:10px">
@@ -1136,12 +1289,13 @@ function delItem(mid,idx){
 
 /* --------- แท็บ 3: ต้นทุนคงที่ --------- */
 function viewFixed(){
+  const back = `<button class="btn back" onclick="go('more')">${icon('back',16)} อื่น ๆ</button>`;
   const f = db.fixed;
   const fld = (k,l,ph='') => `<div class="f"><label>${l}</label>
     <input type="number" step="any" inputmode="decimal" value="${f[k]}" placeholder="${ph}" oninput="setFixed('${k}',this.value)"></div>`;
   const be = breakEven();
 
-  return `
+  return back + `
   <div class="card" id="fixedKpi">
     <h2>ต้องขายกี่จานถึงไม่ขาดทุน</h2>
     <p class="sub">ขายให้ได้เท่านี้ก่อน ถึงจะพอจ่ายค่าเช่ากับค่าไฟ</p>
@@ -1242,8 +1396,242 @@ function stepsCard(){
   </div>`;
 }
 
-/* --------- แท็บ 1: ภาพรวม (dashboard) --------- */
+
+/* ===================== หน้า "วันนี้" — หัวใจของแอป ===================== */
+function entryRow(e, showDay){
+  const isSale = e.kind === 'sale';
+  const sub = isSale
+    ? [ n(e.qty) > 1 ? n(e.qty) + ' จาน' : '',
+        (e.addons||[]).map(a => a.name).join(' ') ].filter(Boolean).join(' · ')
+    : '';
+  return `<div class="li" role="button" tabindex="0" onclick="editEntry('${e.kind}','${e.id}')"
+       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editEntry('${e.kind}','${e.id}')}">
+    <div class="li-main">
+      <div class="li-title">${esc(isSale ? (e.name || 'ขายได้') : (e.note || 'ซื้อของ'))}</div>
+      <div class="li-sub">${showDay ? thaiDate(e.d) + ' · ' : ''}${e.t || ''}${sub ? ' · ' + esc(sub) : ''}</div>
+    </div>
+    <div class="li-end">
+      <span class="amt ${isSale ? 'in' : 'out'}">${isSale ? '+' : '−'}${baht(isSale ? e.total : e.amount)}</span>
+      <span class="li-chev">${icon('chev',16)}</span>
+    </div>
+  </div>`;
+}
+
+function viewToday(){
+  const key = dayKey();
+  const d = sumDay(key);
+  const rows = entriesOf(key);
+
+  return `
+  <div class="card">
+    <div class="daybtns">
+      <button class="daybtn in" onclick="saleDialog(null)">${icon('up',20)}<span>ขายได้</span></button>
+      <button class="daybtn out" onclick="expenseDialog(null)">${icon('down',20)}<span>ซื้อของ</span></button>
+    </div>
+    <div class="quick" style="margin-top:20px">
+      <div class="q"><div class="k">ขายได้</div><div class="v">${baht(d.sale)}</div></div>
+      <div class="q"><div class="k">ซื้อของ</div><div class="v">${baht(d.exp)}</div></div>
+      <div class="q"><div class="k">เหลือ</div><div class="v ${d.net>=0?'good':'bad'}">${baht(d.net)}</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>รายการวันนี้</h2>
+    <p class="sub">${rows.length ? 'แตะที่รายการเพื่อแก้หรือลบ' : 'ยังไม่ได้บันทึกอะไรวันนี้'}</p>
+    <div class="list">${rows.length ? rows.map(e => entryRow(e,false)).join('')
+      : `<div class="empty">
+          <div class="empty-ic">${icon('today',30)}</div>
+          <h3>เริ่มบันทึกวันนี้</h3>
+          <p>ขายได้กดปุ่มเขียว ซื้อของกดปุ่มส้ม — บันทึกตอนเกิดขึ้นจริงทีละครั้ง</p>
+        </div>`}</div>
+  </div>`;
+}
+
+/* ---------- บันทึกการขาย (เลือกเมนู + ท็อปปิ้ง) ---------- */
+let saleDraft = null;
+
+function saleDialog(existing){
+  if(!db.menus.length){
+    openDialog({ title:'ยังไม่มีเมนู', sub:'ใส่เมนูที่ขายก่อน แล้วค่อยมาบันทึกการขาย',
+      html:'<p style="margin:0;color:var(--ink-2)">ไปที่แท็บ <b>เมนู</b> แล้วกดปุ่ม <b>เพิ่ม</b> เพื่อใส่ชื่อกับราคาขายก่อนครับ</p>' });
+    return;
+  }
+  const first = db.menus[0];
+  saleDraft = existing
+    ? { menuId: existing.menuId || first.id, qty: n(existing.qty) || 1,
+        picked: new Set((existing.addons||[]).map(a => a.name)),
+        id: existing.id, t: existing.t, d: existing.d }
+    : { menuId: first.id, qty: 1, picked: new Set() };
+  renderSaleDialog();
+}
+
+function saleTotal(){
+  const m = findMenu(saleDraft.menuId);
+  if(!m) return 0;
+  const extra = (m.addons||[]).filter(a => saleDraft.picked.has(a.name))
+                              .reduce((s,a) => s + n(a.price), 0);
+  return (n(m.price) + extra) * n(saleDraft.qty);
+}
+
+function renderSaleDialog(){
+  const m = findMenu(saleDraft.menuId) || db.menus[0];
+  const tops = m.addons || [];
+  openDialog({
+    title: saleDraft.id ? 'แก้รายการขาย' : 'บันทึกการขาย',
+    sub: 'เลือกเมนู ใส่จำนวน แล้วติ๊กท็อปปิ้งที่ลูกค้าเพิ่ม',
+    html: `
+      <div class="sec" style="margin-top:0">ขายอะไร</div>
+      <div class="pills">${db.menus.map(x => `
+        <button class="pill${x.id === saleDraft.menuId ? ' on' : ''}" onclick="pickMenu('${x.id}')">
+          ${esc(x.name || '(ไม่มีชื่อ)')}<b>${baht(x.price)}</b>
+        </button>`).join('')}</div>
+
+      <div class="sec">กี่จาน</div>
+      <div class="stepper">
+        <button onclick="bumpQty(-1)" aria-label="ลด">−</button>
+        <span id="saleQty">${n(saleDraft.qty)}</span>
+        <button onclick="bumpQty(1)" aria-label="เพิ่ม">+</button>
+      </div>
+
+      ${tops.length ? `<div class="sec">ท็อปปิ้งที่เพิ่ม</div>
+      <div class="tops">${tops.map(a => `
+        <button class="top${saleDraft.picked.has(a.name) ? ' on' : ''}" onclick="toggleTop('${esc(a.name)}')">
+          ${esc(a.name)} <b>+${baht(a.price)}</b>
+        </button>`).join('')}</div>`
+      : `<p class="hint">เมนูนี้ยังไม่ได้ตั้งท็อปปิ้ง — เพิ่มได้ที่แท็บเมนู</p>`}
+
+      <div class="dlg-live" style="margin-top:18px" id="saleSum">รวม ${baht(saleTotal())} บาท</div>`,
+    foot: [
+      {label:'ยกเลิก', cls:'ghost', fn:'dlg.close()'},
+      {label: saleDraft.id ? 'บันทึกการแก้ไข' : 'บันทึก', cls:'primary', fn:'commitSale()'},
+      ...(saleDraft.id ? [{label:'ลบ', cls:'danger', fn:`dlg.close(); delEntry('sale','${saleDraft.id}')`}] : [])
+    ]
+  });
+}
+function pickMenu(id){ saleDraft.menuId = id; saleDraft.picked = new Set(); renderSaleDialog(); }
+function bumpQty(v){
+  saleDraft.qty = Math.max(1, n(saleDraft.qty) + v);
+  const q = document.getElementById('saleQty'); if(q) q.textContent = saleDraft.qty;
+  const t = document.getElementById('saleSum'); if(t) t.textContent = 'รวม ' + baht(saleTotal()) + ' บาท';
+}
+function toggleTop(name){
+  if(saleDraft.picked.has(name)) saleDraft.picked.delete(name); else saleDraft.picked.add(name);
+  renderSaleDialog();
+}
+function commitSale(){
+  const m = findMenu(saleDraft.menuId);
+  if(!m) return;
+  const addons = (m.addons||[]).filter(a => saleDraft.picked.has(a.name))
+                               .map(a => ({name:a.name, price:n(a.price)}));
+  const rec = {
+    id: saleDraft.id || uid(),
+    d: saleDraft.d || dayKey(),
+    t: saleDraft.t || nowTime(),
+    menuId: m.id, name: m.name, qty: n(saleDraft.qty),
+    addons, total: saleTotal()
+  };
+  const i = (db.sales||[]).findIndex(x => x.id === rec.id);
+  if(i >= 0) db.sales[i] = rec; else (db.sales = db.sales||[]).push(rec);
+  saleDraft = null; save(); dlg.close(); render();
+}
+
+/* ---------- บันทึกรายจ่าย ---------- */
+function expenseDialog(existing){
+  openDialog({
+    title: existing ? 'แก้รายจ่าย' : 'บันทึกรายจ่าย',
+    sub: 'ซื้อของเข้าร้าน ค่าแก๊ส ค่าเดินทาง ฯลฯ',
+    fields:[
+      {k:'note', label:'ซื้ออะไร', type:'text', value: existing ? existing.note : '',
+       placeholder:'เช่น แป้ง 2 ถุง + ไข่ 1 แผง', wide:true},
+      {k:'amount', label:'กี่บาท', type:'number', value: existing ? existing.amount : '', wide:true}
+    ],
+    check: v => !v.note.trim() ? 'ใส่ด้วยว่าซื้ออะไร'
+              : !(v.amount > 0) ? 'จำนวนเงินต้องมากกว่า 0' : null,
+    extraFoot: existing ? {label:'ลบ', cls:'danger', fn:`dlg.close(); delEntry('exp','${existing ? existing.id : ''}')`} : null,
+    save: v => {
+      const rec = { id: existing ? existing.id : uid(),
+                    d: existing ? existing.d : dayKey(),
+                    t: existing ? existing.t : nowTime(),
+                    note: v.note.trim(), amount: v.amount };
+      const i = (db.expenses||[]).findIndex(x => x.id === rec.id);
+      if(i >= 0) db.expenses[i] = rec; else (db.expenses = db.expenses||[]).push(rec);
+      save(); render();
+    }
+  });
+}
+
+/* ---------- แตะรายการเพื่อแก้ / ลบ ---------- */
+function editEntry(kind, id){
+  if(kind === 'sale'){
+    const e = (db.sales||[]).find(x => x.id === id);
+    if(e) saleDialog(e);
+  }else{
+    const e = (db.expenses||[]).find(x => x.id === id);
+    if(e) expenseDialog(e);
+  }
+}
+function delEntry(kind, id){
+  if(kind === 'sale') db.sales = (db.sales||[]).filter(x => x.id !== id);
+  else db.expenses = (db.expenses||[]).filter(x => x.id !== id);
+  save(); render();
+}
+
+/* ===================== หน้า "ย้อนหลัง" ===================== */
+function viewHist(){
+  const days = allDays();
+  if(!days.length){
+    return `<div class="card"><div class="empty">
+      <div class="empty-ic">${icon('hist',30)}</div>
+      <h3>ยังไม่มีประวัติ</h3>
+      <p>พอบันทึกขาย-ซื้อไปสักพัก ตรงนี้จะบอกได้ว่าเดือนไหนดี วันไหนขายดี</p>
+      <button class="btn primary" onclick="go('today')">ไปบันทึกวันนี้</button>
+    </div></div>`;
+  }
+
+  const mk = monthKey(days[0]);
+  const m = sumMonth(mk);
+  const inMonth = days.filter(k => monthKey(k) === mk);
+  const top = Math.max(...inMonth.map(k => sumDay(k).sale), 1);
+
+  return `
+  <div class="card">
+    <h2>${thaiMonth(mk)}</h2>
+    <p class="sub">บันทึกไว้ ${m.days} วัน · เฉลี่ยวันละ ${baht(m.days ? m.net/m.days : 0)} บาท</p>
+    <div class="quick">
+      <div class="q"><div class="k">ขายได้</div><div class="v">${baht(m.sale)}</div></div>
+      <div class="q"><div class="k">ซื้อของ</div><div class="v">${baht(m.exp)}</div></div>
+      <div class="q"><div class="k">เหลือ</div><div class="v ${m.net>=0?'good':'bad'}">${baht(m.net)}</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>แต่ละวันขายได้เท่าไหร่</h2>
+    <p class="sub">แท่งยาว = วันนั้นขายดี · แตะเพื่อดูรายการของวันนั้น</p>
+    <div class="days">${inMonth.map(k => {
+      const s = sumDay(k);
+      return `<button class="day" onclick="openDay('${k}')">
+        <span class="day-d">${thaiDate(k)}</span>
+        <span class="day-bar"><i style="width:${clamp(s.sale/top*100, 2, 100)}%"></i></span>
+        <span class="day-v">${baht(s.sale)}</span>
+        <span class="day-n ${s.net>=0?'good':'bad'}">${s.net>=0?'เหลือ':'ขาดทุน'} ${baht(Math.abs(s.net))}</span>
+      </button>`;
+    }).join('')}</div>
+  </div>`;
+}
+
+function openDay(key){
+  const d = sumDay(key);
+  const rows = entriesOf(key);
+  openDialog({
+    title: thaiDate(key, true),
+    sub: `ขายได้ ${baht(d.sale)} · ซื้อของ ${baht(d.exp)} · เหลือ ${baht(d.net)} บาท`,
+    html: `<div class="list">${rows.map(e => entryRow(e,false)).join('') || '<div class="empty">ไม่มีรายการ</div>'}</div>`
+  });
+}
+
+/* --------- ภาพรวม (ย้ายไปอยู่ในแท็บ อื่น ๆ) --------- */
 function viewDash(){
+  const back = `<button class="btn back" onclick="go('more')">${icon('back',16)} อื่น ๆ</button>`;
   if(!db.menus.length){
     return `<div class="card">
       <div class="empty">
@@ -1344,7 +1732,7 @@ function viewDash(){
     }
   }
 
-  return blocks.join('') + viewSum();
+  return back + blocks.join('') + viewSum();
 }
 
 /* หน้าต่างกรอกยอดขายของทุกเมนูในทีเดียว */
@@ -1434,6 +1822,93 @@ function viewSum(){
     ${tips.map(t=>`<div class="note">${t}</div>`).join('')}</div>` : ''}`;
 }
 
+
+/* ===================== แท็บ "อื่น ๆ" — ของที่นาน ๆ ใช้ที ===================== */
+function moreRow(label, sub, fn, ic){
+  return `<div class="li" role="button" tabindex="0" onclick="${fn}"
+       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${fn}}">
+    <div class="li-main">
+      <div class="li-title">${label}</div>
+      <div class="li-sub">${sub}</div>
+    </div>
+    <span class="li-chev">${icon('chev',16)}</span>
+  </div>`;
+}
+
+function viewMore(){
+  const ingN = db.ingredients.length;
+  const be = breakEven();
+  return `
+  <div class="card">
+    <h2>ช่วยตั้งราคา</h2>
+    <p class="sub">ของพวกนี้ใช้ตอนอยากรู้ว่าควรขายเท่าไหร่ถึงจะมีกำไร ไม่ได้ใช้ทุกวัน</p>
+    <div class="list">
+      ${moreRow('ของที่ซื้อมา', ingN ? `${ingN} อย่าง · ใช้คิดว่าจานนึงต้นทุนเท่าไหร่` : 'ยังไม่ได้ใส่', "go('ing')")}
+      ${moreRow('ค่าเช่า ค่าไฟ ค่าแรง', be ? `ต้องขายวันละ ${Math.ceil(be)} จานถึงไม่ขาดทุน` : 'ยังไม่ได้ใส่', "go('fixed')")}
+      ${moreRow('ดูว่าเมนูไหนกำไรดี', db.menus.length ? `เทียบ ${db.menus.length} เมนู` : 'ยังไม่มีเมนู', "go('dash')")}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>ข้อมูลของคุณ</h2>
+    <p class="sub">เก็บอยู่ในเครื่องนี้เครื่องเดียว ควรคัดลอกเก็บไว้เป็นระยะ</p>
+    <div class="list">
+      ${moreRow('สำรอง / กู้คืนข้อมูล', 'คัดลอกเก็บไว้ กันข้อมูลหาย', 'openBackup()')}
+      ${moreRow('คำในแอปแปลว่าอะไร', 'อ่านครั้งเดียวก็พอ', 'openHelp()')}
+      ${moreRow('ใส่ข้อมูลตัวอย่าง', 'ลองเล่นด้วยข้อมูลร้านสมมติ', 'loadDemo()')}
+    </div>
+    <div class="btnrow" style="margin-top:16px">
+      <button class="btn danger" onclick="resetAll()">ล้างข้อมูลทั้งหมด</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- ท็อปปิ้งของแต่ละเมนู ---------- */
+function addonDialog(menuId, idx){
+  const m = findMenu(menuId); if(!m) return;
+  const cur = idx >= 0 ? (m.addons||[])[idx] : null;
+  openDialog({
+    title: cur ? 'แก้ท็อปปิ้ง' : 'เพิ่มท็อปปิ้ง',
+    sub: `ของที่ลูกค้าเพิ่มได้ในเมนู ${m.name || '(ไม่มีชื่อ)'}`,
+    fields:[
+      {k:'name', label:'ชื่อท็อปปิ้ง', type:'text', value: cur ? cur.name : '',
+       placeholder:'เช่น เพิ่มไข่', wide:true},
+      {k:'price', label:'คิดเพิ่มกี่บาท', type:'number', value: cur ? cur.price : '', wide:true}
+    ],
+    check: v => !v.name.trim() ? 'ใส่ชื่อท็อปปิ้งด้วย'
+              : v.price < 0 ? 'ราคาติดลบไม่ได้' : null,
+    extraFoot: cur ? {label:'ลบ', cls:'danger', fn:`dlg.close(); delAddon('${menuId}',${idx})`} : null,
+    save: v => {
+      const data = {name:v.name.trim(), price:v.price};
+      if(cur) Object.assign(cur, data);
+      else (m.addons = m.addons||[]).push(Object.assign({id:uid()}, data));
+      save(); render();
+    }
+  });
+}
+function delAddon(menuId, idx){
+  const m = findMenu(menuId); if(!m) return;
+  (m.addons||[]).splice(idx,1); save(); render();
+}
+function addonList(m){
+  const rows = (m.addons||[]).map((a,i) => `
+    <div class="li" role="button" tabindex="0" onclick="addonDialog('${m.id}',${i})"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();addonDialog('${m.id}',${i})}">
+      <div class="li-main"><div class="li-title">${esc(a.name)}</div></div>
+      <div class="li-end">
+        <span class="chip">+${baht(a.price)}</span>
+        <span class="li-chev">${icon('chev',16)}</span>
+      </div>
+    </div>`).join('');
+  return `
+    <div class="head-row" style="margin-top:22px">
+      <h2>ท็อปปิ้งที่เพิ่มได้</h2>
+      <button class="btn sm primary" onclick="addonDialog('${m.id}',-1)">${icon('plus',14)} เพิ่ม</button>
+    </div>
+    <p class="sub">ตอนบันทึกการขายจะเลือกติ๊กได้ ราคาบวกให้อัตโนมัติ</p>
+    <div class="list">${rows || '<div class="empty" style="padding:18px">ยังไม่มีท็อปปิ้ง</div>'}</div>`;
+}
+
 /* ===================== สำรอง / กู้คืน ===================== */
 function openBackup(){
   const box = document.getElementById('backup');
@@ -1489,7 +1964,7 @@ function importJSON(input){
 /* ===================== ข้อมูลตัวอย่าง ===================== */
 function loadDemo(){
   if(db.ingredients.length && !db.isDemo && !confirm('จะทับข้อมูลเดิมทั้งหมด ยืนยันไหม?')) return;
-  db = buildDemo(); save(); tab='dash'; render();
+  db = seedHistory(buildDemo()); save(); tab='today'; render();
 }
 function buildDemo(){
   const I = (name,packQty,unit,packPrice) => ({id:uid(), name, packQty, unit, packPrice});
@@ -1506,9 +1981,15 @@ function buildDemo(){
     I('กระดาษห่อ + ถุง',100,'ชิ้น',90)
   ];
   const g = nm => list.find(x => x.name===nm).id;
+  const TOP = () => [
+    {id:uid(), name:'เพิ่มไข่', price:10},
+    {id:uid(), name:'เพิ่มชีส', price:15},
+    {id:uid(), name:'เพิ่มนูเทลล่า', price:20}
+  ];
   return {
     isDemo: true,
     ingredients: list,
+
     menus: [
       {id:uid(), name:'เครปกรอบ นูเทลล่า', price:45, qtyPerDay:16, items:[
         {ingId:g('แป้งเครปสำเร็จ'),qty:40},{ingId:g('ไข่ไก่'),qty:0.3},
@@ -1529,8 +2010,44 @@ function buildDemo(){
       ]}
     ],
     fixed: { rent:3500, electric:800, gas:400, water:150, other:300, days:26, labor:0 },
-    targetMargin: 65
+    targetMargin: 65,
+    sales: [], expenses: []
   };
+}
+
+// ใส่ท็อปปิ้ง + สร้างประวัติย้อนหลังให้ข้อมูลตัวอย่าง จะได้เห็นว่าหน้าย้อนหลังหน้าตาเป็นยังไง
+function seedHistory(d){
+  const tops = [
+    {id:uid(), name:'เพิ่มไข่', price:10},
+    {id:uid(), name:'เพิ่มชีส', price:15},
+    {id:uid(), name:'เพิ่มนูเทลล่า', price:20}
+  ];
+  d.menus.forEach(m => m.addons = tops.map(t => ({...t, id:uid()})));
+
+  const today = new Date();
+  for(let back = 13; back >= 0; back--){
+    const dt = new Date(today); dt.setDate(today.getDate() - back);
+    if(dt.getDay() === 1) continue;                       // สมมติปิดวันจันทร์
+    const key = dayKey(dt);
+    const busy = 0.75 + ((back * 37) % 55) / 100;          // ให้แต่ละวันไม่เท่ากัน
+    d.menus.forEach((m, mi) => {
+      const q = Math.max(1, Math.round(n(m.qtyPerDay) * busy));
+      const add = (mi + back) % 3 === 0 ? [m.addons[(back + mi) % m.addons.length]] : [];
+      const extra = add.reduce((a,x) => a + x.price, 0);
+      d.sales.push({
+        id: uid(), d: key, t: pad2(10 + mi*3) + ':' + pad2((back*7) % 60),
+        menuId: m.id, name: m.name, qty: q,
+        addons: add.map(x => ({name:x.name, price:x.price})),
+        total: (n(m.price) + extra) * q
+      });
+    });
+    if(back % 3 === 0){
+      d.expenses.push({ id:uid(), d:key, t:'08:20', note:'ซื้อของเข้าร้าน',
+                        amount: 380 + ((back*53) % 240) });
+    }
+  }
+  d.expenses.push({ id:uid(), d: dayKey(), t:'08:10', note:'ค่าแก๊ส', amount:400 });
+  return d;
 }
 
 /* ===================== เริ่มทำงาน ===================== */
