@@ -41,7 +41,7 @@ function png(width, height, rgba){
 /* ---------- วาดไอคอน: เครปห่อกรวยบนพื้นฟ้า ---------- */
 const mix = (a,b,t) => [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t];
 
-const BG_TOP = [58,142,245], BG_BOT = [19,88,201];   // ฟ้า (ธีมขาว-ฟ้า)
+const BG_TOP = [47,132,242], BG_BOT = [11,64,152];   // ไล่เฉดน้ำเงินชุดใหม่
 const CREPE  = [255,255,255];                        // ตัวเครปสีขาว
 const CHOC   = [11,79,174];                          // ไส้ — น้ำเงินเข้ม
 const SHADE  = [214,229,248];                        // เงาบนตัวเครป
@@ -95,7 +95,7 @@ function drawPixels(S){
 /* ---------- ภาพ splash ตอนเปิดแอป: พื้นหลังล้วน + โลโก้เล็ก ๆ กลางจอ ---------- */
 function drawSplash(S, dark){
   const buf = Buffer.alloc(S*S*4);
-  const BG = dark ? [10,20,32] : [242,246,251];
+  const BG = dark ? [10,20,32] : [244,247,253];
   const L = Math.round(S*0.26);                   // โลโก้กินพื้นที่ 26% ของจอ
   const o = Math.round((S - L) / 2);
   const sub = drawPixels(L);

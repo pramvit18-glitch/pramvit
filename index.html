@@ -13,30 +13,36 @@
 <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
 <title>คำนวณต้นทุนร้านเครป</title>
 <style>
-  /* ============ สี: ขาว–ฟ้า ============ */
+  /* ===================== ธีมขาว–ฟ้า ===================== */
   :root{
-    --page:#e4ecf6;              /* พื้นรอบ ๆ ตัวแอปตอนเปิดบนจอใหญ่ */
-    --bg:#f2f6fb;  --surface:#ffffff;  --surface-2:#f7fafe;
-    --ink:#0d2440; --ink-2:#51677f;    --muted:#7e93ab;
-    --line:#dce6f2; --line-2:#eaf1f9;
+    --page:#eaf0f9;
+    --bg:#f4f7fd;  --surface:#ffffff;  --surface-2:#f6f9ff;  --tint:#e8f1ff;
+    --ink:#0c2340; --ink-2:#4b6382;    --muted:#8198b4;
+    --line:#e2eaf5; --line-2:#eef3fa;
 
     --accent:#1668e3;
-    --accent-ink:#0b4fae;
-    --accent-soft:#e7f0fe;
+    --accent-2:#3b8cf5;
+    --accent-ink:#0a4aa6;
+    --grad:linear-gradient(135deg,#2f84f2 0%,#1157c9 55%,#0b4098 100%);
+
     --bar-cost:#1668e3;
-    --bar-profit:#9cc5fb;
+    --bar-mid:#6fabf7;
+    --bar-profit:#bcd9fd;
 
-    --good:#0ca30c;  --good-ink:#0a7a0a;
-    --warn:#fab219;  --warn-ink:#8a6000;
-    --bad:#d03b3b;   --bad-ink:#b32222;
+    --good:#0f9d58;  --good-ink:#0a7a44;  --good-bg:#e6f6ee;
+    --warn:#e0a107;  --warn-ink:#8a6000;  --warn-bg:#fdf5e3;
+    --bad:#d84a4a;   --bad-ink:#b32222;   --bad-bg:#fceded;
 
-    --card-shadow:0 1px 2px rgba(13,36,64,.04), 0 6px 18px rgba(13,36,64,.06);
-    --nav-h:62px;
-    --w:700px;      /* ความกว้างตัวแอปบนจอแท็บเล็ต/โน้ตบุ๊ก */
-    --side:216px;   /* ความกว้างแถบเมนูซ้ายบนจอคอม */
-    --r:18px; --r-sm:12px;
+    --sh-1:0 1px 2px rgba(12,35,64,.04);
+    --sh-2:0 2px 4px rgba(12,35,64,.04), 0 8px 24px rgba(12,35,64,.06);
+    --sh-3:0 8px 28px rgba(12,35,64,.10), 0 2px 6px rgba(12,35,64,.05);
+    --sh-blue:0 10px 30px rgba(17,87,201,.30);
 
-    /* ธีมขาว-ฟ้าอย่างเดียว ไม่สลับตามโหมดมืดของเครื่อง */
+    --nav-h:64px;
+    --w:720px;
+    --side:236px;
+    --r:20px; --r-sm:14px; --r-xs:10px;
+
     color-scheme: light;
   }
 
@@ -45,416 +51,443 @@
   body{
     margin:0; min-height:100%; background:var(--page); color:var(--ink);
     font-family:"Sarabun","Leelawadee UI","Segoe UI",system-ui,-apple-system,sans-serif;
-    font-size:15px; line-height:1.55; -webkit-text-size-adjust:100%;
+    font-size:15px; line-height:1.6; -webkit-text-size-adjust:100%;
+    letter-spacing:-.003em;
   }
 
-  /* ============ ตัวแอป: คอลัมน์เดียวแบบมือถือ ============ */
+  /* ===================== โครงแอป ===================== */
   .shell{
-    width:100%; max-width:460px; margin:0 auto; min-height:100dvh;
+    width:100%; max-width:480px; margin:0 auto; min-height:100dvh;
     background:var(--bg); position:relative;
     padding-top:env(safe-area-inset-top, 0px);
   }
-  @media(min-width:520px){
-    .shell{box-shadow:0 0 0 1px var(--line), 0 24px 70px rgba(13,36,64,.14)}
-  }
 
-
-
-  /* ============ แถบบน ============ */
   .appbar{
     position:sticky; top:env(safe-area-inset-top, 0px); z-index:20;
-    background:var(--bg); padding:14px 18px 10px;
+    background:var(--bg); padding:18px 18px 12px;
     display:flex; align-items:center; gap:12px;
   }
   .appbar::after{
     content:''; position:absolute; left:0; right:0; bottom:0; height:1px;
-    background:var(--line); opacity:0; transition:opacity .15s;
+    background:var(--line); opacity:0; transition:opacity .2s;
   }
   .appbar.stuck::after{opacity:1}
   .logo{
-    width:34px; height:34px; flex:0 0 auto; border-radius:11px;
-    background:var(--accent); color:#fff; display:grid; place-items:center;
+    width:38px; height:38px; flex:0 0 auto; border-radius:13px;
+    background:var(--grad); color:#fff; display:grid; place-items:center;
+    box-shadow:var(--sh-blue);
   }
-  .logo svg{width:19px; height:19px}
+  .logo svg{width:20px; height:20px}
   .titles{flex:1; min-width:0}
-  .titles h1{font-size:19px; margin:0; font-weight:800; letter-spacing:-.02em}
-  .titles p{margin:0; font-size:11.5px; color:var(--muted)}
+  .titles h1{font-size:22px; margin:0; font-weight:800; letter-spacing:-.03em; line-height:1.25}
+  .titles p{margin:0; font-size:11.5px; color:var(--muted); font-weight:600}
   .icon-btn{
-    width:36px; height:36px; flex:0 0 auto; border-radius:11px; cursor:pointer;
+    width:40px; height:40px; flex:0 0 auto; border-radius:13px; cursor:pointer;
     border:1px solid var(--line); background:var(--surface); color:var(--ink-2);
-    display:grid; place-items:center; transition:.15s;
+    display:grid; place-items:center; transition:.18s; box-shadow:var(--sh-1);
   }
-  .icon-btn:active{transform:scale(.94)}
-  .icon-btn:hover{border-color:var(--accent); color:var(--accent)}
-  .icon-btn svg{width:17px; height:17px}
+  .icon-btn:active{transform:scale(.93)}
+  .icon-btn:hover{border-color:var(--accent); color:var(--accent); box-shadow:var(--sh-2)}
+  .icon-btn svg{width:18px; height:18px}
 
-  main{padding:4px 14px calc(var(--nav-h) + 34px + env(safe-area-inset-bottom, 0px))}
+  main{padding:2px 16px calc(var(--nav-h) + 40px + env(safe-area-inset-bottom, 0px))}
 
-  /* ============ แถบเมนูล่าง ============ */
+  /* ===================== แถบเมนูล่าง ===================== */
   .bottomnav{
     position:fixed; bottom:0; left:50%; transform:translateX(-50%);
-    width:100%; max-width:460px; z-index:25;
-    display:flex; background:var(--surface);
+    width:100%; max-width:480px; z-index:25;
+    display:flex; background:rgba(255,255,255,.92); backdrop-filter:blur(14px);
     border-top:1px solid var(--line);
     padding-bottom:env(safe-area-inset-bottom, 0px);
   }
   .bottomnav button{
     flex:1; border:none; background:none; cursor:pointer; font:inherit;
-    height:var(--nav-h); color:var(--muted); font-size:11px; font-weight:600;
+    height:var(--nav-h); color:var(--muted); font-size:11px; font-weight:700;
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
-    position:relative; transition:color .15s;
+    position:relative; transition:color .18s;
   }
-  .bottomnav button svg{width:22px; height:22px}
+  .bottomnav button svg{width:22px; height:22px; transition:transform .18s}
   .bottomnav button.on{color:var(--accent)}
+  .bottomnav button.on svg{transform:translateY(-1px) scale(1.08)}
   .bottomnav button.on::before{
     content:''; position:absolute; top:0; left:50%; transform:translateX(-50%);
-    width:26px; height:3px; border-radius:0 0 3px 3px; background:var(--accent);
+    width:28px; height:3px; border-radius:0 0 4px 4px; background:var(--accent);
   }
 
-  /* ============ ปุ่มลอยเพิ่มข้อมูล ============ */
   .fab-wrap{
     position:fixed; bottom:0; left:50%; transform:translateX(-50%);
-    width:100%; max-width:460px; z-index:24; pointer-events:none;
+    width:100%; max-width:480px; z-index:24; pointer-events:none;
   }
   .fab{
-    position:absolute; right:16px;
-    bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom, 0px));
+    position:absolute; right:18px;
+    bottom:calc(var(--nav-h) + 18px + env(safe-area-inset-bottom, 0px));
     pointer-events:auto; cursor:pointer; border:none;
-    height:50px; padding:0 20px; border-radius:25px;
-    background:var(--accent); color:#fff; font:inherit; font-weight:700; font-size:14.5px;
-    display:inline-flex; align-items:center; gap:8px;
-    box-shadow:0 6px 20px rgba(22,104,227,.38);
-    transition:transform .12s;
+    height:54px; padding:0 22px; border-radius:27px;
+    background:var(--grad); color:#fff; font:inherit; font-weight:700; font-size:15px;
+    display:inline-flex; align-items:center; gap:9px;
+    box-shadow:var(--sh-blue); transition:transform .14s, box-shadow .18s;
   }
-  .fab:active{transform:scale(.95)}
-  .fab svg{width:18px; height:18px}
+  .fab:active{transform:scale(.94)}
+  .fab:hover{box-shadow:0 14px 36px rgba(17,87,201,.4)}
+  .fab svg{width:19px; height:19px}
   .fab[hidden]{display:none}
 
-  /* ============ การ์ด ============ */
+  /* ===================== การ์ด ===================== */
   .card{
-    background:var(--surface); border-radius:var(--r); padding:16px;
-    margin-bottom:12px; box-shadow:var(--card-shadow);
+    background:var(--surface); border-radius:var(--r); padding:18px;
+    margin-bottom:14px; box-shadow:var(--sh-2);
   }
-  .card>h2{font-size:15px; margin:0 0 3px; font-weight:700; letter-spacing:-.01em}
-  .card>h2+.sub{margin:0 0 14px; font-size:12.5px; color:var(--muted)}
-  .sec{font-size:11.5px; color:var(--muted); font-weight:700; letter-spacing:.05em;
-       text-transform:uppercase; margin:20px 0 8px}
+  .card>h2{font-size:16px; margin:0 0 3px; font-weight:800; letter-spacing:-.02em}
+  .card>h2+.sub{margin:0 0 16px; font-size:12.5px; color:var(--muted); line-height:1.5}
+  .sec{
+    font-size:11px; color:var(--muted); font-weight:800; letter-spacing:.07em;
+    text-transform:uppercase; margin:22px 0 10px;
+  }
   .sec:first-child{margin-top:0}
 
-  /* ============ ปุ่ม ============ */
-  button{font:inherit}
-  .btn{
-    cursor:pointer; border:1px solid var(--line); background:var(--surface);
-    color:var(--ink); padding:11px 16px; border-radius:var(--r-sm);
-    font-weight:600; font-size:14.5px; transition:.15s; display:inline-flex;
-    align-items:center; gap:7px; justify-content:center;
+  /* การ์ดเด่น — ไล่เฉดน้ำเงิน ใช้กับตัวเลขสำคัญที่สุดของหน้า */
+  .hero-card{
+    background:var(--grad); color:#fff; border-radius:var(--r);
+    padding:22px; margin-bottom:14px; box-shadow:var(--sh-blue);
+    position:relative; overflow:hidden;
   }
-  .btn:active{transform:scale(.97)}
-  .btn:hover{border-color:var(--accent); color:var(--accent)}
-  .btn.primary{background:var(--accent); border-color:var(--accent); color:#fff}
-  .btn.primary:hover{filter:brightness(1.08); color:#fff}
-  .btn.ghost{background:transparent}
-  .btn.danger{color:var(--bad-ink)}
-  .btn.danger:hover{border-color:var(--bad); color:var(--bad)}
-  .btn.sm{padding:7px 12px; font-size:13px; border-radius:9px}
-  .btn.block{width:100%}
-  .btn svg{width:15px; height:15px}
-  .btnrow{display:flex; flex-wrap:wrap; gap:8px}
+  .hero-card::after{
+    content:''; position:absolute; right:-54px; top:-54px;
+    width:190px; height:190px; border-radius:50%;
+    background:rgba(255,255,255,.1);
+  }
+  .hero-card .lbl{
+    font-size:12px; font-weight:700; opacity:.85; letter-spacing:.02em;
+    position:relative; z-index:1;
+  }
+  .hero-card .big{
+    font-size:46px; font-weight:800; letter-spacing:-.035em; line-height:1.08;
+    margin:6px 0 2px; position:relative; z-index:1;
+  }
+  .hero-card .big small{font-size:17px; font-weight:700; opacity:.8; margin-left:7px}
+  .hero-card .note-line{font-size:13px; opacity:.88; position:relative; z-index:1; line-height:1.5}
+  .hero-card.is-bad{background:linear-gradient(135deg,#e2615f 0%,#c22f2f 100%); box-shadow:0 10px 30px rgba(194,47,47,.3)}
 
-  /* ============ ฟอร์ม ============ */
-  .f{display:flex; flex-direction:column; gap:5px; min-width:0}
-  .f label{font-size:12px; color:var(--muted); font-weight:600}
-  input,select,textarea{
-    font:inherit; width:100%; color:var(--ink); background:var(--surface-2);
-    border:1px solid var(--line); border-radius:var(--r-sm); padding:11px 12px;
-    transition:.15s;
+  /* แถบตัวเลขย่อย */
+  .quick{display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin-bottom:14px}
+  .quick .q{
+    background:var(--surface); border-radius:var(--r-sm); padding:13px 12px;
+    box-shadow:var(--sh-1); text-align:center;
   }
-  input:focus,select:focus,textarea:focus{
-    outline:none; border-color:var(--accent); background:var(--surface);
-    box-shadow:0 0 0 3px var(--accent-soft);
-  }
-  input[type=number]{text-align:right; font-variant-numeric:tabular-nums}
-  textarea{font-family:ui-monospace,Consolas,monospace; font-size:12px; resize:vertical}
-  .grid{display:grid; gap:12px}
-  .g2{grid-template-columns:1fr 1fr}
-  .g-auto{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
-  .f.wide{grid-column:1/-1}
+  .quick .q .k{font-size:10.5px; color:var(--muted); font-weight:700; letter-spacing:.02em}
+  .quick .q .v{font-size:17px; font-weight:800; margin-top:2px; font-variant-numeric:tabular-nums; letter-spacing:-.02em}
 
-  /* ============ ตัวเลข ============ */
-  .hero{
-    font-size:46px; line-height:1.05; font-weight:800; letter-spacing:-.025em;
-    color:var(--accent); margin:4px 0;
-  }
-  .hero small{font-size:16px; font-weight:700; color:var(--ink-2); margin-left:6px}
-  .tiles{display:grid; gap:9px; grid-template-columns:1fr 1fr}
-  .tile{background:var(--surface-2); border-radius:13px; padding:12px}
-  .tile .lbl{font-size:11.5px; color:var(--muted); font-weight:600}
-  .tile .val{font-size:20px; font-weight:700; margin-top:1px; letter-spacing:-.01em}
+  .tiles{display:grid; gap:10px; grid-template-columns:1fr 1fr}
+  .tile{background:var(--surface-2); border-radius:var(--r-sm); padding:13px 14px}
+  .tile .lbl{font-size:11.5px; color:var(--muted); font-weight:700}
+  .tile .val{font-size:21px; font-weight:800; margin-top:1px; letter-spacing:-.02em}
   .tnum{font-variant-numeric:tabular-nums}
   .good{color:var(--good-ink)} .warn{color:var(--warn-ink)} .bad{color:var(--bad-ink)}
 
-  /* ============ แท่งสัดส่วน ============ */
-  .split{display:flex; gap:2px; height:13px; margin:10px 0 9px}
+  /* ===================== ปุ่ม ===================== */
+  button{font:inherit}
+  .btn{
+    cursor:pointer; border:1px solid var(--line); background:var(--surface);
+    color:var(--ink); padding:12px 18px; border-radius:var(--r-sm);
+    font-weight:700; font-size:14.5px; transition:.18s; display:inline-flex;
+    align-items:center; gap:8px; justify-content:center; box-shadow:var(--sh-1);
+  }
+  .btn:active{transform:scale(.975)}
+  .btn:hover{border-color:var(--accent); color:var(--accent)}
+  .btn.primary{background:var(--grad); border-color:transparent; color:#fff; box-shadow:var(--sh-blue)}
+  .btn.primary:hover{color:#fff; box-shadow:0 12px 32px rgba(17,87,201,.36)}
+  .btn.ghost{background:transparent; box-shadow:none}
+  .btn.danger{color:var(--bad-ink)}
+  .btn.danger:hover{border-color:var(--bad); color:var(--bad)}
+  .btn.sm{padding:8px 13px; font-size:13px; border-radius:var(--r-xs)}
+  .btn.block{width:100%}
+  .btn svg{width:16px; height:16px}
+  .btnrow{display:flex; flex-wrap:wrap; gap:9px}
+  .btn.back{
+    border:none; background:none; box-shadow:none; color:var(--accent);
+    padding:6px 0 12px; font-weight:700; font-size:14px;
+  }
+  .btn.back:hover{color:var(--accent-ink)}
+
+  /* ===================== ฟอร์ม ===================== */
+  .f{display:flex; flex-direction:column; gap:6px; min-width:0}
+  .f label{font-size:12px; color:var(--ink-2); font-weight:700}
+  input,select,textarea{
+    font:inherit; width:100%; color:var(--ink); background:var(--surface-2);
+    border:1.5px solid var(--line); border-radius:var(--r-sm); padding:12px 13px;
+    transition:.18s;
+  }
+  input:focus,select:focus,textarea:focus{
+    outline:none; border-color:var(--accent); background:var(--surface);
+    box-shadow:0 0 0 4px var(--tint);
+  }
+  input[type=number]{text-align:right; font-variant-numeric:tabular-nums; font-weight:600}
+  textarea{font-family:ui-monospace,Consolas,monospace; font-size:12px; resize:vertical}
+  .grid{display:grid; gap:13px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g-auto{grid-template-columns:repeat(auto-fit,minmax(135px,1fr))}
+  .f.wide{grid-column:1/-1}
+
+  /* ===================== รายการ ===================== */
+  .list{display:flex; flex-direction:column}
+  .li, .li-read{
+    display:flex; align-items:center; gap:13px; width:100%; text-align:left;
+    padding:13px 12px; margin:0 -12px; border:none; background:none;
+    border-bottom:1px solid var(--line-2); border-radius:var(--r-sm);
+    font:inherit; color:inherit; transition:background .15s;
+  }
+  .li{cursor:pointer}
+  .li:hover{background:var(--surface-2)}
+  .li:active{background:var(--tint)}
+  .li:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+  .li:last-of-type, .li-read:last-of-type{border-bottom:none}
+  .li-main{flex:1; min-width:0}
+  .li-title{font-weight:700; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .li-sub{font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums}
+  .li-end{display:flex; align-items:center; gap:8px; flex:0 0 auto}
+  .li-del{
+    width:32px; height:32px; border-radius:var(--r-xs); border:1px solid var(--line);
+    background:var(--surface); color:var(--muted); cursor:pointer; display:grid; place-items:center;
+    transition:.15s;
+  }
+  .li-del:hover{color:var(--bad); border-color:var(--bad); background:var(--bad-bg)}
+  .li-chev{color:var(--muted); flex:0 0 auto; opacity:.45}
+
+  /* วงกลมไอคอนหน้ารายการ — ช่วยกวาดตาหาของเจอเร็วขึ้น */
+  .av{
+    width:42px; height:42px; flex:0 0 auto; border-radius:14px;
+    background:var(--tint); color:var(--accent-ink);
+    display:grid; place-items:center; font-weight:800; font-size:17px;
+  }
+  .av.g{background:var(--good-bg); color:var(--good-ink)}
+  .av.w{background:var(--warn-bg); color:var(--warn-ink)}
+  .av.b{background:var(--bad-bg); color:var(--bad-ink)}
+
+  .row-head{display:flex; align-items:center; gap:10px}
+  .chip{
+    display:inline-flex; align-items:center; padding:5px 11px; border-radius:99px;
+    background:var(--tint); color:var(--accent-ink); font-size:12px; font-weight:800;
+    font-variant-numeric:tabular-nums; white-space:nowrap;
+  }
+  .status{padding:6px 12px; border-radius:99px; font-size:12.5px; font-weight:800; white-space:nowrap}
+  .status.is-good{background:var(--good-bg); color:var(--good-ink)}
+  .status.is-warn{background:var(--warn-bg); color:var(--warn-ink)}
+  .status.is-bad{background:var(--bad-bg); color:var(--bad-ink)}
+
+  /* ===================== หน้าว่าง / ต้อนรับ ===================== */
+  .empty{text-align:center; padding:34px 16px; color:var(--muted); font-size:13.5px}
+  .empty-ic{
+    width:76px; height:76px; margin:0 auto 16px; border-radius:26px;
+    background:var(--tint); color:var(--accent);
+    display:grid; place-items:center;
+  }
+  .empty-ic svg{width:34px; height:34px; opacity:1}
+  .empty h3{margin:0 0 6px; font-size:17px; font-weight:800; color:var(--ink); letter-spacing:-.02em}
+  .empty p{margin:0 auto 18px; max-width:290px; line-height:1.6}
+
+  /* ===================== ขั้นตอนเริ่มใช้ ===================== */
+  .steps{display:flex; flex-direction:column; gap:10px}
+  .step{
+    display:flex; align-items:center; gap:14px; width:100%; text-align:left;
+    padding:14px; border:1.5px solid var(--line); border-radius:var(--r-sm);
+    background:var(--surface); cursor:pointer; font:inherit; color:inherit; transition:.18s;
+  }
+  .step:hover{border-color:var(--accent); box-shadow:var(--sh-2)}
+  .step.done{background:var(--surface-2); border-color:transparent; cursor:default; box-shadow:none}
+  .step-no{
+    width:34px; height:34px; flex:0 0 auto; border-radius:12px;
+    background:var(--tint); color:var(--accent-ink);
+    display:grid; place-items:center; font-weight:800; font-size:15px;
+  }
+  .step.done .step-no{background:var(--good); color:#fff}
+  .step-main{flex:1; min-width:0; display:block}
+  .step-label{display:block; font-weight:700; font-size:15px}
+  .step.done .step-label{color:var(--muted); text-decoration:line-through}
+  .step-sub{display:block; font-size:12.5px; color:var(--muted); line-height:1.45}
+
+  /* ===================== กราฟ / แถบ ===================== */
+  .split{display:flex; gap:2px; height:14px; margin:12px 0 10px}
   .split i{display:block; height:100%; background:var(--line)}
-  .split i:first-child{border-radius:5px 0 0 5px}
-  .split i:last-child{border-radius:0 5px 5px 0}
-  .split i.only{border-radius:5px}
+  .split i:first-child{border-radius:6px 0 0 6px}
+  .split i:last-child{border-radius:0 6px 6px 0}
+  .split i.only{border-radius:6px}
   .seg-cost{background:var(--bar-cost)!important}
   .seg-profit{background:var(--bar-profit)!important}
   .seg-loss{background:var(--bad)!important}
-  .legend{display:flex; flex-wrap:wrap; gap:6px 14px; font-size:12.5px; color:var(--ink-2)}
-  .legend span{display:inline-flex; align-items:center; gap:6px}
-  .legend i{width:9px; height:9px; border-radius:3px; flex:0 0 auto}
+  .legend{display:flex; flex-wrap:wrap; gap:7px 16px; font-size:12.5px; color:var(--ink-2)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .legend i{width:10px; height:10px; border-radius:4px; flex:0 0 auto}
   .legend b{color:var(--ink); font-variant-numeric:tabular-nums}
 
-  .meter{height:8px; border-radius:99px; overflow:hidden; background:var(--line-2)}
-  .meter>i{display:block; height:100%; border-radius:99px; background:var(--accent)}
+  .meter{height:10px; border-radius:99px; overflow:hidden; background:var(--line-2)}
+  .meter>i{display:block; height:100%; border-radius:99px; background:var(--accent); transition:width .4s ease}
   .meter.is-good>i{background:var(--good)}
   .meter.is-warn>i{background:var(--warn)}
   .meter.is-bad>i{background:var(--bad)}
 
-  .rank{display:flex; flex-direction:column; gap:15px}
-  .rank-row{display:grid; grid-template-columns:1fr auto; gap:5px 10px; align-items:center}
-  .rank-name{font-weight:600; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-  .rank-val{text-align:right; font-weight:700; font-variant-numeric:tabular-nums; font-size:15px}
+  .rank{display:flex; flex-direction:column; gap:17px}
+  .rank-row{display:grid; grid-template-columns:1fr auto; gap:6px 10px; align-items:center}
+  .rank-name{font-weight:700; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .rank-val{text-align:right; font-weight:800; font-variant-numeric:tabular-nums; font-size:15px}
   .rank-row .meter{grid-column:1/-1}
   .rank-sub{grid-column:1/-1; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums}
 
   table{width:100%; border-collapse:collapse; font-size:13.5px}
-  th,td{text-align:right; padding:9px 7px; border-bottom:1px solid var(--line-2)}
+  th,td{text-align:right; padding:10px 8px; border-bottom:1px solid var(--line-2)}
   th:first-child,td:first-child{text-align:left}
-  th{color:var(--muted); font-size:11px; font-weight:700; white-space:nowrap;
-     text-transform:uppercase; letter-spacing:.03em}
+  th{color:var(--muted); font-size:11px; font-weight:800; white-space:nowrap;
+     text-transform:uppercase; letter-spacing:.05em}
   tbody tr:last-child td{border-bottom:none}
   td.n{font-variant-numeric:tabular-nums}
   .scroll{overflow-x:auto; margin:0 -4px; padding:0 4px}
   .scroll table{min-width:430px}
 
-  /* ============ รายการแบบ list ============ */
-  .list{display:flex; flex-direction:column}
-  .li{
-    display:flex; align-items:center; gap:11px; width:100%; text-align:left;
-    padding:13px 10px; margin:0 -10px; border:none; background:none; cursor:pointer;
-    border-bottom:1px solid var(--line-2); border-radius:12px; transition:background .12s;
-    font:inherit; color:inherit;
-  }
-  .li:active{background:var(--surface-2)}
-  .li:hover{background:var(--surface-2)}
-  .li:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
-  .li:last-of-type{border-bottom:none}
-  .li-main{flex:1; min-width:0}
-  .li-title{font-weight:600; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-  .li-sub{font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums}
-  .li-end{display:flex; align-items:center; gap:7px; flex:0 0 auto}
-  .li-del{
-    width:30px; height:30px; border-radius:9px; border:1px solid var(--line);
-    background:var(--surface); color:var(--muted); cursor:pointer; display:grid; place-items:center;
-  }
-  .li-del:hover{color:var(--bad); border-color:var(--bad)}
-  .li-chev{color:var(--muted); flex:0 0 auto; opacity:.5}
-  .row-head{display:flex; align-items:center; gap:9px}
+  /* ===================== กล่องข้อความ ===================== */
+  .verdict{border-radius:var(--r-sm); padding:15px 16px; font-size:13.5px; line-height:1.6; margin:14px 0 6px}
+  .verdict b:first-child{display:block; font-size:17px; margin-bottom:3px; letter-spacing:-.02em}
+  .verdict.is-good{background:var(--good-bg); color:var(--good-ink)}
+  .verdict.is-warn{background:var(--warn-bg); color:var(--warn-ink)}
+  .verdict.is-bad{background:var(--bad-bg); color:var(--bad-ink)}
+  .note{background:var(--tint); border-radius:var(--r-sm); padding:14px 16px;
+        font-size:13px; color:var(--accent-ink); margin-top:12px; line-height:1.6}
+  .hint{color:var(--muted); font-size:12.5px; margin:12px 0 0; line-height:1.55}
 
-  .chip{
-    display:inline-flex; align-items:center; padding:4px 10px; border-radius:99px;
-    background:var(--accent-soft); color:var(--accent-ink); font-size:12px; font-weight:700;
-    font-variant-numeric:tabular-nums; white-space:nowrap;
-  }
-  /* ============ ขั้นตอนเริ่มใช้งาน ============ */
-  .steps{display:flex; flex-direction:column; gap:8px}
-  .step{
-    display:flex; align-items:center; gap:12px; width:100%; text-align:left;
-    padding:12px; border:1px solid var(--line); border-radius:14px;
-    background:var(--surface); cursor:pointer; font:inherit; color:inherit; transition:.15s;
-  }
-  .step:hover{border-color:var(--accent)}
-  .step.done{background:var(--surface-2); border-color:transparent; cursor:default}
-  .step-no{
-    width:28px; height:28px; flex:0 0 auto; border-radius:50%;
-    background:var(--accent-soft); color:var(--accent-ink);
-    display:grid; place-items:center; font-weight:800; font-size:13.5px;
-  }
-  .step.done .step-no{background:var(--good); color:#fff}
-  .step-main{flex:1; min-width:0; display:block}
-  .step-label{display:block; font-weight:700; font-size:14.5px}
-  .step.done .step-label{color:var(--muted); text-decoration:line-through}
-  .step-sub{display:block; font-size:12px; color:var(--muted); line-height:1.4}
-
-  /* ============ หน้าอธิบายคำศัพท์ ============ */
-  .gloss{display:flex; flex-direction:column; gap:14px}
-  .gloss-row{display:flex; flex-direction:column; gap:3px}
-  .gloss-k{font-weight:800; font-size:14.5px; color:var(--accent-ink)}
-  .gloss-v{font-size:13.5px; color:var(--ink-2); line-height:1.5}
-
-  /* ============ ป้ายสถานะเป็นคำ ============ */
-  .status{
-    padding:5px 11px; border-radius:99px; font-size:12.5px; font-weight:700; white-space:nowrap;
-  }
-  .status.is-good{background:#e6f6e6; color:#0a6b0a}
-  .status.is-warn{background:#fdf3dd; color:#8a6000}
-  .status.is-bad{background:#fbe8e8; color:#b32222}
-
-  /* ============ กล่องสรุปแบบประโยค ============ */
-  .verdict{
-    border-radius:14px; padding:13px 15px; font-size:13.5px; line-height:1.55;
-    margin:12px 0 4px;
-  }
-  .verdict b:first-child{display:block; font-size:16px; margin-bottom:2px}
-  .verdict.is-good{background:#e6f6e6; color:#0a5c0a}
-  .verdict.is-warn{background:#fdf3dd; color:#7a5500}
-  .verdict.is-bad{background:#fbe8e8; color:#9e1f1f}
-
-  /* ============ ปุ่มย้อนกลับ ============ */
-  .btn.back{
-    border:none; background:none; color:var(--accent); padding:4px 0 10px;
-    font-weight:700; font-size:14px;
-  }
-  .btn.back:hover{color:var(--accent-ink)}
-
-  /* ============ ส่วนที่พับเก็บไว้ได้ ============ */
-  details{margin-top:12px}
+  details{margin-top:14px}
   details>summary{
     cursor:pointer; list-style:none; color:var(--accent); font-weight:700; font-size:13.5px;
-    padding:9px 0; display:flex; align-items:center; gap:7px;
+    padding:10px 0; display:flex; align-items:center; gap:8px;
   }
   details>summary::-webkit-details-marker{display:none}
-  details>summary::after{content:'▾'; font-size:11px; transition:transform .15s}
+  details>summary::after{content:'▾'; font-size:11px; transition:transform .2s}
   details[open]>summary::after{transform:rotate(180deg)}
 
-  /* ============ หน้าเลือกของที่ใช้ในสูตร ============ */
+  /* ===================== หน้าเลือกของที่ใช้ ===================== */
   .picks{display:flex; flex-direction:column}
   .pick{
-    display:grid; grid-template-columns:26px 1fr; gap:6px 11px; align-items:center;
-    padding:11px 10px; margin:0 -10px; border-bottom:1px solid var(--line-2); border-radius:12px;
+    display:grid; grid-template-columns:28px 1fr; gap:8px 13px; align-items:center;
+    padding:13px 12px; margin:0 -12px; border-bottom:1px solid var(--line-2);
+    border-radius:var(--r-sm); transition:background .15s;
   }
   .pick:last-child{border-bottom:none}
-  .pick.on{background:var(--accent-soft)}
+  .pick.on{background:var(--tint)}
   .pick-box{
-    width:26px; height:26px; border-radius:8px; border:2px solid var(--line);
+    width:28px; height:28px; border-radius:9px; border:2px solid var(--line);
     background:var(--surface); color:transparent; cursor:pointer; padding:0;
-    display:grid; place-items:center; flex:0 0 auto;
+    display:grid; place-items:center; flex:0 0 auto; transition:.15s;
   }
   .pick.on .pick-box{background:var(--accent); border-color:var(--accent); color:#fff}
   .pick-main{cursor:pointer; min-width:0}
-  .pick-qtyrow{grid-column:2/-1; display:flex; align-items:center; gap:9px}
-  .pick-qty{width:96px; flex:0 0 auto; padding:8px 10px}
-  .pick-unit{font-size:12.5px; color:var(--muted); flex:0 0 auto}
-  .pick-cost{
-    margin-left:auto; font-size:13px; font-weight:700; color:var(--accent-ink);
-    font-variant-numeric:tabular-nums;
-  }
+  .pick-qtyrow{grid-column:2/-1; display:flex; align-items:center; gap:10px}
+  .pick-qty{width:100px; flex:0 0 auto; padding:9px 11px}
+  .pick-unit{font-size:12.5px; color:var(--muted); flex:0 0 auto; font-weight:600}
+  .pick-cost{margin-left:auto; font-size:13.5px; font-weight:800; color:var(--accent-ink);
+             font-variant-numeric:tabular-nums}
 
-  /* แถบสรุป+บันทึก ลอยอยู่เหนือแถบเมนูล่าง */
   .savebar{
-    position:sticky; bottom:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
-    background:var(--surface); border:1px solid var(--line); border-radius:16px;
-    padding:12px 14px; box-shadow:0 -4px 20px rgba(13,36,64,.1); margin-top:14px;
+    position:sticky; bottom:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
+    padding:14px 16px; box-shadow:var(--sh-3); margin-top:16px;
   }
   .savebar .btnrow .btn{flex:1}
-  .recipe-sum{margin-bottom:10px; line-height:1.45}
-  .recipe-sum b{display:block; font-size:14.5px}
+  .recipe-sum{margin-bottom:12px; line-height:1.5}
+  .recipe-sum b{display:block; font-size:15px; letter-spacing:-.02em}
   .recipe-sum span{font-size:12.5px; color:var(--muted)}
 
-  .li-read{display:flex; align-items:center; gap:11px; padding:11px 0;
-           border-bottom:1px solid var(--line-2)}
-  .li-read:last-child{border-bottom:none}
-
-  .empty{color:var(--muted); font-size:13.5px; text-align:center; padding:28px 10px}
-  .empty svg{width:34px; height:34px; opacity:.4; display:block; margin:0 auto 8px}
-  .hint{color:var(--muted); font-size:12.5px; margin:10px 0 0}
-  .note{
-    background:var(--accent-soft); border-radius:12px;
-    padding:12px 14px; font-size:13px; color:var(--accent-ink); margin-top:12px;
-  }
-
-  /* ============ หน้าต่างกรอกข้อมูล ============ */
+  /* ===================== หน้าต่างกรอกข้อมูล ===================== */
   dialog{
     border:none; padding:0; color:var(--ink); background:var(--surface);
-    width:100%; max-width:460px; max-height:92dvh; overflow:auto;
-    margin:auto auto 0; border-radius:22px 22px 0 0;
+    width:100%; max-width:480px; max-height:92dvh; overflow:auto;
+    margin:auto auto 0; border-radius:26px 26px 0 0;
     padding-bottom:env(safe-area-inset-bottom, 0px);
-    box-shadow:0 -10px 50px rgba(9,24,43,.3);
+    box-shadow:0 -12px 60px rgba(9,24,43,.32);
   }
-  dialog::backdrop{background:rgba(9,24,43,.5)}
-  dialog[open]{animation:sheet .24s cubic-bezier(.2,.8,.3,1)}
+  dialog::backdrop{background:rgba(9,24,43,.45); backdrop-filter:blur(3px)}
+  dialog[open]{animation:sheet .26s cubic-bezier(.2,.9,.3,1)}
   @keyframes sheet{from{transform:translateY(100%)} to{transform:translateY(0)}}
   @media(prefers-reduced-motion:reduce){ dialog[open]{animation:none} }
-  .dlg-grip{width:38px; height:4px; border-radius:99px; background:var(--line); margin:10px auto 0}
-  .dlg-head{padding:12px 18px 0}
-  .dlg-head h3{margin:0; font-size:18px; font-weight:800; letter-spacing:-.02em}
-  .dlg-head p{margin:3px 0 0; font-size:12.5px; color:var(--muted)}
-  .dlg-body{padding:15px 18px 0; display:grid; gap:12px; grid-template-columns:1fr 1fr}
+  .dlg-grip{width:40px; height:4px; border-radius:99px; background:var(--line); margin:12px auto 0}
+  .dlg-head{padding:14px 20px 0}
+  .dlg-head h3{margin:0; font-size:19px; font-weight:800; letter-spacing:-.03em}
+  .dlg-head p{margin:4px 0 0; font-size:12.5px; color:var(--muted); line-height:1.5}
+  .dlg-body{padding:17px 20px 0; display:grid; gap:13px; grid-template-columns:1fr 1fr}
   .dlg-live{
-    grid-column:1/-1; background:var(--accent-soft); color:var(--accent-ink);
-    border-radius:12px; padding:10px 13px; font-size:13px; font-weight:600;
-    font-variant-numeric:tabular-nums;
+    grid-column:1/-1; background:var(--tint); color:var(--accent-ink);
+    border-radius:var(--r-sm); padding:12px 14px; font-size:13.5px; font-weight:700;
+    font-variant-numeric:tabular-nums; line-height:1.5;
   }
-  .dlg-err{grid-column:1/-1; color:var(--bad-ink); font-size:12.5px; font-weight:600}
+  .dlg-err{grid-column:1/-1; color:var(--bad-ink); font-size:12.5px; font-weight:700}
   .dlg-err:empty{display:none}
-  .dlg-foot{padding:16px 18px 20px; display:flex; gap:9px}
-  .dlg-foot .btn{flex:1; padding:13px 16px}
-  /* ---------- จอแท็บเล็ต/โน้ตบุ๊ก: ขยายคอลัมน์ให้กว้างขึ้น ---------- */
+  .dlg-foot{padding:18px 20px 22px; display:flex; gap:10px}
+  .dlg-foot .btn{flex:1; padding:14px 18px}
+
+  .gloss{display:flex; flex-direction:column; gap:16px}
+  .gloss-row{display:flex; flex-direction:column; gap:4px}
+  .gloss-k{font-weight:800; font-size:15px; color:var(--accent-ink); letter-spacing:-.02em}
+  .gloss-v{font-size:13.5px; color:var(--ink-2); line-height:1.6}
+
+  /* ===================== จอใหญ่ ===================== */
+  @media(min-width:520px){
+    .shell{box-shadow:0 0 0 1px var(--line), 0 30px 80px rgba(12,35,64,.13)}
+  }
+
   @media(min-width:700px){
     .shell{max-width:var(--w)}
     .bottomnav, .fab-wrap{max-width:var(--w)}
-    main{padding-left:20px; padding-right:20px}
+    main{padding-left:22px; padding-right:22px}
     .tiles{grid-template-columns:repeat(3,1fr)}
+    .hero-card .big{font-size:52px}
   }
 
-  /* ---------- จอคอมเต็ม ๆ: เมนูย้ายไปอยู่ข้างซ้าย ---------- */
   @media(min-width:1000px){
     body{background:var(--bg)}
     .shell{
-      width:auto;                 /* ไม่งั้น 100% + margin-left จะดันจนเกิดแถบเลื่อนแนวนอน */
-      max-width:none; margin:0 0 0 var(--side); min-height:100dvh;
-      box-shadow:none; border-left:1px solid var(--line);
+      width:auto; max-width:none; margin:0 0 0 var(--side);
+      min-height:100dvh; box-shadow:none; border-left:1px solid var(--line);
     }
-    .appbar{max-width:936px; margin:0 auto; padding:18px 28px 12px}  /* ให้หัวข้อตรงแนวกับการ์ด */
-    .appbar .logo{display:none}            /* โลโก้ไปอยู่ในแถบซ้ายแล้ว */
-    .titles h1{font-size:23px}
-    main{max-width:880px; margin:0 auto; padding:8px 28px 60px}
+    .appbar{max-width:964px; margin:0 auto; padding:24px 30px 14px}
+    .appbar .logo{display:none}
+    .titles h1{font-size:28px}
+    main{max-width:904px; margin:0 auto; padding:8px 30px 70px}
 
-    /* แถบล่าง → แถบข้างซ้าย */
     .bottomnav{
       top:0; bottom:0; left:0; transform:none;
       width:var(--side); max-width:var(--side); height:100dvh;
-      flex-direction:column; justify-content:flex-start; gap:3px;
+      flex-direction:column; justify-content:flex-start; gap:4px;
       border-top:none; border-right:1px solid var(--line);
-      padding:18px 12px; background:var(--bg);
+      padding:20px 14px; background:var(--bg); backdrop-filter:none;
     }
     .bottomnav::before{
-      content:'🥞 ต้นทุนเครป'; display:block; padding:6px 12px 18px;
-      font-size:15px; font-weight:800; color:var(--ink); letter-spacing:-.02em;
+      content:'🥞 ต้นทุนเครป'; display:block; padding:8px 14px 22px;
+      font-size:16px; font-weight:800; color:var(--ink); letter-spacing:-.03em;
     }
     .bottomnav button{
-      height:46px; flex:0 0 auto; flex-direction:row; justify-content:flex-start;
-      gap:12px; padding:0 14px; font-size:14.5px; border-radius:11px;
+      height:48px; flex:0 0 auto; flex-direction:row; justify-content:flex-start;
+      gap:13px; padding:0 15px; font-size:15px; border-radius:13px; transition:.18s;
     }
     .bottomnav button:hover{background:var(--surface)}
-    .bottomnav button.on{background:var(--accent-soft)}
+    .bottomnav button.on{background:var(--tint)}
     .bottomnav button.on::before{
       top:50%; left:0; transform:translateY(-50%);
-      width:3px; height:22px; border-radius:0 3px 3px 0;
+      width:3px; height:24px; border-radius:0 4px 4px 0;
     }
 
-    /* ปุ่มลอยไปอยู่มุมขวาล่างของจอ */
     .fab-wrap{left:0; right:0; width:auto; max-width:none; transform:none}
-    .fab{right:30px; bottom:30px}
+    .fab{right:34px; bottom:34px}
 
     .tiles{grid-template-columns:repeat(4,1fr)}
-    .g-auto{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+    .quick{grid-template-columns:repeat(3,1fr)}
+    .g-auto{grid-template-columns:repeat(auto-fit,minmax(175px,1fr))}
     .scroll table{min-width:0}
 
-    /* หน้าต่างกรอกข้อมูลเป็นกล่องกลางจอ ไม่ใช่เลื่อนขึ้นจากล่าง */
     dialog{
-      max-width:520px; margin:auto; border-radius:20px;
-      animation:none; padding-bottom:0;
-      box-shadow:0 24px 70px rgba(9,24,43,.3);
+      max-width:540px; margin:auto; border-radius:24px;
+      animation:none; padding-bottom:0; box-shadow:0 30px 80px rgba(9,24,43,.32);
     }
     .dlg-grip{display:none}
-    .dlg-head{padding-top:20px}
-    .savebar{bottom:20px}
-    .pick{grid-template-columns:26px 1fr auto; }
-    .pick-qtyrow{grid-column:3; }
+    .dlg-head{padding-top:24px}
+    .savebar{bottom:24px}
+    .pick{grid-template-columns:28px 1fr auto}
+    .pick-qtyrow{grid-column:3}
   }
 </style>
 </head>
@@ -819,6 +852,7 @@ function viewIng(){
   const rows = db.ingredients.map(i => `
     <div class="li" role="button" tabindex="0" onclick="editIng('${i.id}')"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editIng('${i.id}')}">
+      <span class="av">${esc((i.name || '?').trim().charAt(0) || '?')}</span>
       <div class="li-main">
         <div class="li-title">${esc(i.name || '(ยังไม่มีชื่อ)')}</div>
         <div class="li-sub">${n(i.packQty).toLocaleString('th-TH')} ${esc(i.unit)} · ${baht(i.packPrice)} บาท</div>
@@ -837,7 +871,12 @@ function viewIng(){
     <h2>วัตถุดิบที่ซื้อมา</h2>
     <p class="sub">${db.ingredients.length ? 'แตะที่รายการเพื่อแก้ไข' : 'กรอกตามบิลที่ซื้อจริง เดี๋ยวแอปคิดให้เองว่าตกหน่วยละเท่าไหร่'}</p>
     <div class="list">
-      ${rows || `<div class="empty">${icon('box',34)}ยังไม่มีวัตถุดิบ<br>แตะปุ่ม <b>+ เพิ่มวัตถุดิบ</b> มุมขวาล่าง</div>`}
+      ${rows || `<div class="empty">
+        <div class="empty-ic">${icon('box',34)}</div>
+        <h3>เริ่มจากของที่ซื้อมา</h3>
+        <p>กรอกตามบิล เช่น แป้งเครป 1,000 กรัม 45 บาท แล้วแอปจะคิดให้เองว่าตกกรัมละเท่าไหร่</p>
+        <button class="btn primary" onclick="addIng()">${icon('plus',16)} เพิ่มของชิ้นแรก</button>
+      </div>`}
     </div>
   </div>`;
 }
@@ -1008,9 +1047,12 @@ function viewMenu(){
   if(!db.ingredients.length){
     openMenuId = null;
     return `<div class="card">
-      <h2>เมนู</h2>
-      <div class="empty">${icon('menu',34)}ต้องใส่ของที่ซื้อมาก่อน<br>แล้วค่อยมาบอกว่าแต่ละเมนูใช้อะไรบ้าง</div>
-      <button class="btn primary block" onclick="go('ing')">ไปใส่ของที่ซื้อมา</button>
+      <div class="empty">
+        <div class="empty-ic">${icon('box',34)}</div>
+        <h3>ต้องใส่ของที่ซื้อมาก่อน</h3>
+        <p>พอมีรายการของแล้ว ค่อยมาบอกว่าแต่ละเมนูใช้อะไรบ้าง</p>
+        <button class="btn primary" onclick="go('ing')">ไปใส่ของที่ซื้อมา</button>
+      </div>
     </div>`;
   }
 
@@ -1018,14 +1060,20 @@ function viewMenu(){
   if(!openMenuId || !findMenu(openMenuId)){
     openMenuId = null;
     if(!db.menus.length){
-      return `<div class="card"><h2>เมนู</h2>
-        <div class="empty">${icon('menu',34)}ยังไม่มีเมนู<br>แตะปุ่ม <b>+ เพิ่มเมนู</b> มุมขวาล่าง</div></div>`;
+      return `<div class="card">
+        <div class="empty">
+          <div class="empty-ic">${icon('menu',34)}</div>
+          <h3>ใส่เมนูที่ขาย</h3>
+          <p>ใส่ชื่อกับราคาขาย แล้วเลือกว่าจานนั้นใช้ของอะไรบ้าง จะรู้ทันทีว่ากำไรเท่าไหร่</p>
+          <button class="btn primary" onclick="addMenu()">${icon('plus',16)} เพิ่มเมนูแรก</button>
+        </div></div>`;
     }
     const rows = db.menus.map(m => {
       const st = statusWord(m);
       const noRecipe = !(m.items||[]).length;
       return `<div class="li" role="button" tabindex="0" onclick="openMenu('${m.id}')"
            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMenu('${m.id}')}">
+        <span class="av ${noRecipe ? 'w' : st.lv === 'good' ? 'g' : st.lv === 'bad' ? 'b' : 'w'}">${esc((m.name || '?').trim().charAt(0) || '?')}</span>
         <div class="li-main">
           <div class="li-title">${esc(m.name || '(ยังไม่มีชื่อ)')}</div>
           <div class="li-sub">${noRecipe ? 'ยังไม่ได้ใส่ว่าใช้อะไรบ้าง'
@@ -1284,9 +1332,13 @@ function stepsCard(){
 /* --------- แท็บ 1: ภาพรวม (dashboard) --------- */
 function viewDash(){
   if(!db.menus.length){
-    return `<div class="card"><h2>ภาพรวมร้าน</h2>
-      <div class="empty">${icon('dash',34)}ยังไม่มีเมนู<br>ใส่วัตถุดิบกับเมนูก่อน แล้วภาพรวมจะคำนวณให้เอง</div>
-      <button class="btn primary block" onclick="go('ing')">เริ่มใส่วัตถุดิบ</button></div>`;
+    return `<div class="card">
+      <div class="empty">
+        <div class="empty-ic">${icon('dash',34)}</div>
+        <h3>ยินดีต้อนรับ</h3>
+        <p>ใส่ของที่ซื้อมากับเมนูที่ขาย แล้วแอปจะบอกให้ว่าเดือนนี้เหลือกำไรเท่าไหร่ และต้องขายกี่จานถึงไม่ขาดทุน</p>
+        <button class="btn primary" onclick="go('ing')">${icon('plus',16)} เริ่มใส่ของที่ซื้อมา</button>
+      </div></div>`;
   }
 
   const d = daily();
@@ -1309,24 +1361,24 @@ function viewDash(){
   }else{
     /* --- ตัวเลขหลัก --- */
     const netCls = d.net >= 0 ? 'good' : 'bad';
-    blocks.push(`<div class="card">
-      <h2>กำไรสุทธิต่อเดือน</h2>
-      <p class="sub">เงินที่เหลือเข้ากระเป๋าจริง ๆ หักค่าของและค่าเช่าค่าไฟแล้ว · คิดจากขาย ${n(db.fixed.days)} วัน/เดือน</p>
-      <div class="hero tnum ${netCls}" style="color:${d.net>=0?'var(--accent)':'var(--bad)'}">
-        ${baht(d.month)}<small>บาท</small></div>
-      <p class="hint">${d.net >= 0
-        ? `วันละประมาณ ${baht(d.net)} บาท จากการขาย ${d.plates} จาน`
-        : `ตอนนี้<b>ขาดทุนวันละ ${baht(-d.net)} บาท</b> — ดูหัวข้อถัดไปว่าต้องขายเพิ่มเท่าไหร่`}</p>
-      <details>
-        <summary>ดูตัวเลขแยกรายวัน</summary>
-        <div class="tiles">
-          <div class="tile"><div class="lbl">ขายได้ / วัน</div><div class="val tnum">${baht(d.revenue)}</div></div>
-          <div class="tile"><div class="lbl">ค่าของ / วัน</div><div class="val tnum">${baht(d.food)}</div></div>
-          <div class="tile"><div class="lbl">ค่าเช่า+ค่าไฟ / วัน</div><div class="val tnum">${baht(d.fixed)}</div></div>
-          <div class="tile"><div class="lbl">เหลือ / วัน</div><div class="val tnum ${netCls}">${baht(d.net)}</div></div>
-        </div>
-      </details>
-      <button class="btn block" style="margin-top:12px" onclick="editSales()">แก้ยอดขายต่อวัน</button>
+    blocks.push(`<div class="hero-card ${d.net>=0?'':'is-bad'}">
+      <div class="lbl">กำไรสุทธิต่อเดือน</div>
+      <div class="big tnum">${baht(d.month)}<small>บาท</small></div>
+      <div class="note-line">${d.net >= 0
+        ? `วันละประมาณ ${baht(d.net)} บาท จากการขาย ${d.plates} จาน · หักค่าของและค่าเช่าค่าไฟแล้ว`
+        : `ขาดทุนวันละ ${baht(-d.net)} บาท — ดูหัวข้อถัดไปว่าต้องขายเพิ่มเท่าไหร่`}</div>
+    </div>
+
+    <div class="quick">
+      <div class="q"><div class="k">ขายได้/วัน</div><div class="v">${baht(d.revenue)}</div></div>
+      <div class="q"><div class="k">ค่าของ/วัน</div><div class="v">${baht(d.food)}</div></div>
+      <div class="q"><div class="k">เหลือ/วัน</div><div class="v ${netCls}">${baht(d.net)}</div></div>
+    </div>
+
+    <div class="card">
+      <h2>ยอดขายที่ใช้คำนวณ</h2>
+      <p class="sub">ขายวันละ ${d.plates} จาน · เดือนละ ${n(db.fixed.days)} วัน · ค่าเช่า+ค่าไฟวันละ ${baht(d.fixed)} บาท</p>
+      <button class="btn block" onclick="editSales()">แก้ยอดขายต่อวัน</button>
     </div>`);
 
     /* --- เงิน 100 บาท ไปไหนบ้าง --- */
