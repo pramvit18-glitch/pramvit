@@ -16,7 +16,15 @@ const stub = () => ({
   insertAdjacentHTML(){}, appendChild(){}
 });
 global.localStorage = { getItem: () => null, setItem: () => {} };
-global.document = { getElementById: stub, querySelector: () => stub(), createElement: stub, body: stub() };
+// จำลองว่า "ปุ่มบันทึก" อาจไม่มีอยู่ (เช่นตอนใช้ปุ่มท้ายกล่องแบบกำหนดเอง) เพื่อจับบั๊กแบบนั้น
+let footIsCustom = false;
+const footStub = { ...stub(), set innerHTML(v){ footIsCustom = !v.includes("id=\"dlgSave\""); }, get innerHTML(){ return ""; } };
+global.document = {
+  getElementById: id => id === "dlgFoot" ? footStub
+                      : (id === "dlgSave" && footIsCustom) ? null
+                      : stub(),
+  querySelector: () => stub(), createElement: stub, body: stub()
+};
 global.window = { addEventListener(){}, scrollTo(){} };
 global.navigator = {};
 global.setTimeout = fn => fn();
@@ -103,6 +111,12 @@ const probe = `
   logic.push(["หน้าต่างถามยืนยันเปิดได้", !!dlgCfg && Array.isArray(dlgCfg.foot) && dlgCfg.foot.length === 2]);
   window._confirmYes();
   logic.push(["กดตกลงแล้วทำงานต่อ", confirmed === true]);
+
+  /* ---- เปิดหน้าต่างที่มีปุ่มกำหนดเอง แล้วเปิดหน้าต่างธรรมดาต่อ ต้องไม่พัง ---- */
+  askConfirm("ทดสอบ", "x", "ตกลง", () => {});
+  let afterCustom = true;
+  try { expenseDialog(null); } catch(e){ afterCustom = false; }
+  logic.push(["เปิดหน้าต่างธรรมดาต่อจากหน้าต่างปุ่มพิเศษได้", afterCustom]);
 
   /* ---- เมนูจริงจากใบเมนู ---- */
   const ms = shopMenu();

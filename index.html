@@ -910,8 +910,6 @@ function openDialog(cfg){
   dlgCfg = cfg;
   document.getElementById('dlgTitle').textContent = cfg.title;
   document.getElementById('dlgSub').textContent = cfg.sub || '';
-  document.getElementById('dlgSave').textContent = cfg.saveLabel || 'บันทึก';
-
 
   const foot = document.getElementById('dlgFoot');
   const defFoot = '<button type="button" class="btn ghost" id="dlgCancel" onclick="dlg.close()">ยกเลิก</button>'
@@ -929,6 +927,9 @@ function openDialog(cfg){
         + cfg.extraFoot.label + '</button>');
     }
   }
+
+  const saveBtn = document.getElementById('dlgSave');
+  if(saveBtn && cfg.saveLabel) saveBtn.textContent = cfg.saveLabel;
 
   // โหมดอ่านอย่างเดียว เช่น หน้าอธิบายคำศัพท์ หรือหน้าถามยืนยัน
   // (เช็กว่าส่ง html มาหรือเปล่า ไม่ใช่เช็กว่ามีเนื้อหา — ข้อความว่างก็ยังถือว่าโหมดนี้)
