@@ -781,6 +781,7 @@ function level(mg){
 /* ===================== ไอคอน ===================== */
 const SVG = {
   dash:'<path d="M3 12l9-8 9 8"/><path d="M5.5 10v10h13V10"/><path d="M9.5 20v-5h5v5"/>',
+  cart:'<path d="M3 4h2.2l2.3 10.5h9.4L19 7H6.2"/><circle cx="9.5" cy="19" r="1.5"/><circle cx="16.5" cy="19" r="1.5"/>',
   today:'<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/>',
   hist:'<path d="M5 20v-6M12 20V8M19 20v-9"/><path d="M3 20h18"/>',
   more:'<circle cx="12" cy="5.5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18.5" r="1.6"/>',
@@ -804,6 +805,7 @@ const icon = (k,s=18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fi
 /* ===================== หน้าจอ ===================== */
 const TABS = [
   ['today', 'วันนี้',    'today'],
+  ['sale',  'ขาย',      'cart'],
   ['hist',  'ย้อนหลัง',  'hist'],
   ['menu',  'เมนู',      'menu'],
   ['more',  'อื่น ๆ',    'more']
@@ -811,6 +813,11 @@ const TABS = [
 
 // ตัวเลขสำคัญของแต่ละแท็บ แสดงไว้บนสุดของหน้า
 function headStat(){
+  if(tab === 'sale'){
+    const c = order ? orderCount() : 0;
+    return {k:'บิลนี้', v: baht(order ? orderTotal() : 0), u:'บาท',
+            s: c ? `${c} จาน · กดรับเงินเมื่อลูกค้าจ่าย` : 'กดเมนูที่ลูกค้าสั่ง'};
+  }
   if(recipeDraft) return {k:'กำลังเลือกของที่ใช้', v:'', s:'ติ๊กของที่ใช้ แล้วใส่จำนวนต่อ 1 จาน'};
 
   if(order) return {k:'กำลังเปิดบิล', v: baht(orderTotal()), u:'บาท',
@@ -883,6 +890,7 @@ function render(){
 
   renderBanner();
   document.getElementById('view').innerHTML =
+    tab==='sale'  ? viewPOS()   :
     tab==='today' ? viewToday() :
     tab==='hist'  ? viewHist()  :
     tab==='menu'  ? viewMenu()  :
@@ -890,7 +898,10 @@ function render(){
     tab==='fixed' ? viewFixed() :
     tab==='dash'  ? viewDash()  : viewMore();
 }
-function go(t){ tab=t; render(); window.scrollTo({top:0}); }
+function go(t){
+  if(t === 'sale' && !order) order = { lines: [] };   // เข้าแท็บขายแล้วมีบิลเปล่ารอเลย
+  tab = t; render(); window.scrollTo({top:0});
+}
 
 // เส้นใต้แถบบนจะโผล่เฉพาะตอนเลื่อนหน้าลง
 window.addEventListener('scroll', () => {
@@ -1594,7 +1605,7 @@ function openPOS(){
   render(); window.scrollTo({top:0});
 }
 function clearBill(){ if(order) order.lines = []; render(); }
-function closePOS(){ order = null; render(); window.scrollTo({top:0}); }
+function closePOS(){ order = null; tab = 'today'; render(); window.scrollTo({top:0}); }
 
 const lineTotal = l => (n(l.price) + (l.addons||[]).reduce((s,a) => s + n(a.price), 0)) * n(l.qty);
 const orderTotal = () => (order ? order.lines : []).reduce((s,l) => s + lineTotal(l), 0);
@@ -1660,11 +1671,12 @@ function payBill(){
     });
   });
   const paid = orderTotal();
-  order = null; save(); render();
+  order = null; tab = 'today'; save(); render();
   toast(`รับเงินแล้ว ${baht(paid)} บาท`);
 }
 
 function viewPOS(){
+  if(!order) order = { lines: [] };
   const lines = order.lines;
   const menuBtns = db.menus.map(m => `
     <button class="posbtn" onclick="tapMenu('${m.id}')">
@@ -1785,7 +1797,6 @@ function entryRow(e, showDay){
 }
 
 function viewToday(){
-  if(order) return viewPOS();
   const key = dayKey();
   const d = sumDay(key);
   const rows = entriesOf(key);
@@ -1793,7 +1804,7 @@ function viewToday(){
   return `
   <div class="card">
     <div class="daybtns">
-      <button class="daybtn in" onclick="openPOS()">${icon('up',20)}<span>ขายได้</span></button>
+      <button class="daybtn in" onclick="go('sale')">${icon('up',20)}<span>ขายได้</span></button>
       <button class="daybtn out" onclick="expenseDialog(null)">${icon('down',20)}<span>ซื้อของ</span></button>
     </div>
     <div class="quick" style="margin-top:20px">
