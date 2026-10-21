@@ -3522,7 +3522,19 @@ if(window.claude){
 // ติดตั้งเป็นแอป + ใช้งานตอนไม่มีเน็ต (ต้องเป็น https หรือ localhost)
 if('serviceWorker' in navigator && !window.claude
    && (location.protocol === 'https:' || location.hostname === 'localhost')){
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      reg.update();                              // เช็กของใหม่ทุกครั้งที่เปิดแอป
+      // ได้ของใหม่มาแล้วและมีตัวเก่าคุมอยู่ → โหลดหน้าใหม่ให้เลย จะได้ไม่ต้องกด refresh เอง
+      reg.addEventListener('updatefound', () => {
+        const sw = reg.installing;
+        if(!sw) return;
+        sw.addEventListener('statechange', () => {
+          if(sw.state === 'installed' && navigator.serviceWorker.controller) location.reload();
+        });
+      });
+    }).catch(()=>{});
+  });
 }
 
 render();

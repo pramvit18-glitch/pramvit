@@ -1,6 +1,6 @@
 // Service worker — ทำให้แอปเปิดได้ตอนไม่มีเน็ต
 // เวลาแก้ index.html แล้วอยากให้เครื่องที่ติดตั้งไปแล้วได้ของใหม่ ให้ขยับเลข CACHE
-const CACHE = 'crepe-cost-v4';
+const CACHE = 'crepe-cost-v5';
 
 const ASSETS = [
   './',
@@ -34,7 +34,8 @@ self.addEventListener('fetch', e => {
   // ตัวหน้าเว็บ: เอาของใหม่จากเน็ตก่อน ถ้าเน็ตล่มค่อยใช้ของที่เก็บไว้
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req)
+      // cache:'reload' = ข้ามแคชของเบราว์เซอร์ ไม่งั้นเปิดมาได้ของเก่าทั้งที่เน็ตมีของใหม่แล้ว
+      fetch(req, {cache: 'reload'})
         .then(res => {
           const copy = res.clone();
           caches.open(CACHE).then(c => c.put('./index.html', copy));
