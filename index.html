@@ -880,6 +880,27 @@ function renderBanner(){
 function startFresh(){ db = blank(); save(); tab='today'; render(); }
 function keepDemo(){ delete db.isDemo; save(); render(); }
 
+function resetAll(){
+  askConfirm('ล้างข้อมูลทั้งหมด',
+    'ยอดขาย รายจ่าย เมนู และทุกอย่างจะหายหมด กู้คืนไม่ได้ — ควรกดสำรองข้อมูลเก็บไว้ก่อน',
+    'ล้างทิ้ง', () => {
+      db = blank(); save(); tab = 'today'; openMenuId = null; order = null; render();
+      toast('ล้างข้อมูลแล้ว');
+    });
+}
+
+function askConfirm(title, sub, yesLabel, onYes){
+  window._confirmYes = onYes;
+  openDialog({
+    title, sub,
+    html:'',
+    foot:[
+      {label:'ยกเลิก', cls:'ghost', fn:'dlg.close()'},
+      {label:yesLabel, cls:'primary danger-solid', fn:'dlg.close(); (window._confirmYes||function(){})()'}
+    ]
+  });
+}
+
 /* ===================== หน้าต่างกรอกข้อมูล ===================== */
 const dlg = document.getElementById('dlg');
 let dlgCfg = null;
@@ -1031,10 +1052,14 @@ function editIng(id){ const i = findIng(id); if(i) ingDialog(i); }
 function delIng(id){
   const i = findIng(id);
   const used = db.menus.filter(m => (m.items||[]).some(it => it.ingId===id)).map(m=>m.name||'(ไม่มีชื่อ)');
-  if(used.length && !confirm(`"${i?.name||''}" ถูกใช้ในเมนู: ${used.join(', ')}\nลบแล้วสูตรเหล่านั้นจะหายไปด้วย ยืนยันไหม?`)) return;
-  db.ingredients = db.ingredients.filter(x => x.id!==id);
-  db.menus.forEach(m => m.items = (m.items||[]).filter(it => it.ingId!==id));
-  save(); render();
+  const go = () => {
+    db.ingredients = db.ingredients.filter(x => x.id!==id);
+    db.menus.forEach(m => m.items = (m.items||[]).filter(it => it.ingId!==id));
+    save(); render();
+  };
+  if(used.length) askConfirm(`ลบ "${esc(i?.name||'')}" ?`,
+    `ของชิ้นนี้ถูกใช้ในสูตรของ ${esc(used.join(', '))} — ลบแล้วสูตรเหล่านั้นจะหายไปด้วย`, 'ลบเลย', go);
+  else go();
 }
 
 /* --------- แท็บ 2: เมนู --------- */
@@ -1310,8 +1335,12 @@ function addMenu(){ menuDialog(null); }
 function editMenu(id){ const m = findMenu(id); if(m) menuDialog(m); }
 function delMenu(id){
   const m = findMenu(id);
-  if(!confirm(`ลบเมนู "${m?.name||'(ไม่มีชื่อ)'}" ?`)) return;
-  db.menus = db.menus.filter(x => x.id!==id); save(); render();
+  askConfirm(`ลบเมนู "${esc(m?.name||'(ไม่มีชื่อ)')}" ?`,
+    'ยอดขายที่บันทึกไปแล้วยังอยู่ ไม่หายไปด้วย', 'ลบเลย', () => {
+      db.menus = db.menus.filter(x => x.id!==id);
+      if(openMenuId === id) openMenuId = null;
+      save(); render();
+    });
 }
 // หน้าต่างเดียวใช้ได้ทั้งเพิ่มและแก้ไขรายการในสูตร (idx = -1 คือเพิ่มใหม่)
 function itemDialog(mid, idx){
@@ -1507,12 +1536,15 @@ function shopMenu(){
 
 // ใส่เมนูจริงลงแอป โดยไม่แตะยอดขาย/รายจ่ายที่บันทึกไว้แล้ว
 function loadShopMenu(){
-  const had = db.menus.length;
-  if(had && !confirm('จะแทนที่เมนูเดิมทั้งหมดด้วยเมนูจากใบเมนู\n(ยอดขายกับรายจ่ายที่บันทึกไว้ไม่หาย)\nยืนยันไหม?')) return;
-  db.menus = shopMenu();
-  delete db.isDemo;
-  save(); tab = 'menu'; openMenuId = null; render();
-  toast('ใส่เมนูให้แล้ว ' + db.menus.length + ' เมนู');
+  const go = () => {
+    db.menus = shopMenu();
+    delete db.isDemo;
+    save(); tab = 'menu'; openMenuId = null; render();
+    toast('ใส่เมนูให้แล้ว ' + db.menus.length + ' เมนู');
+  };
+  if(db.menus.length) askConfirm('ใส่เมนูจากใบเมนูร้าน',
+    'จะแทนที่เมนูเดิมทั้งหมด — ยอดขายกับรายจ่ายที่บันทึกไว้ไม่หาย', 'ใส่เลย', go);
+  else go();
 }
 
 let order = null;   // {lines:[{menuId,name,price,qty,addons:[{name,price}]}]}
@@ -2259,8 +2291,10 @@ function importJSON(input){
 
 /* ===================== ข้อมูลตัวอย่าง ===================== */
 function loadDemo(){
-  if(db.ingredients.length && !db.isDemo && !confirm('จะทับข้อมูลเดิมทั้งหมด ยืนยันไหม?')) return;
-  db = seedHistory(buildDemo()); save(); tab='today'; render();
+  const go = () => { db = seedHistory(buildDemo()); save(); tab='today'; render(); };
+  if(db.ingredients.length && !db.isDemo)
+    askConfirm('ใส่ข้อมูลตัวอย่าง', 'จะทับข้อมูลเดิมทั้งหมด รวมถึงยอดขายที่บันทึกไว้', 'ทับเลย', go);
+  else go();
 }
 function buildDemo(){
   const I = (name,packQty,unit,packPrice) => ({id:uid(), name, packQty, unit, packPrice});
