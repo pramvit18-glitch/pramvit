@@ -24,6 +24,7 @@ const probe = `
   // --- เมนูตัวอย่างที่เปิดมาเจอครั้งแรก ต้องชวนให้ใส่เมนูร้าน ---
   out.push(['เมนูตัวอย่างยังไม่มีโตเกียว จึงชวนให้ใส่เมนูร้าน', needShopMenu() === true]);
   out.push(['หน้าขายมีปุ่มใส่เมนูร้าน', viewPOS().indexOf('loadShopMenu()') >= 0]);
+  out.push(['Dashboard ก็มีปุ่มใส่เมนูร้าน (เป็นหน้าแรกที่เปิดเจอ)', viewToday().indexOf('loadShopMenu()') >= 0]);
   hideShopHint();
   out.push(['กดไม่ต้องแล้วการ์ดหายไป', needShopMenu() === false && viewPOS().indexOf('loadShopMenu()') < 0]);
 

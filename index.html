@@ -2157,6 +2157,17 @@ function needShopMenu(){
   return !db.menus.some(m => String(m.name||'').includes('โตเกียว'));
 }
 function hideShopHint(){ db.hideShopHint = 1; save(); render(); }
+function shopHintCard(){
+  if(!needShopMenu()) return '';
+  return `<div class="card dash-a">
+    ${cardHead('menu','เมนูยังเป็นชุดตัวอย่าง','ใส่เมนูจริงของร้าน ไส้ทุกอย่างจะมาด้วย')}
+    <p class="hint" style="margin:0 0 12px">เครื่องนี้ยังมีแค่เมนูตัวอย่าง ยังไม่มี <b>โตเกียว ไข่ป๋วง แพนเค้ก</b> และยังไม่มีไส้คาว-ไส้หวานให้เลือก</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap">
+      <button class="btn primary" onclick="loadShopMenu()">${icon('plus',16)} ใส่เมนูร้าน 8 เมนู</button>
+      <button class="btn ghost" onclick="hideShopHint()">ไม่ต้อง</button>
+    </div>
+  </div>`;
+}
 
 function viewPOS(){
   const key = dayKey();
@@ -2204,14 +2215,7 @@ function viewPOS(){
         </button>
       </div>
 
-      ${needShopMenu() ? `<div class="card">
-        ${cardHead('menu','เมนูยังเป็นชุดตัวอย่าง','ใส่เมนูจริงของร้าน ไส้ทุกอย่างจะมาด้วย')}
-        <p class="hint" style="margin:0 0 12px">เครื่องนี้ยังมีแค่เมนูตัวอย่าง ยังไม่มี <b>โตเกียว ไข่ป๋วง แพนเค้ก</b> และยังไม่มีไส้คาว-ไส้หวานให้เลือก</p>
-        <div style="display:flex; gap:8px; flex-wrap:wrap">
-          <button class="btn primary" onclick="loadShopMenu()">${icon('plus',16)} ใส่เมนูร้าน 8 เมนู</button>
-          <button class="btn ghost" onclick="hideShopHint()">ไม่ต้อง</button>
-        </div>
-      </div>` : ''}
+      ${shopHintCard()}
 
       ${menus.length ? `<div class="card">
         ${cardHead('menu','ขายดีวันนี้', `เฉลี่ยบิลละ ${baht(avgBill)} บาท`)}
@@ -2601,6 +2605,8 @@ function viewToday(){
 
   return `
   <div class="dash">
+
+    ${shopHintCard()}
 
     <div class="hero-card dash-a">
       <div class="hero-main">
