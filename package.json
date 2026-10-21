@@ -5,6 +5,7 @@
   "description": "เว็บคำนวณต้นทุนร้านเครป — ใช้เป็นเว็บ ติดตั้งเป็น PWA หรือ build เป็นแอป iOS ก็ได้",
   "scripts": {
     "serve": "node serve.js",
+    "check": "node tools/check-app.js",
     "icons": "node tools/make-icons.js icons assets",
     "build": "node tools/build-www.js",
     "ios:add": "npm run build && npx cap add ios && npx @capacitor/assets generate --ios",

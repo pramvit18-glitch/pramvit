@@ -448,6 +448,61 @@
   .day-v{font-weight:800; font-size:14px; font-variant-numeric:tabular-nums; text-align:right}
   .day-n{grid-column:2/-1; font-size:11.5px; font-variant-numeric:tabular-nums}
 
+
+  /* ===================== หน้าขายแบบ POS ===================== */
+  .posgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px}
+  .posbtn{
+    display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between;
+    gap:10px; min-height:84px; padding:14px; border-radius:14px;
+    border:1.5px solid var(--line); background:var(--bg); cursor:pointer;
+    font:inherit; color:inherit; text-align:left; transition:.14s;
+  }
+  .posbtn:hover{border-color:var(--orange); background:var(--tint)}
+  .posbtn:active{transform:scale(.96)}
+  .posbtn-n{font-weight:800; font-size:14.5px; line-height:1.35}
+  .posbtn-p{font-weight:800; font-size:17px; color:var(--orange-d);
+            font-variant-numeric:tabular-nums}
+
+  .bill{display:flex; flex-direction:column}
+  .bill-line{
+    display:grid; grid-template-columns:1fr auto auto auto; gap:4px 12px; align-items:center;
+    padding:13px 0; border-bottom:1px solid var(--line-2);
+  }
+  .bill-line:last-child{border-bottom:none}
+  .bl-main{min-width:0}
+  .bl-name{font-weight:700; font-size:15px}
+  .bl-add{font-size:12px; color:var(--orange-d); font-variant-numeric:tabular-nums}
+  .bl-top{
+    border:none; background:none; padding:3px 0 0; cursor:pointer;
+    color:var(--muted); font:inherit; font-size:12px; font-weight:700;
+  }
+  .bl-top:hover{color:var(--orange)}
+  .bl-qty{display:flex; align-items:center; border:1px solid var(--line); border-radius:10px; overflow:hidden}
+  .bl-qty button{
+    width:34px; height:34px; border:none; background:var(--soft); color:var(--ink);
+    font-size:18px; font-weight:700; cursor:pointer; line-height:1;
+  }
+  .bl-qty button:hover{background:var(--tint); color:var(--orange-d)}
+  .bl-qty span{min-width:34px; text-align:center; font-weight:800; font-variant-numeric:tabular-nums}
+  .bl-sum{font-weight:800; font-size:15px; font-variant-numeric:tabular-nums; min-width:56px; text-align:right}
+  .bl-del{
+    width:28px; height:28px; border-radius:8px; border:1px solid var(--line);
+    background:var(--bg); color:var(--muted); cursor:pointer; display:grid; place-items:center;
+  }
+  .bl-del:hover{color:var(--bad); border-color:var(--bad)}
+  .btn[disabled]{opacity:.45; pointer-events:none}
+
+  /* ข้อความแจ้งผลมุมล่าง */
+  .toast{
+    position:fixed; left:50%; transform:translateX(-50%) translateY(20px);
+    bottom:calc(var(--nav-h) + 22px + env(safe-area-inset-bottom, 0px));
+    background:var(--ink); color:#fff; padding:13px 20px; border-radius:12px;
+    font-weight:700; font-size:14px; z-index:60; opacity:0; pointer-events:none;
+    transition:opacity .2s, transform .2s; box-shadow:0 8px 28px rgba(27,23,21,.3);
+  }
+  .toast.on{opacity:1; transform:translateX(-50%) translateY(0)}
+  @media(min-width:760px){ .toast{bottom:30px} }
+
 </style>
 </head>
 <body>
@@ -722,6 +777,8 @@ const TABS = [
 function headStat(){
   if(recipeDraft) return {k:'กำลังเลือกของที่ใช้', v:'', s:'ติ๊กของที่ใช้ แล้วใส่จำนวนต่อ 1 จาน'};
 
+  if(order) return {k:'กำลังเปิดบิล', v: baht(orderTotal()), u:'บาท',
+                    s: orderCount() ? `${orderCount()} จานในบิลนี้` : 'กดเมนูที่ลูกค้าสั่ง'};
   if(tab === 'today'){
     const key = dayKey(), d = sumDay(key);
     const has = (db.sales||[]).some(x=>x.d===key) || (db.expenses||[]).some(x=>x.d===key);
@@ -1397,6 +1454,169 @@ function stepsCard(){
 }
 
 
+
+/* ===================== หน้าขายแบบ POS =====================
+   เปิดบิล → กดเมนูที่ลูกค้าสั่ง (กดซ้ำ = เพิ่มจำนวน) → ใส่ท็อปปิ้ง → รับเงิน
+   บันทึกเป็นรายการแยกตามเมนู แต่ผูก bill เดียวกัน จะได้ดูย้อนหลังได้เหมือนเดิม */
+let order = null;   // {lines:[{menuId,name,price,qty,addons:[{name,price}]}]}
+
+function openPOS(){
+  if(!db.menus.length){
+    openDialog({ title:'ยังไม่มีเมนู', sub:'ตั้งเมนูกับราคาไว้ก่อน แล้วค่อยมาเปิดบิล',
+      html:'<p style="margin:0;color:var(--ink-2)">ไปที่แท็บ <b>เมนู</b> กดปุ่ม <b>เพิ่ม</b> ใส่ชื่อกับราคาขาย แล้วกลับมาที่นี่ครับ</p>' });
+    return;
+  }
+  order = { lines: [] };
+  render(); window.scrollTo({top:0});
+}
+function closePOS(){ order = null; render(); window.scrollTo({top:0}); }
+
+const lineTotal = l => (n(l.price) + (l.addons||[]).reduce((s,a) => s + n(a.price), 0)) * n(l.qty);
+const orderTotal = () => (order ? order.lines : []).reduce((s,l) => s + lineTotal(l), 0);
+const orderCount = () => (order ? order.lines : []).reduce((s,l) => s + n(l.qty), 0);
+
+// กดเมนู: ถ้าบรรทัดล่าสุดเป็นเมนูเดียวกันและยังไม่ใส่ท็อปปิ้ง ให้บวกจำนวนแทนการเพิ่มบรรทัดใหม่
+function tapMenu(id){
+  const m = findMenu(id); if(!m || !order) return;
+  const last = order.lines.find(l => l.menuId === id && !(l.addons||[]).length);
+  if(last) last.qty = n(last.qty) + 1;
+  else order.lines.push({ lid: uid(), menuId:id, name:m.name, price:n(m.price), qty:1, addons:[] });
+  render();
+}
+function lineQty(lid, v){
+  const l = order.lines.find(x => x.lid === lid); if(!l) return;
+  l.qty = n(l.qty) + v;
+  if(l.qty <= 0) order.lines = order.lines.filter(x => x.lid !== lid);
+  render();
+}
+function delLine(lid){ order.lines = order.lines.filter(x => x.lid !== lid); render(); }
+
+// ใส่ท็อปปิ้งให้บรรทัดนั้น
+function lineAddons(lid){
+  const l = order.lines.find(x => x.lid === lid); if(!l) return;
+  const m = findMenu(l.menuId);
+  const tops = (m && m.addons) || [];
+  if(!tops.length){
+    openDialog({ title:'ยังไม่มีท็อปปิ้ง', sub: m ? m.name : '',
+      html:'<p style="margin:0;color:var(--ink-2)">ตั้งท็อปปิ้งของเมนูนี้ได้ที่แท็บ <b>เมนู</b> → เลือกเมนู → <b>ท็อปปิ้งที่เพิ่มได้</b></p>' });
+    return;
+  }
+  const picked = new Set((l.addons||[]).map(a => a.name));
+  window._topPick = picked;
+  const draw = () => openDialog({
+    title:'ท็อปปิ้ง',
+    sub: `${l.name} — ติ๊กของที่ลูกค้าเพิ่ม`,
+    html: `<div class="tops">${tops.map(a => `
+      <button class="top${picked.has(a.name) ? ' on' : ''}" onclick="pickLineTop('${lid}','${esc(a.name)}')">
+        ${esc(a.name)} <b>+${baht(a.price)}</b>
+      </button>`).join('')}</div>`,
+    foot:[{label:'เสร็จแล้ว', cls:'primary', fn:'dlg.close(); render()'}]
+  });
+  l._draw = draw;
+  draw();
+}
+function pickLineTop(lid, name){
+  const l = order.lines.find(x => x.lid === lid); if(!l) return;
+  const m = findMenu(l.menuId);
+  const a = ((m && m.addons) || []).find(x => x.name === name);
+  if(!a) return;
+  const has = (l.addons||[]).some(x => x.name === name);
+  l.addons = has ? l.addons.filter(x => x.name !== name)
+                 : [...(l.addons||[]), {name:a.name, price:n(a.price)}];
+  if(l._draw) l._draw();
+}
+
+function payBill(){
+  if(!order || !order.lines.length) return;
+  const d = dayKey(), t = nowTime(), bill = uid();
+  order.lines.forEach(l => {
+    (db.sales = db.sales || []).push({
+      id: uid(), bill, d, t,
+      menuId: l.menuId, name: l.name, qty: n(l.qty),
+      addons: (l.addons||[]).map(a => ({name:a.name, price:n(a.price)})),
+      total: lineTotal(l)
+    });
+  });
+  const paid = orderTotal();
+  order = null; save(); render();
+  toast(`รับเงินแล้ว ${baht(paid)} บาท`);
+}
+
+function viewPOS(){
+  const lines = order.lines;
+  const menuBtns = db.menus.map(m => `
+    <button class="posbtn" onclick="tapMenu('${m.id}')">
+      <span class="posbtn-n">${esc(m.name || '(ไม่มีชื่อ)')}</span>
+      <span class="posbtn-p">${baht(m.price)}</span>
+    </button>`).join('');
+
+  const billRows = lines.map(l => `
+    <div class="bill-line">
+      <div class="bl-main">
+        <div class="bl-name">${esc(l.name || '(ไม่มีชื่อ)')}</div>
+        ${(l.addons||[]).length
+          ? `<div class="bl-add">${l.addons.map(a => esc(a.name) + ' +' + baht(a.price)).join(' · ')}</div>`
+          : ''}
+        <button class="bl-top" onclick="lineAddons('${l.lid}')">+ ท็อปปิ้ง</button>
+      </div>
+      <div class="bl-qty">
+        <button onclick="lineQty('${l.lid}',-1)" aria-label="ลด">−</button>
+        <span>${n(l.qty)}</span>
+        <button onclick="lineQty('${l.lid}',1)" aria-label="เพิ่ม">+</button>
+      </div>
+      <div class="bl-sum">${baht(lineTotal(l))}</div>
+      <button class="bl-del" onclick="delLine('${l.lid}')" aria-label="ลบ">${icon('x',14)}</button>
+    </div>`).join('');
+
+  return `
+  <button class="btn back" onclick="closePOS()">${icon('back',16)} ปิดบิล</button>
+
+  <div class="card">
+    <div class="head-row">
+      <h2>ลูกค้าสั่งอะไร</h2>
+      <button class="btn sm" onclick="go('menu')">แก้เมนู</button>
+    </div>
+    <p class="sub">กดที่เมนูเพื่อเพิ่มลงบิล · กดซ้ำ = เพิ่มจำนวน</p>
+    <div class="posgrid">${menuBtns}</div>
+  </div>
+
+  <div class="card">
+    <h2>บิลนี้</h2>
+    <p class="sub">${lines.length ? `${orderCount()} จาน` : 'ยังไม่ได้เลือกอะไร'}</p>
+    <div class="bill">${billRows || `<div class="empty" style="padding:26px 10px">
+      <div class="empty-ic">${icon('today',30)}</div>
+      <h3>บิลยังว่าง</h3>
+      <p>กดเมนูด้านบนที่ลูกค้าสั่ง</p>
+    </div>`}</div>
+  </div>
+
+  <div class="savebar">
+    <div class="recipe-sum">
+      <b>รวม ${baht(orderTotal())} บาท</b>
+      <span>${orderCount()} จาน${lines.length ? ' · กดรับเงินเพื่อบันทึกลงสมุด' : ''}</span>
+    </div>
+    <div class="btnrow">
+      <button class="btn ghost" onclick="closePOS()">ยกเลิกบิล</button>
+      <button class="btn primary" onclick="payBill()" ${lines.length ? '' : 'disabled'}>รับเงิน</button>
+    </div>
+  </div>`;
+}
+
+/* ข้อความแจ้งสั้น ๆ มุมล่าง */
+let toastTimer = null;
+function toast(msg){
+  let el = document.getElementById('toast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'toast'; el.className = 'toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('on'), 2200);
+}
+
 /* ===================== หน้า "วันนี้" — หัวใจของแอป ===================== */
 function entryRow(e, showDay){
   const isSale = e.kind === 'sale';
@@ -1418,6 +1638,7 @@ function entryRow(e, showDay){
 }
 
 function viewToday(){
+  if(order) return viewPOS();
   const key = dayKey();
   const d = sumDay(key);
   const rows = entriesOf(key);
@@ -1425,7 +1646,7 @@ function viewToday(){
   return `
   <div class="card">
     <div class="daybtns">
-      <button class="daybtn in" onclick="saleDialog(null)">${icon('up',20)}<span>ขายได้</span></button>
+      <button class="daybtn in" onclick="openPOS()">${icon('up',20)}<span>ขายได้</span></button>
       <button class="daybtn out" onclick="expenseDialog(null)">${icon('down',20)}<span>ซื้อของ</span></button>
     </div>
     <div class="quick" style="margin-top:20px">
