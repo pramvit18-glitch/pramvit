@@ -81,6 +81,8 @@
     display:grid; place-items:center; transition:.16s;
   }
   .icon-btn:hover{border-color:var(--orange); color:var(--orange)}
+  .icon-btn.open{border-color:var(--good-ink); color:var(--good-ink); background:var(--good-bg)}
+  .icon-btn[hidden]{display:none}
   .icon-btn:active{transform:scale(.93)}
   .icon-btn svg{width:18px; height:18px}
 
@@ -1082,6 +1084,11 @@
       <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>
     </svg>
   </button>
+  <button class="icon-btn" id="pinBtn" hidden onclick="pinBtnTap()" title="รหัสคนดูแล" aria-label="รหัสคนดูแล">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>
+    </svg>
+  </button>
   <button class="icon-btn" onclick="openHelp()" title="คำศัพท์ในแอปแปลว่าอะไร" aria-label="ช่วยเหลือ">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.3 2.4c-.5.2-.8.7-.8 1.2v.4"/><path d="M12 17h.01"/>
@@ -1233,6 +1240,7 @@ function load(){
       if(st && Array.isArray(st.shops) && st.shops.length){
         store = { shops: st.shops.map((x,i) => fixShop(x, 'ร้านที่ ' + (i+1))), active: st.active };
         if(st.locked && st.shops.some(x => x.id === st.locked)) store.locked = st.locked;
+        if(st.pin && st.pin.h) store.pin = st.pin;          // รหัสคนดูแลเป็นของเครื่อง ไม่ใช่ของร้านใดร้านหนึ่ง
         if(!store.shops.some(x => x.id === store.active)) store.active = store.shops[0].id;
         if(store.locked) store.active = store.locked;      // เครื่องที่ผูกไว้ เปิดมาเจอร้านนั้นเสมอ
         return store.shops.find(x => x.id === store.active);
@@ -1311,6 +1319,89 @@ function isLocked(){
   return !!store.locked && store.shops.some(x => x.id === store.locked);
 }
 
+/* ===================== รหัสคนดูแล =====================
+   ของที่แก้แล้วกระทบเงิน (เมนู ราคา ชุดไส้ ลบบิล ล้างข้อมูล ฯลฯ) ต้องใส่รหัสก่อน
+   หน้าขายกับ Dashboard ใช้ได้เลยไม่ต้องใส่อะไร ลูกน้องเปิดมาก็ขายได้ทันที
+
+   หมายเหตุตามตรง: รหัสถูกกวนไว้ไม่ให้อ่านเจอตอนเปิดดูข้อมูลในเครื่อง
+   แต่ไม่ใช่การเข้ารหัสจริง และข้อมูลทั้งหมดก็อยู่ในเครื่องนั้นอยู่แล้ว
+   มันมีไว้กันคนในร้านเผลอแก้ ไม่ได้มีไว้กันคนที่ตั้งใจเจาะ */
+const PIN_MINUTES = 10;         // ใส่รหัสครั้งเดียว ทำงานต่อได้กี่นาที
+let adminUntil = 0;
+
+function pinHash(pin, salt){
+  const txt = String(salt || '') + '|' + String(pin || '');
+  let a = 0x811c9dc5, b = 0x01000193;
+  for(let r = 0; r < 600; r++){
+    for(let i = 0; i < txt.length; i++){
+      a ^= txt.charCodeAt(i) + r;
+      a = Math.imul(a, b) >>> 0;
+      a = ((a << 13) | (a >>> 19)) >>> 0;
+    }
+  }
+  return a.toString(16).padStart(8,'0');
+}
+const hasPin = () => !!(store.pin && store.pin.h);
+const isAdmin = () => !hasPin() || Date.now() < adminUntil;
+function openAdmin(){ adminUntil = Date.now() + PIN_MINUTES * 60000; }
+function lockAdmin(){ adminUntil = 0; render(); toast('ล็อกแล้ว'); }
+function pinBtnTap(){ isAdmin() ? lockAdmin() : askPin(null); }
+
+// ใส่ไว้ต้นฟังก์ชันของคนดูแล — ถ้ายังไม่ได้ปลดล็อกจะถามรหัสแล้วค่อยทำต่อให้เอง
+function adminOk(retry){
+  if(isAdmin()) return true;
+  askPin(retry);
+  return false;
+}
+
+function askPin(onOk){
+  openDialog({
+    title:'ใส่รหัสคนดูแล',
+    sub:'ส่วนนี้แก้แล้วกระทบยอดเงิน เลยขอรหัสก่อน',
+    fields:[{k:'pin', label:'รหัส', value:'', placeholder:'ตัวเลข 4-6 หลัก', wide:true}],
+    saveLabel:'ยืนยัน',
+    check: v => pinHash(v.pin, store.pin.s) === store.pin.h ? null : 'รหัสไม่ถูก ลองใหม่อีกที',
+    save: () => {
+      openAdmin();
+      render();
+      if(typeof onOk === 'function') setTimeout(onOk, 60);
+    }
+  });
+}
+
+function pinDialog(){
+  if(hasPin() && !adminOk(() => pinDialog())) return;
+  const setting = hasPin();
+  openDialog({
+    title: setting ? 'เปลี่ยนรหัสคนดูแล' : 'ตั้งรหัสคนดูแล',
+    sub:'ใช้ตอนจะแก้เมนู ราคา ชุดไส้ ลบบิล หรือล้างข้อมูล',
+    fields:[
+      {k:'pin', label:'รหัสใหม่', value:'', placeholder:'ตัวเลข 4-6 หลัก', wide:true},
+      {k:'pin2', label:'ใส่รหัสใหม่อีกครั้ง', value:'', placeholder:'ให้ตรงกับข้างบน', wide:true}
+    ],
+    saveLabel: setting ? 'เปลี่ยนรหัส' : 'ตั้งรหัส',
+    check: v => {
+      const a = String(v.pin || '').trim();
+      if(!/^[0-9]{4,6}$/.test(a)) return 'ใส่เป็นตัวเลข 4-6 หลัก';
+      if(a !== String(v.pin2 || '').trim()) return 'รหัสสองช่องไม่ตรงกัน';
+      return null;
+    },
+    save: v => {
+      const salt = uid() + uid();
+      store.pin = { s: salt, h: pinHash(String(v.pin).trim(), salt) };
+      openAdmin(); save(); render();
+      toast(setting ? 'เปลี่ยนรหัสแล้ว' : 'ตั้งรหัสแล้ว — ของสำคัญถูกล็อกไว้ให้แล้ว');
+    }
+  });
+}
+
+function clearPin(){
+  if(!adminOk(() => clearPin())) return;
+  askConfirm('เอารหัสออก', 'หลังจากนี้ใครก็แก้เมนู ราคา และลบบิลได้โดยไม่ต้องใส่รหัส', 'เอาออก', () => {
+    delete store.pin; adminUntil = 0; save(); render(); toast('เอารหัสออกแล้ว');
+  });
+}
+
 function applyShopLink(){
   let q;
   try{ q = new URLSearchParams(location.search); }catch(e){ return; }
@@ -1350,6 +1441,7 @@ function shopLink(id){
 }
 
 function shopLinkDialog(id){
+  if(!adminOk(() => shopLinkDialog(id))) return;
   const x = store.shops.find(v => v.id === id); if(!x) return;
   const url = shopLink(id);
   openDialog({
@@ -1381,6 +1473,7 @@ async function copyShopLink(){
 }
 
 function unlockDevice(){
+  if(!adminOk(() => unlockDevice())) return;
   askConfirm('ปลดล็อกเครื่องนี้',
     'หลังปลดล็อกจะสลับร้านและเพิ่มร้านอื่นในเครื่องนี้ได้ ข้อมูลที่บันทึกไว้ไม่หาย',
     'ปลดล็อก', () => { delete store.locked; save(); render(); toast('ปลดล็อกแล้ว'); });
@@ -1584,6 +1677,11 @@ function render(){
     (hs.v ? `<div class="v">${hs.v}${hs.u ? `<small>${hs.u}</small>` : ''}</div>` : '') +
     `<div class="s">${hs.s}</div>`;
 
+  const pb = document.getElementById('pinBtn');
+  pb.hidden = !hasPin();
+  pb.classList.toggle('open', isAdmin());
+  pb.title = isAdmin() ? 'ปลดล็อกอยู่ — แตะเพื่อล็อก' : 'ล็อกอยู่ — แตะเพื่อปลดล็อก';
+
   document.body.classList.toggle('hide-banner', tab === 'sale');
 
   const neg = tab === 'dash' && db.menus.length && hasSales() && daily().net < 0;
@@ -1604,7 +1702,9 @@ function render(){
     tab==='fixed' ? viewFixed() :
     tab==='dash'  ? viewDash()  : viewMore();
 }
+const ADMIN_TABS = ['ing','fixed','dash','menu'];   // เครื่องมือของคนดูแล ไม่ใช่ของหน้าร้าน
 function go(t){
+  if(ADMIN_TABS.includes(t) && !adminOk(() => go(t))) return;
   if(t === 'setup') openMenuId = null;
   if(t === 'sale' && !order) order = { lines: [] };   // เข้าแท็บขายแล้วมีบิลเปล่ารอเลย
   tab = t; render(); window.scrollTo({top:0});
@@ -1628,10 +1728,12 @@ function renderBanner(){
       </div>
     </div>` : '';
 }
-function startFresh(){ setShopData(blank()); tab='today'; render(); }
+function startFresh(){
+  if(!adminOk(() => startFresh())) return; setShopData(blank()); tab='today'; render(); }
 function keepDemo(){ delete db.isDemo; save(); render(); }
 
 function resetAll(){
+  if(!adminOk(() => resetAll())) return;
   askConfirm('ล้างข้อมูลของร้านนี้',
     `ยอดขาย รายจ่าย และเมนูของ "${db.shopName}" จะหายหมด กู้คืนไม่ได้ — ร้านอื่นไม่กระทบ`,
     'ล้างทิ้ง', () => {
@@ -1821,6 +1923,7 @@ function ingDialog(ing){
 function addIng(){ ingDialog(null); }
 function editIng(id){ const i = findIng(id); if(i) ingDialog(i); }
 function delIng(id){
+  if(!adminOk(() => delIng(id))) return;
   const i = findIng(id);
   const used = db.menus.filter(m => (m.items||[]).some(it => it.ingId===id)).map(m=>m.name||'(ไม่มีชื่อ)');
   const go = () => {
@@ -2078,6 +2181,7 @@ function viewMenu(){
 const findMenu = id => db.menus.find(m => m.id===id);
 // หน้าต่างเดียวใช้ได้ทั้งเพิ่มและแก้ไข (ส่ง null = เพิ่มใหม่)
 function menuDialog(m){
+  if(!adminOk(() => menuDialog(m))) return;
   openDialog({
     title: m ? 'แก้ไขเมนู' : 'เพิ่มเมนูใหม่',
     sub: m ? 'แก้ชื่อ ราคาขาย หรือยอดขายต่อวัน' : 'ใส่ชื่อกับราคาขายก่อน แล้วค่อยไปใส่สูตรทีหลัง',
@@ -2103,7 +2207,8 @@ function menuDialog(m){
     }
   });
 }
-function addMenu(){ menuDialog(null); }
+function addMenu(){
+  if(!adminOk(() => addMenu())) return; menuDialog(null); }
 function editMenu(id){ const m = findMenu(id); if(m) menuDialog(m); }
 function delMenu(id){
   const m = findMenu(id);
@@ -2308,6 +2413,7 @@ function shopMenu(){
 
 // ใส่เมนูจริงลงแอป โดยไม่แตะยอดขาย/รายจ่ายที่บันทึกไว้แล้ว
 function loadShopMenu(){
+  if(!adminOk(() => loadShopMenu())) return;
   const go = () => {
     db.menus = shopMenu();
     db.groups = [];
@@ -2682,6 +2788,7 @@ function shopHub(){
 }
 
 function addShop(){
+  if(!adminOk(() => addShop())) return;
   if(isLocked()) return toast('เครื่องนี้ตั้งไว้สำหรับร้านเดียว');
   openDialog({
     title:'เพิ่มร้านใหม่',
@@ -2706,6 +2813,7 @@ function addShop(){
 }
 
 function delShop(id){
+  if(!adminOk(() => delShop(id))) return;
   if(store.shops.length < 2) return toast('ต้องเหลืออย่างน้อย 1 ร้าน');
   const x = store.shops.find(v => v.id === id); if(!x) return;
   dlg.close();
@@ -2719,6 +2827,7 @@ function delShop(id){
     });
 }
 function shopDialog(id){
+  if(!adminOk(() => shopDialog(id))) return;
   const x = id ? store.shops.find(v => v.id === id) : db;
   if(!x) return;
   openDialog({
@@ -2823,7 +2932,7 @@ function viewPOS(){
 
     <div class="card sale-list">
       ${cardHead('today','บิลวันนี้',
-        bills.length ? `ทั้งหมด ${bills.length} บิล · แตะเพื่อดูหรือแก้ไข` : 'ยังไม่มีบิล',
+        bills.length ? `ทั้งหมด ${bills.length} บิล · แตะเพื่อดู${hasPin() && !isAdmin() ? '' : 'หรือแก้ไข'}` : 'ยังไม่มีบิล',
         bills.length > 1 ? '<span class="head-tag">ล่าสุดก่อน</span>' : '')}
       ${bills.length ? `<div class="bills">${rows}</div>
         ${bills.length > BILLS_SHOWN ? `<button type="button" class="seeall" onclick="allBillsDialog()">
@@ -2860,6 +2969,7 @@ function billDetail(billId){
   });
 }
 function delBill(billId){
+  if(!adminOk(() => delBill(billId))) return;
   askConfirm('ลบบิลนี้?', 'ยอดขายของวันนี้จะลดลงตามบิลที่ลบ', 'ลบ', () => {
     db.sales = (db.sales||[]).filter(x => (x.bill || x.id) !== billId);
     save(); render(); toast('ลบบิลแล้ว');
@@ -3422,6 +3532,7 @@ function editEntry(kind, id){
   }
 }
 function delEntry(kind, id){
+  if(!adminOk(() => delEntry(kind, id))) return;
   if(kind === 'sale') db.sales = (db.sales||[]).filter(x => x.id !== id);
   else db.expenses = (db.expenses||[]).filter(x => x.id !== id);
   save(); render();
@@ -3796,6 +3907,7 @@ function addonDialog(menuId, idx){
   });
 }
 function delAddon(menuId, idx){
+  if(!adminOk(() => delAddon(menuId, idx))) return;
   const m = findMenu(menuId); if(!m) return;
   (m.addons||[]).splice(idx,1); save(); render();
 }
@@ -3881,6 +3993,23 @@ function viewSetup(){
   </div>`}
 
   <div class="card">
+    ${cardHead('lock','รหัสคนดูแล',
+      hasPin() ? (isAdmin() ? 'ตอนนี้ปลดล็อกอยู่ แก้อะไรก็ได้' : 'ล็อกอยู่ · ของสำคัญต้องใส่รหัสก่อนแก้')
+               : 'ยังไม่ได้ตั้ง · ตอนนี้ใครก็แก้เมนู ราคา และลบบิลได้',
+      hasPin()
+        ? `<span class="statepill${isAdmin() ? ' on' : ''}">${isAdmin() ? 'ปลดล็อกอยู่' : 'ล็อกอยู่'}</span>`
+        : '')}
+    <p class="hint" style="margin:0 0 12px">ล็อกเฉพาะ <b>แก้เมนู/ราคา · ชุดไส้ · ลบบิล · ลบรายจ่าย · จัดการร้าน · สำรองข้อมูล · ล้างข้อมูล</b>
+      ส่วนหน้าขายกับ Dashboard ใช้ได้เลยไม่ต้องใส่รหัส</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap">
+      <button type="button" class="btn primary" onclick="pinDialog()">
+        ${icon(hasPin() ? 'edit' : 'lock',16)} ${hasPin() ? 'เปลี่ยนรหัส' : 'ตั้งรหัส'}</button>
+      ${hasPin() && isAdmin() ? `<button type="button" class="btn ghost" onclick="lockAdmin()">ล็อกเดี๋ยวนี้</button>` : ''}
+      ${hasPin() ? `<button type="button" class="btn ghost" onclick="clearPin()">เอารหัสออก</button>` : ''}
+    </div>
+  </div>
+
+  <div class="card">
     ${cardHead('menu','แป้ง / เมนูที่ขาย','แตะชื่อเพื่อแก้ราคา · ปุ่ม "ชุดไส้" คือเลือกว่าเมนูนี้ใส่อะไรได้',
       `<span class="head-tag">${db.menus.length} เมนู</span>
        <button type="button" class="btn sm primary" onclick="addMenu()">${icon('plus',14)} เพิ่ม</button>`)}
@@ -3935,6 +4064,7 @@ function navRow(ic, tone, title, sub, fn){
 
 /* ---------- เลือกว่าเมนูนี้ใช้ชุดไส้ไหนบ้าง ---------- */
 function pickGroups(menuId){
+  if(!adminOk(() => pickGroups(menuId))) return;
   const m = findMenu(menuId); if(!m) return;
   const picked = new Set(m.groupIds || []);
   openDialog({
@@ -3964,6 +4094,7 @@ function toggleMenuGroup(menuId, gid){
 
 /* ---------- ชุดไส้: สร้าง / เปลี่ยนชื่อ / ลบ ---------- */
 function groupDialog(g){
+  if(!adminOk(() => groupDialog(g))) return;
   openDialog({
     title: g ? 'เปลี่ยนชื่อชุด' : 'เพิ่มชุดไส้',
     sub: g ? '' : 'เช่น ไส้คาว · ไส้หวาน · ราดซอส (ฟรี)',
@@ -3979,6 +4110,7 @@ function groupDialog(g){
   });
 }
 function delGroup(gid){
+  if(!adminOk(() => delGroup(gid))) return;
   const g = findGroup(gid); if(!g) return;
   const used = db.menus.filter(m => (m.groupIds||[]).includes(gid)).length;
   askConfirm(`ลบชุด "${g.name}" ?`,
@@ -3993,6 +4125,7 @@ function delGroup(gid){
 
 /* ---------- แก้ไส้ในชุด ---------- */
 function groupEditor(gid){
+  if(!adminOk(() => groupEditor(gid))) return;
   const g = findGroup(gid); if(!g) return;
   const rows = g.items.map((it,i) => `
     <div class="li" role="button" tabindex="0" onclick="groupItemDialog('${gid}',${i})"
@@ -4014,6 +4147,7 @@ function groupEditor(gid){
   });
 }
 function groupItemDialog(gid, idx){
+  if(!adminOk(() => groupItemDialog(gid, idx))) return;
   const g = findGroup(gid); if(!g) return;
   const cur = idx >= 0 ? g.items[idx] : null;
   openDialog({
@@ -4034,12 +4168,14 @@ function groupItemDialog(gid, idx){
   });
 }
 function delGroupItem(gid, idx){
+  if(!adminOk(() => delGroupItem(gid, idx))) return;
   const g = findGroup(gid); if(!g) return;
   g.items.splice(idx,1); save(); render(); groupEditor(gid);
 }
 
 /* ===================== สำรอง / กู้คืน ===================== */
 function openBackup(){
+  if(!adminOk(() => openBackup())) return;
   const box = document.getElementById('backup');
   document.getElementById('dump').value = JSON.stringify(store);
   document.getElementById('bkMsg').textContent = '';
@@ -4070,7 +4206,9 @@ function applyData(raw){
     // ก้อนใหม่ = มีหลายร้าน / ก้อนเก่า = ร้านเดียว ใส่ทับร้านที่กำลังใช้อยู่
     if(data && Array.isArray(data.shops) && data.shops.length){
       const wasLocked = store && store.locked;
+      const keepPin = store && store.pin;
       store = { shops: data.shops.map((x,i) => fixShop(x, 'ร้านที่ ' + (i+1))), active: data.active };
+      if(data.pin && data.pin.h) store.pin = data.pin; else if(keepPin) store.pin = keepPin;
       if(wasLocked && store.shops.some(x => x.id === wasLocked)){ store.locked = wasLocked; store.active = wasLocked; }
       if(!store.shops.some(x => x.id === store.active)) store.active = store.shops[0].id;
       db = curShop(); save(); render();
@@ -4100,6 +4238,7 @@ function importJSON(input){
 
 /* ===================== ข้อมูลตัวอย่าง ===================== */
 function loadDemo(){
+  if(!adminOk(() => loadDemo())) return;
   const go = () => { setShopData(seedHistory(buildDemo())); tab='today'; render(); };
   if(db.ingredients.length && !db.isDemo)
     askConfirm('ใส่ข้อมูลตัวอย่าง', 'จะทับข้อมูลเดิมทั้งหมด รวมถึงยอดขายที่บันทึกไว้', 'ทับเลย', go);
