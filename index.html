@@ -620,7 +620,8 @@ const UNITS = ['กรัม','มิลลิลิตร','ชิ้น','แ�
 
 const blank = () => ({
   ingredients: [],
-  menus: [],                 // {id,name,price,addons:[{id,name,price}],items:[]}
+  menus: [],
+  groups: [],              // ชุดไส้/ท็อปปิ้งที่ใช้ร่วมกัน                 // {id,name,price,addons:[{id,name,price}],items:[]}
   sales: [],                 // {id, d:'YYYY-MM-DD', t:'HH:MM', menuId, name, qty, addons:[{name,price}], total}
   expenses: [],              // {id, d:'YYYY-MM-DD', t:'HH:MM', note, amount}
   fixed: { rent:0, electric:0, gas:0, water:0, other:0, days:26, labor:0 },
@@ -671,10 +672,49 @@ let tab = 'today';
 function load(){
   try{
     const raw = localStorage.getItem(KEY);
-    if(!raw) return seedHistory(buildDemo());   // เปิดครั้งแรก มีข้อมูลตัวอย่างให้เห็นภาพก่อน
-    return Object.assign(blank(), JSON.parse(raw));
-  }catch(e){ return seedHistory(buildDemo()); }
+    if(!raw) return migrateGroups(seedHistory(buildDemo()));   // เปิดครั้งแรก มีข้อมูลตัวอย่างให้เห็นภาพก่อน
+    return migrateGroups(Object.assign(blank(), JSON.parse(raw)));
+  }catch(e){ return migrateGroups(seedHistory(buildDemo())); }
 }
+/* ===================== ชุดไส้ที่ใช้ร่วมกันหลายเมนู =====================
+   เดิมไส้ถูกก๊อปเก็บไว้ในแต่ละเมนู แก้ทีต้องไล่แก้ทุกเมนู
+   เปลี่ยนเป็นเก็บเป็น "ชุด" ไว้ที่เดียว แล้วเมนูแค่บอกว่าใช้ชุดไหนบ้าง */
+function migrateGroups(d){
+  const hasLegacy = (d.menus||[]).some(m => (m.addons||[]).length);
+  if(Array.isArray(d.groups) && d.groups.length && !hasLegacy) return d;
+  if(!hasLegacy){ d.groups = d.groups || []; return d; }
+  if(!Array.isArray(d.groups)) d.groups = [];
+  const groups = d.groups;
+  (d.menus||[]).forEach(m => {
+    const ids = Array.isArray(m.groupIds) ? [...m.groupIds] : [];
+    (m.addons||[]).forEach(a => {
+      const gname = a.group || 'ท็อปปิ้ง';
+      let g = groups.find(x => x.name === gname);
+      if(!g) groups.push(g = {id:uid(), name:gname, items:[]});
+      if(!g.items.some(x => x.name === a.name && n(x.price) === n(a.price)))
+        g.items.push({id:uid(), name:a.name, price:n(a.price)});
+      if(!ids.includes(g.id)) ids.push(g.id);
+    });
+    m.groupIds = ids;
+    delete m.addons;                 // ย้ายเข้าในชุดแล้ว
+  });
+  d.groups = groups;
+  return d;
+}
+
+// ไส้ทั้งหมดที่เมนูนี้เลือกได้ (รวมของเก่าที่ยังไม่ได้ย้าย)
+function menuAddons(m){
+  if(!m) return [];
+  const out = [];
+  (m.groupIds||[]).forEach(gid => {
+    const g = (db.groups||[]).find(x => x.id === gid);
+    if(g) g.items.forEach(it => out.push({id:it.id, name:it.name, price:n(it.price), group:g.name}));
+  });
+  (m.addons||[]).forEach(a => { if(!out.some(x => x.name === a.name)) out.push(a); });
+  return out;
+}
+const findGroup = id => (db.groups||[]).find(g => g.id === id);
+
 function save(){
   try{ localStorage.setItem(KEY, JSON.stringify(db)); }
   catch(e){ /* เบราว์เซอร์ปิดการเก็บข้อมูล — ใช้ต่อได้แต่ไม่บันทึก */ }
@@ -804,11 +844,10 @@ const icon = (k,s=18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fi
 
 /* ===================== หน้าจอ ===================== */
 const TABS = [
-  ['today', 'วันนี้',    'today'],
-  ['sale',  'ขาย',      'cart'],
-  ['hist',  'ย้อนหลัง',  'hist'],
-  ['menu',  'เมนู',      'menu'],
-  ['more',  'อื่น ๆ',    'more']
+  ['sale',  'ขาย',        'cart'],
+  ['today', 'Dashboard',  'today'],
+  ['hist',  'ย้อนหลัง',    'hist'],
+  ['setup', 'ตั้งค่า',     'more']
 ];
 
 // ตัวเลขสำคัญของแต่ละแท็บ แสดงไว้บนสุดของหน้า
@@ -838,8 +877,13 @@ function headStat(){
             v: baht(Math.abs(m.net)), u:'บาท',
             s: `ขายได้ ${baht(m.sale)} · ซื้อของ ${baht(m.exp)} บาท · ${m.days} วัน`};
   }
+  if(tab === 'setup'){
+    const items = (db.groups||[]).reduce((a,g) => a + g.items.length, 0);
+    return {k:'ตั้งค่า', v:String(db.menus.length), u:'เมนู',
+            s: `ไส้ที่ใส่ได้ ${items} อย่าง ใน ${(db.groups||[]).length} ชุด`};
+  }
   if(tab === 'more'){
-    return {k:'อื่น ๆ', v:'', s:'ของที่นาน ๆ ใช้ที — ตั้งราคา สำรองข้อมูล คำอธิบายศัพท์'};
+    return {k:'อื่น ๆ', v:'', s:'ของที่นาน ๆ ใช้ที'};
   }
   if(tab === 'ing'){
     const c = db.ingredients.length;
@@ -892,6 +936,7 @@ function render(){
   document.getElementById('view').innerHTML =
     tab==='sale'  ? viewPOS()   :
     tab==='today' ? viewToday() :
+    tab==='setup' ? viewSetup() :
     tab==='hist'  ? viewHist()  :
     tab==='menu'  ? viewMenu()  :
     tab==='ing'   ? viewIng()   :
@@ -899,6 +944,7 @@ function render(){
     tab==='dash'  ? viewDash()  : viewMore();
 }
 function go(t){
+  if(t === 'setup') openMenuId = null;
   if(t === 'sale' && !order) order = { lines: [] };   // เข้าแท็บขายแล้วมีบิลเปล่ารอเลย
   tab = t; render(); window.scrollTo({top:0});
 }
@@ -1033,7 +1079,7 @@ dlg.addEventListener('close', () => dlg.removeEventListener('input', dlgLive));
 
 /* --------- แท็บ 1: วัตถุดิบ --------- */
 function viewIng(){
-  const back = `<button class="btn back" onclick="go('more')">${icon('back',16)} อื่น ๆ</button>`;
+  const back = `<button class="btn back" onclick="go('setup')">${icon('back',16)} ตั้งค่า</button>`;
   const rows = db.ingredients.map(i => `
     <div class="li" role="button" tabindex="0" onclick="editIng('${i.id}')"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editIng('${i.id}')}">
@@ -1424,7 +1470,7 @@ function delItem(mid,idx){
 
 /* --------- แท็บ 3: ต้นทุนคงที่ --------- */
 function viewFixed(){
-  const back = `<button class="btn back" onclick="go('more')">${icon('back',16)} อื่น ๆ</button>`;
+  const back = `<button class="btn back" onclick="go('setup')">${icon('back',16)} ตั้งค่า</button>`;
   const f = db.fixed;
   const fld = (k,l,ph='') => `<div class="f"><label>${l}</label>
     <input type="number" step="any" inputmode="decimal" value="${f[k]}" placeholder="${ph}" oninput="setFixed('${k}',this.value)"></div>`;
@@ -1558,9 +1604,9 @@ function shopMenu(){
     .map(n => A(n, 0, 'ราดซอส (ฟรี)'));
 
   const ไส้โตเกียว = ['พริกเผา','พิซซ่า','ไข่นก','ปูอัด','ไส้กรอก','ไก่สับ','โบโลน่า','ไก่หยอง','สาหร่าย']
-    .map(n => A(n, 0, 'เลือกไส้'));
+    .map(n => A(n, 0, 'ไส้โตเกียว (คาว)'));
 
-  const ไส้หวานโตเกียว = ['ครีม','ครีมข้าวโพด','เผือกกวน'].map(n => A(n, 0, 'เลือกไส้'));
+  const ไส้หวานโตเกียว = ['ครีม','ครีมข้าวโพด','เผือกกวน'].map(n => A(n, 0, 'ไส้โตเกียว (หวาน)'));
 
   const M = (name, price, addons) => ({ id: uid(), name, price, qtyPerDay: 0, items: [], addons });
 
@@ -1631,7 +1677,7 @@ function delLine(lid){ order.lines = order.lines.filter(x => x.lid !== lid); ren
 function lineAddons(lid){
   const l = order.lines.find(x => x.lid === lid); if(!l) return;
   const m = findMenu(l.menuId);
-  const tops = (m && m.addons) || [];
+  const tops = menuAddons(m);
   if(!tops.length){
     openDialog({ title:'ยังไม่มีท็อปปิ้ง', sub: m ? m.name : '',
       html:'<p style="margin:0;color:var(--ink-2)">ตั้งท็อปปิ้งของเมนูนี้ได้ที่แท็บ <b>เมนู</b> → เลือกเมนู → <b>ท็อปปิ้งที่เพิ่มได้</b></p>' });
@@ -1651,7 +1697,7 @@ function lineAddons(lid){
 function pickLineTop(lid, name){
   const l = order.lines.find(x => x.lid === lid); if(!l) return;
   const m = findMenu(l.menuId);
-  const a = ((m && m.addons) || []).find(x => x.name === name);
+  const a = menuAddons(m).find(x => x.name === name);
   if(!a) return;
   const has = (l.addons||[]).some(x => x.name === name);
   l.addons = has ? l.addons.filter(x => x.name !== name)
@@ -1854,7 +1900,7 @@ function saleTotal(){
 
 function renderSaleDialog(){
   const m = findMenu(saleDraft.menuId) || db.menus[0];
-  const tops = m.addons || [];
+  const tops = menuAddons(m);
   openDialog({
     title: saleDraft.id ? 'แก้รายการขาย' : 'บันทึกการขาย',
     sub: 'เลือกเมนู ใส่จำนวน แล้วติ๊กท็อปปิ้งที่ลูกค้าเพิ่ม',
@@ -2010,7 +2056,7 @@ function openDay(key){
 
 /* --------- ภาพรวม (ย้ายไปอยู่ในแท็บ อื่น ๆ) --------- */
 function viewDash(){
-  const back = `<button class="btn back" onclick="go('more')">${icon('back',16)} อื่น ๆ</button>`;
+  const back = `<button class="btn back" onclick="go('setup')">${icon('back',16)} ตั้งค่า</button>`;
   if(!db.menus.length){
     return `<div class="card">
       <div class="empty">
@@ -2290,6 +2336,194 @@ function addonList(m){
     </div>
     <p class="sub">ตอนบันทึกการขายจะเลือกติ๊กได้ ราคาบวกให้อัตโนมัติ</p>
     <div class="list">${rows || '<div class="empty" style="padding:18px">ยังไม่มีท็อปปิ้ง</div>'}</div>`;
+}
+
+
+/* ===================== หน้าตั้งค่าเมนู =====================
+   ที่เดียวจบ: มีแป้ง/เมนูอะไรบ้าง · ใส่ไส้อะไรได้บ้าง · เมนูไหนใช้ชุดไส้ไหน */
+function viewSetup(){
+  const menuRows = db.menus.map(m => {
+    const gs = (m.groupIds||[]).map(id => findGroup(id)).filter(Boolean);
+    return `<div class="li" role="button" tabindex="0" onclick="menuDialog(findMenu('${m.id}'))"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();menuDialog(findMenu('${m.id}'))}">
+      <div class="li-main">
+        <div class="li-title">${esc(m.name || '(ยังไม่มีชื่อ)')}</div>
+        <div class="li-sub">${baht(m.price)} บาท${gs.length ? ' · ใส่ได้: ' + esc(gs.map(g => g.name).join(', ')) : ' · ยังไม่ได้เลือกชุดไส้'}</div>
+      </div>
+      <div class="li-end">
+        <button class="btn sm" onclick="event.stopPropagation(); pickGroups('${m.id}')">ชุดไส้</button>
+        <span class="li-chev">${icon('chev',16)}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const groupRows = (db.groups||[]).map(g => {
+    const used = db.menus.filter(m => (m.groupIds||[]).includes(g.id)).length;
+    const free = g.items.every(it => n(it.price) === 0);
+    return `<div class="li" role="button" tabindex="0" onclick="groupEditor('${g.id}')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();groupEditor('${g.id}')}">
+      <div class="li-main">
+        <div class="li-title">${esc(g.name)}</div>
+        <div class="li-sub">${g.items.length} อย่าง${free && g.items.length ? ' · ฟรี' : ''} · ใช้ใน ${used} เมนู</div>
+      </div>
+      <span class="li-chev">${icon('chev',16)}</span>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="card">
+    <div class="head-row">
+      <h2>แป้ง / เมนูที่ขาย</h2>
+      <button class="btn sm primary" onclick="addMenu()">${icon('plus',14)} เพิ่ม</button>
+    </div>
+    <p class="sub">แตะชื่อเพื่อแก้ราคา · กดปุ่ม "ชุดไส้" เพื่อเลือกว่าเมนูนี้ใส่อะไรได้บ้าง</p>
+    <div class="list">${menuRows || `<div class="empty" style="padding:22px 10px">
+      <h3 style="font-size:16px">ยังไม่มีเมนู</h3>
+      <p style="margin-bottom:14px">กดเพิ่มเพื่อใส่แป้งหรือเมนูแรก</p>
+      <button class="btn" onclick="loadShopMenu()">ใส่เมนูจากใบเมนูร้าน</button>
+    </div>`}</div>
+  </div>
+
+  <div class="card">
+    <div class="head-row">
+      <h2>ชุดไส้ที่ใส่ได้</h2>
+      <button class="btn sm primary" onclick="groupDialog(null)">${icon('plus',14)} เพิ่มชุด</button>
+    </div>
+    <p class="sub">แก้ราคาไส้ที่นี่ที่เดียว ทุกเมนูที่ใช้ชุดนี้เปลี่ยนตามหมด</p>
+    <div class="list">${groupRows || `<div class="empty" style="padding:22px 10px">
+      <h3 style="font-size:16px">ยังไม่มีชุดไส้</h3>
+      <p style="margin-bottom:0">เช่น "ไส้คาว" "ไส้หวาน" "ราดซอส (ฟรี)"</p>
+    </div>`}</div>
+  </div>
+
+  <div class="card">
+    <h2>ช่วยตั้งราคา</h2>
+    <p class="sub">ใช้ตอนอยากรู้ว่าควรขายเท่าไหร่ถึงจะมีกำไร ไม่ได้ใช้ทุกวัน</p>
+    <div class="list">
+      ${moreRow('ของที่ซื้อมา', db.ingredients.length ? `${db.ingredients.length} อย่าง · ใช้คิดต้นทุนต่อจาน` : 'ยังไม่ได้ใส่', "go('ing')")}
+      ${moreRow('ค่าเช่า ค่าไฟ ค่าแรง', breakEven() ? `ต้องขายวันละ ${Math.ceil(breakEven())} จานถึงไม่ขาดทุน` : 'ยังไม่ได้ใส่', "go('fixed')")}
+      ${moreRow('ดูว่าเมนูไหนกำไรดี', db.menus.length ? `เทียบ ${db.menus.length} เมนู` : 'ยังไม่มีเมนู', "go('dash')")}
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>ข้อมูลของคุณ</h2>
+    <p class="sub">เก็บอยู่ในเครื่องนี้เครื่องเดียว ควรคัดลอกเก็บไว้เป็นระยะ</p>
+    <div class="list">
+      ${moreRow('สำรอง / กู้คืนข้อมูล', 'คัดลอกเก็บไว้ กันข้อมูลหาย', 'openBackup()')}
+      ${moreRow('คำในแอปแปลว่าอะไร', 'อ่านครั้งเดียวก็พอ', 'openHelp()')}
+      ${moreRow('ใส่เมนูจากใบเมนูร้าน', 'เครป โตเกียว ไข่ป๋วง แพนเค้ก พร้อมไส้ครบ', 'loadShopMenu()')}
+      ${moreRow('ใส่ข้อมูลตัวอย่าง', 'ลองเล่นด้วยข้อมูลร้านสมมติ', 'loadDemo()')}
+    </div>
+    <div class="btnrow" style="margin-top:16px">
+      <button class="btn danger" onclick="resetAll()">ล้างข้อมูลทั้งหมด</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- เลือกว่าเมนูนี้ใช้ชุดไส้ไหนบ้าง ---------- */
+function pickGroups(menuId){
+  const m = findMenu(menuId); if(!m) return;
+  const picked = new Set(m.groupIds || []);
+  openDialog({
+    title: 'เมนูนี้ใส่อะไรได้บ้าง',
+    sub: esc(m.name || '(ไม่มีชื่อ)'),
+    html: (db.groups||[]).length
+      ? `<div class="picks">${db.groups.map(g => `
+          <div class="pick${picked.has(g.id) ? ' on' : ''}">
+            <button class="pick-box" onclick="toggleMenuGroup('${menuId}','${g.id}')"
+                    aria-pressed="${picked.has(g.id)}">${icon('check',15)}</button>
+            <div class="pick-main" onclick="toggleMenuGroup('${menuId}','${g.id}')">
+              <div class="li-title">${esc(g.name)}</div>
+              <div class="li-sub">${g.items.length} อย่าง · ${g.items.slice(0,4).map(i => esc(i.name)).join(' ')}${g.items.length > 4 ? ' …' : ''}</div>
+            </div>
+          </div>`).join('')}</div>`
+      : `<p style="margin:0;color:var(--ink-2)">ยังไม่มีชุดไส้ — กด <b>เพิ่มชุด</b> ในหน้าตั้งค่าก่อนครับ</p>`,
+    foot: [{label:'เสร็จแล้ว', cls:'primary', fn:'dlg.close(); render()'}]
+  });
+}
+function toggleMenuGroup(menuId, gid){
+  const m = findMenu(menuId); if(!m) return;
+  const ids = new Set(m.groupIds || []);
+  if(ids.has(gid)) ids.delete(gid); else ids.add(gid);
+  m.groupIds = [...ids];
+  save(); pickGroups(menuId);          // เปิดหน้าต่างเดิมซ้ำเพื่อให้เห็นติ๊กเปลี่ยน
+}
+
+/* ---------- ชุดไส้: สร้าง / เปลี่ยนชื่อ / ลบ ---------- */
+function groupDialog(g){
+  openDialog({
+    title: g ? 'เปลี่ยนชื่อชุด' : 'เพิ่มชุดไส้',
+    sub: g ? '' : 'เช่น ไส้คาว · ไส้หวาน · ราดซอส (ฟรี)',
+    fields: [{k:'name', label:'ชื่อชุด', type:'text', value: g ? g.name : '',
+              placeholder:'เช่น ไส้คาว', wide:true}],
+    check: v => !v.name.trim() ? 'ใส่ชื่อชุดด้วย' : null,
+    extraFoot: g ? {label:'ลบชุด', cls:'danger', fn:`dlg.close(); delGroup('${g.id}')`} : null,
+    save: v => {
+      if(g) g.name = v.name.trim();
+      else (db.groups = db.groups||[]).push({id:uid(), name:v.name.trim(), items:[]});
+      save(); render();
+    }
+  });
+}
+function delGroup(gid){
+  const g = findGroup(gid); if(!g) return;
+  const used = db.menus.filter(m => (m.groupIds||[]).includes(gid)).length;
+  askConfirm(`ลบชุด "${g.name}" ?`,
+    used ? `ชุดนี้ถูกใช้อยู่ใน ${used} เมนู ลบแล้วเมนูเหล่านั้นจะเลือกไส้ชุดนี้ไม่ได้อีก`
+         : 'ยังไม่มีเมนูไหนใช้ชุดนี้',
+    'ลบ', () => {
+      db.groups = (db.groups||[]).filter(x => x.id !== gid);
+      db.menus.forEach(m => m.groupIds = (m.groupIds||[]).filter(x => x !== gid));
+      save(); tab = 'setup'; render();
+    });
+}
+
+/* ---------- แก้ไส้ในชุด ---------- */
+function groupEditor(gid){
+  const g = findGroup(gid); if(!g) return;
+  const rows = g.items.map((it,i) => `
+    <div class="li" role="button" tabindex="0" onclick="groupItemDialog('${gid}',${i})"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();groupItemDialog('${gid}',${i})}">
+      <div class="li-main"><div class="li-title">${esc(it.name)}</div></div>
+      <div class="li-end">
+        <span class="chip">${n(it.price) > 0 ? '+' + baht(it.price) : 'ฟรี'}</span>
+        <span class="li-chev">${icon('chev',16)}</span>
+      </div>
+    </div>`).join('');
+  openDialog({
+    title: esc(g.name),
+    sub: `${g.items.length} อย่าง · แตะเพื่อแก้ชื่อหรือราคา`,
+    html: `<div class="list">${rows || '<div class="empty" style="padding:18px">ยังไม่มีไส้ในชุดนี้</div>'}</div>`,
+    foot: [
+      {label:'เปลี่ยนชื่อชุด', cls:'ghost', fn:`dlg.close(); groupDialog(findGroup('${gid}'))`},
+      {label:'เพิ่มไส้', cls:'primary', fn:`groupItemDialog('${gid}',-1)`}
+    ]
+  });
+}
+function groupItemDialog(gid, idx){
+  const g = findGroup(gid); if(!g) return;
+  const cur = idx >= 0 ? g.items[idx] : null;
+  openDialog({
+    title: cur ? 'แก้ไส้' : 'เพิ่มไส้',
+    sub: `ในชุด ${g.name}`,
+    fields: [
+      {k:'name', label:'ชื่อไส้', type:'text', value: cur ? cur.name : '', placeholder:'เช่น ไก่หยอง', wide:true},
+      {k:'price', label:'คิดเพิ่มกี่บาท (ฟรีใส่ 0)', type:'number', value: cur ? cur.price : '', wide:true}
+    ],
+    check: v => !v.name.trim() ? 'ใส่ชื่อไส้ด้วย' : v.price < 0 ? 'ราคาติดลบไม่ได้' : null,
+    extraFoot: cur ? {label:'ลบ', cls:'danger', fn:`dlg.close(); delGroupItem('${gid}',${idx})`} : null,
+    save: v => {
+      const data = {name:v.name.trim(), price:n(v.price)};
+      if(cur) Object.assign(cur, data);
+      else g.items.push(Object.assign({id:uid()}, data));
+      save(); render(); groupEditor(gid);
+    }
+  });
+}
+function delGroupItem(gid, idx){
+  const g = findGroup(gid); if(!g) return;
+  g.items.splice(idx,1); save(); render(); groupEditor(gid);
 }
 
 /* ===================== สำรอง / กู้คืน ===================== */
