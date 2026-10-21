@@ -9,7 +9,7 @@ const stub = () => ({ innerHTML:'', textContent:'', hidden:false, value:'', data
   addEventListener(){}, removeEventListener(){}, showModal(){}, close(){},
   querySelectorAll:()=>[], querySelector:()=>stub(), focus(){}, setAttribute(){},
   classList:{toggle(){}}, scrollIntoView(){}, replaceWith(){}, insertAdjacentHTML(){} });
-global.document = { getElementById: stub, querySelector: () => stub(), createElement: stub };
+global.document = { body: stub(), getElementById: stub, querySelector: () => stub(), createElement: stub };
 global.window = { addEventListener(){}, scrollTo(){} };
 global.navigator = {};
 
@@ -18,7 +18,7 @@ const probe = `
   db.menus = shopMenu(); db.groups = []; migrateGroups(db);
   order = { lines: [] }; posCat = null;
 
-  const RE = /class="posbtn[" ]/g;          // อย่านับ posbtn-n / posbtn-p
+  const RE = /class="posrow[" ]/g;          // อย่านับ posrow-n / posrow-p
   const out = [];
   const all = viewPOS();
 
@@ -36,7 +36,7 @@ const probe = `
 
   posCat = null;
   tapMenu(db.menus[0].id); tapMenu(db.menus[0].id);
-  out.push(['ปุ่มที่อยู่ในบิลขึ้นเลข 2', viewPOS().indexOf('posbtn-c">2<') >= 0]);
+  out.push(['ปุ่มที่อยู่ในบิลขึ้นเลข 2', viewPOS().indexOf('posrow-c">2<') >= 0]);
   out.push(['ยอดบิลถูก', orderTotal() === db.menus[0].price * 2]);
 
   const o = t => (viewPOS().match(new RegExp('<' + t + '[ >]', 'g'))||[]).length;

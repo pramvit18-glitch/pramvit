@@ -608,6 +608,42 @@
   /* แถบข้อมูลตัวอย่างไม่ต้องโผล่ตอนกำลังขาย */
   .hide-banner #banner{display:none}
 
+
+  /* ===================== เมนูในหน้าขาย: แบบรายการ ===================== */
+  .poslist{display:flex; flex-direction:column}
+  .posrow{
+    display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    padding:15px 12px; margin:0 -12px; border:none; background:none; cursor:pointer;
+    border-bottom:1px solid var(--line-2); border-radius:12px;
+    font:inherit; color:inherit; transition:background .14s;
+  }
+  .posrow:last-child{border-bottom:none}
+  .posrow:hover{background:var(--soft)}
+  .posrow:active{background:var(--tint)}
+  .posrow:focus-visible{outline:2px solid var(--orange); outline-offset:-2px}
+  .posrow.has{background:var(--tint)}
+  .posrow-n{flex:1; min-width:0; font-weight:700; font-size:15px; line-height:1.35}
+  .posrow-c{
+    flex:0 0 auto; min-width:24px; height:24px; padding:0 7px; border-radius:99px;
+    background:var(--orange); color:#fff; font-size:12.5px; font-weight:800;
+    display:grid; place-items:center;
+  }
+  .posrow-p{
+    flex:0 0 auto; font-weight:800; font-size:17px; color:var(--orange-d);
+    font-variant-numeric:tabular-nums;
+  }
+  .posrow-add{
+    flex:0 0 auto; width:30px; height:30px; border-radius:9px; display:grid; place-items:center;
+    background:var(--soft); color:var(--orange-d);
+  }
+  .posrow.has .posrow-add{background:#fff}
+
+
+  /* ===================== กราฟ ===================== */
+  .chart{margin:4px -4px 0; overflow:hidden}
+  .chart svg{display:block; width:100%; height:auto}
+  .chart text{font-family:inherit}
+
 </style>
 </head>
 <body>
@@ -1823,10 +1859,11 @@ function viewPOS(){
   const menuBtns = shown.map(m => {
     const inBill = lines.filter(l => l.menuId === m.id).reduce((a,l) => a + n(l.qty), 0);
     return `
-    <button class="posbtn${inBill ? ' has' : ''}" onclick="tapMenu('${m.id}')">
-      ${inBill ? `<span class="posbtn-c">${inBill}</span>` : ''}
-      <span class="posbtn-n">${esc(m.name || '(ไม่มีชื่อ)')}</span>
-      <span class="posbtn-p">${baht(m.price)}</span>
+    <button class="posrow${inBill ? ' has' : ''}" onclick="tapMenu('${m.id}')">
+      <span class="posrow-n">${esc(m.name || '(ไม่มีชื่อ)')}</span>
+      ${inBill ? `<span class="posrow-c">${inBill}</span>` : ''}
+      <span class="posrow-p">${baht(m.price)}</span>
+      <span class="posrow-add">${icon('plus',16)}</span>
     </button>`;
   }).join('');
 
@@ -1852,7 +1889,7 @@ function viewPOS(){
   <div class="poswrap">
     <div class="pos-left">
       ${catTabs}
-      <div class="posgrid">${menuBtns || `<div class="empty" style="padding:30px 10px">
+      <div class="poslist">${menuBtns || `<div class="empty" style="padding:30px 10px">
         <h3 style="font-size:16px">${db.menus.length ? 'ไม่มีเมนูในหมวดนี้' : 'ยังไม่มีเมนู'}</h3>
         <p style="margin-bottom:14px">${db.menus.length ? 'ลองเลือกหมวดอื่น' : 'ไปตั้งค่าเมนูที่ขายก่อน'}</p>
         ${db.menus.length ? '' : `<button class="btn primary" onclick="go('setup')">ไปตั้งค่าเมนู</button>`}
@@ -1939,6 +1976,96 @@ function entryRow(e, showDay){
   </div>`;
 }
 
+
+
+/* ===================== กราฟยอดขาย 7 วันล่าสุด =====================
+   แท่งเดียวชุดเดียว (ยอดขายรายวัน) จึงไม่ต้องมีคำอธิบายสี
+   วันนี้เน้นสีเข้ม วันอื่นสีอ่อน · ป้ายตัวเลขใส่เฉพาะวันนี้กับวันที่ขายดีสุด */
+function lastNDays(key, count){
+  const out = [];
+  const [y,m,d] = key.split('-').map(Number);
+  for(let i = count - 1; i >= 0; i--){
+    const dt = new Date(y, m-1, d - i);
+    const k = dayKey(dt);
+    out.push(Object.assign({key:k, dow:dt.getDay()}, sumDay(k)));
+  }
+  return out;
+}
+
+// ปัดขึ้นเป็นเลขกลม ๆ สำหรับเส้นบนสุดของกราฟ
+function niceTop(v){
+  if(v <= 0) return 100;
+  const mag = Math.pow(10, Math.floor(Math.log10(v)));
+  return Math.ceil(v / (mag/2)) * (mag/2);
+}
+
+function salesChart(key){
+  const days = lastNDays(key, 7);
+  const maxSale = Math.max(...days.map(d => d.sale));
+  if(maxSale <= 0) return '';
+
+  const top = niceTop(maxSale);
+  const W = 340, H = 158;
+  const padL = 10, padR = 10, padT = 30, base = 120, labelY = 139;
+  const slot = (W - padL - padR) / days.length;
+  const barW = Math.min(24, slot * 0.52);
+  const best = days.reduce((a,b) => b.sale > a.sale ? b : a, days[0]);
+  const DOW = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+
+  const bars = days.map((d,i) => {
+    const x = padL + slot*i + (slot - barW)/2;
+    const h = d.sale > 0 ? Math.max(3, (d.sale / top) * (base - padT)) : 0;
+    const isToday = d.key === key;
+    const fill = isToday ? 'var(--orange)' : 'var(--orange-l)';
+    const showLabel = isToday || (d.key === best.key && best.sale > 0);
+    return `<g>
+      <title>${thaiDate(d.key)} — ขายได้ ${baht(d.sale)} บาท${d.exp ? ' · ซื้อของ ' + baht(d.exp) : ''}</title>
+      ${h > 0 ? `<rect x="${x.toFixed(1)}" y="${(base-h).toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}"
+            rx="4" ry="4" fill="${fill}"/>
+        <rect x="${x.toFixed(1)}" y="${(base-4).toFixed(1)}" width="${barW.toFixed(1)}" height="4" fill="${fill}"/>`
+        : `<rect x="${x.toFixed(1)}" y="${base-2}" width="${barW.toFixed(1)}" height="2" rx="1" fill="var(--line)"/>`}
+      ${showLabel && h > 0 ? `<text x="${(x+barW/2).toFixed(1)}" y="${(base-h-9).toFixed(1)}"
+            text-anchor="middle" font-size="11.5" font-weight="700"
+            fill="var(--ink)">${baht(d.sale)}</text>` : ''}
+      <text x="${(x+barW/2).toFixed(1)}" y="${labelY}" text-anchor="middle" font-size="10.5"
+            font-weight="${d.key===key ? '800' : '600'}"
+            fill="${d.key===key ? 'var(--ink)' : 'var(--muted)'}">${DOW[d.dow]}</text>
+    </g>`;
+  }).join('');
+
+  const avg = days.filter(d => d.sale > 0);
+  const avgVal = avg.length ? avg.reduce((s,d) => s + d.sale, 0) / avg.length : 0;
+  const avgY = base - (avgVal / top) * (base - padT);
+
+  return `
+  <div class="card">
+    <h2>ยอดขาย 7 วันล่าสุด</h2>
+    <p class="sub">แท่งเข้ม = วันนี้ · เส้นประ = เฉลี่ย ${baht(avgVal)} บาท/วัน</p>
+    <div class="chart">
+      <svg viewBox="0 0 ${W} ${H}" width="100%" role="img"
+           aria-label="กราฟแท่งยอดขาย 7 วันล่าสุด สูงสุด ${baht(best.sale)} บาท">
+        <line x1="${padL}" y1="${padT}" x2="${W-padR}" y2="${padT}" stroke="var(--line-2)" stroke-width="1"/>
+        <text x="${padL}" y="${padT-7}" font-size="10" fill="var(--muted)" font-weight="600">${baht(top)}</text>
+        ${avgVal > 0 ? `<line x1="${padL}" y1="${avgY.toFixed(1)}" x2="${W-padR}" y2="${avgY.toFixed(1)}"
+              stroke="var(--muted)" stroke-width="1" stroke-dasharray="4 4" opacity=".55"/>` : ''}
+        <line x1="${padL}" y1="${base}" x2="${W-padR}" y2="${base}" stroke="var(--line)" stroke-width="1"/>
+        ${bars}
+      </svg>
+    </div>
+    <details>
+      <summary>ดูเป็นตัวเลข</summary>
+      <table>
+        <thead><tr><th>วัน</th><th>ขายได้</th><th>ซื้อของ</th><th>เหลือ</th></tr></thead>
+        <tbody>${days.map(d => `<tr>
+          <td>${thaiDate(d.key)}${d.key===key ? ' (วันนี้)' : ''}</td>
+          <td class="n">${baht(d.sale)}</td>
+          <td class="n">${baht(d.exp)}</td>
+          <td class="n ${d.net>=0?'good':'bad'}">${baht(d.net)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </details>
+  </div>`;
+}
 
 /* ===================== สถิติสำหรับหน้า Dashboard ===================== */
 
@@ -2080,6 +2207,8 @@ function viewToday(){
     </div>
     ${compareLine(key)}
   </div>
+
+  ${salesChart(key)}
 
   ${dashStats(key)}
 
