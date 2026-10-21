@@ -399,8 +399,9 @@
     .bottomnav button.on span::after{display:none}
 
     .sheet{
+      width:100%;            /* ต้องมี ไม่งั้น margin auto จะทำให้ flex ไม่ยืดและแผ่นหดตามเนื้อหา */
       max-width:1040px; margin-left:auto; margin-right:auto; border-radius:30px 30px 0 0;
-      padding:30px 28px 70px; min-height:50vh;
+      padding:30px 28px 70px; min-height:60vh;
     }
     .fab-wrap{left:0; right:0; width:auto; max-width:none; transform:none}
     .fab{right:32px; bottom:32px}
