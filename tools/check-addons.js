@@ -5,10 +5,16 @@ const script = src.split('<script>')[1].split('</script>')[0].replace(/^render\(
 
 global.localStorage = { getItem: () => null, setItem: () => {} };
 const opened = [];
-const stub = () => ({ innerHTML:'', textContent:'', hidden:false, value:'', dataset:{},
-  addEventListener(){}, removeEventListener(){}, showModal(){}, close(){},
-  querySelectorAll:()=>[], querySelector:()=>stub(), focus(){}, setAttribute(){},
-  classList:{toggle(){},add(){},remove(){},contains:()=>false}, scrollIntoView(){}, replaceWith(){}, insertAdjacentHTML(){} });
+const stub = () => {
+  const cls = new Set();
+  return { innerHTML:'', textContent:'', hidden:false, value:'', dataset:{},
+    addEventListener(){}, removeEventListener(){}, showModal(){}, close(){},
+    querySelectorAll:()=>[], querySelector:()=>stub(), focus(){}, setAttribute(){},
+    classList:{
+      toggle(c,on){ const want = on === undefined ? !cls.has(c) : !!on; want ? cls.add(c) : cls.delete(c); return want; },
+      add(c){cls.add(c)}, remove(c){cls.delete(c)}, contains:c=>cls.has(c) },
+    scrollIntoView(){}, replaceWith(){}, insertAdjacentHTML(){} };
+};
 global.document = { body: stub(), getElementById: stub, querySelector: () => stub(), createElement: stub };
 global.window = { addEventListener(){}, scrollTo(){} };
 global.navigator = {};
@@ -52,15 +58,29 @@ const probe = `
     !!picker && (picker.html.match(/class="top[" ]/g)||[]).length === menuAddons(crepe).length]);
   out.push(['แยกหัวข้อไส้คาว-ไส้หวานให้', !!picker && picker.html.indexOf('ไส้คาว') >= 0 && picker.html.indexOf('ไส้หวาน') >= 0]);
 
-  // --- เลือกไส้แล้วต้องขึ้นในบิลและคิดเงินเพิ่ม ---
+  // --- ติ๊กไส้แล้วต้องเห็นทันทีในหน้าต่างเลือกไส้ ไม่ใช่รอกดเสร็จแล้ว ---
   const lid = order.lines[0].lid;
-  const before = orderTotal();
-  pickLineTop(lid, 'ไข่ไก่');
+  const line = order.lines[0];
+  const btn = { classList: { _on:false, toggle(c,on){ this._on = on === undefined ? !this._on : !!on; } } };
+  pickLineTop(lid, 'ไข่ไก่', btn);
+  out.push(['ติ๊กแล้วปุ่มนั้นเปลี่ยนเป็นเลือกอยู่ทันที', btn.classList._on === true]);
+  const redrawn = topsHTML(menuAddons(crepe), new Set((line.addons||[]).map(a => a.name)), lid);
+  const at = redrawn.indexOf('ไข่ไก่');
+  out.push(['วาดใหม่แล้วยังจำได้ว่าติ๊กไข่ไก่ไว้',
+    at > 0 && redrawn.slice(Math.max(0, at - 160), at).lastIndexOf('class="top on"') >= 0]);
+  out.push(['บรรทัดสรุปบอกว่าเลือกอะไรไปแล้ว',
+    topSumText(line).indexOf('ไข่ไก่') >= 0 && topSumText(line).indexOf('+10') >= 0]);
+  pickLineTop(lid, 'ไข่ไก่', btn);
+  out.push(['กดซ้ำปุ่มกลับเป็นไม่เลือก', btn.classList._on === false]);
+  pickLineTop(lid, 'ไข่ไก่', btn);
+
+  const before = orderTotal() - 10;
   out.push(['เลือกไส้แล้วขึ้นในบิล', orderDialogHTML().indexOf('ไข่ไก่') >= 0]);
   out.push(['ไส้บวกราคาให้ถูก', orderTotal() === before + 10]);
   out.push(['ปุ่มเปลี่ยนเป็นแก้ไส้', orderDialogHTML().indexOf('แก้ไส้ (1 อย่าง)') >= 0]);
-  pickLineTop(lid, 'ไข่ไก่');
+  pickLineTop(lid, 'ไข่ไก่', btn);
   out.push(['กดซ้ำเอาไส้ออกได้', orderTotal() === before]);
+  out.push(['ไม่เหลือค่าค้างนอกบรรทัด (window._topPick)', typeof window._topPick === 'undefined']);
 
   // --- เมนูที่ไม่มีไส้ ต้องไม่เด้ง และไม่มีปุ่มหลอกให้กด ---
   const plain = db.menus.find(m => !menuAddons(m).length);

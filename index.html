@@ -431,6 +431,7 @@
   .top:hover{border-color:var(--orange)}
   .top.on{background:var(--tint); border-color:var(--orange); color:var(--orange-d)}
   .top.on b{color:var(--orange-d)}
+  .top.on::before{content:'✓ '; font-weight:900}
 
   /* ย้อนหลังรายวัน */
   .days{display:flex; flex-direction:column}
@@ -2005,18 +2006,25 @@ function lineAddons(lid){
       html:'<p style="margin:0;color:var(--ink-2)">ไปที่แท็บ <b>ตั้งค่า</b> → แตะเมนูนี้ → <b>ชุดไส้ที่ใส่ได้</b> แล้วติ๊กชุดไส้ที่ใช้ครับ</p>' });
     return;
   }
-  const picked = new Set((l.addons||[]).map(a => a.name));
-  window._topPick = picked;
+  // อ่านของที่เลือกใหม่ทุกครั้งที่วาด ไม่งั้นติ๊กแล้วปุ่มไม่เปลี่ยนสี
   const draw = () => openDialog({
     title:'เลือกไส้ / ท็อปปิ้ง',
-    sub: `${l.name} — ติ๊กของที่ลูกค้าเลือก`,
-    html: topsHTML(tops, picked, lid),
+    sub: topSumText(l),
+    html: topsHTML(tops, new Set((l.addons||[]).map(a => a.name)), lid),
     foot:[{label:'เสร็จแล้ว', cls:'primary', fn:'repaintOrder()'}]
   });
   l._draw = draw;
   draw();
 }
-function pickLineTop(lid, name){
+
+// บรรทัดสรุปใต้หัวกล่อง บอกว่าตอนนี้เลือกอะไรไปแล้วบ้าง บวกเงินเท่าไร
+function topSumText(l){
+  const picked = l.addons || [];
+  if(!picked.length) return `${l.name} — แตะของที่ลูกค้าเลือก เลือกได้หลายอย่าง`;
+  const extra = picked.reduce((s,a) => s + n(a.price), 0);
+  return picked.map(a => a.name).join(' · ') + (extra ? ` · +${baht(extra)} บาท` : '');
+}
+function pickLineTop(lid, name, btn){
   const l = order.lines.find(x => x.lid === lid); if(!l) return;
   const m = findMenu(l.menuId);
   const a = menuAddons(m).find(x => x.name === name);
@@ -2024,7 +2032,11 @@ function pickLineTop(lid, name){
   const has = (l.addons||[]).some(x => x.name === name);
   l.addons = has ? l.addons.filter(x => x.name !== name)
                  : [...(l.addons||[]), {name:a.name, price:n(a.price)}];
-  if(l._draw) l._draw();
+  // เปลี่ยนสีตรงปุ่มที่กดเลย ไม่วาดกล่องใหม่ จะได้ไม่เด้งกลับไปบนสุดตอนเลื่อนหาไส้หวาน
+  if(btn && btn.classList) btn.classList.toggle('on', !has);
+  else if(l._draw) l._draw();
+  const sub = document.getElementById('dlgSub');
+  if(sub) sub.textContent = topSumText(l);
 }
 
 function payBill(){
@@ -2285,7 +2297,7 @@ function topsHTML(tops, picked, lid){
   return groups.map(row => `
     ${row.g ? `<div class="sec">${esc(row.g)}</div>` : ''}
     <div class="tops">${row.list.map(a => `
-      <button class="top${picked.has(a.name) ? ' on' : ''}" onclick="pickLineTop('${lid}','${esc(a.name)}')">
+      <button class="top${picked.has(a.name) ? ' on' : ''}" aria-pressed="${picked.has(a.name)}" onclick="pickLineTop('${lid}','${esc(a.name)}',this)">
         ${esc(a.name)} <b>${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</b>
       </button>`).join('')}</div>`).join('');
 }
