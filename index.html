@@ -537,6 +537,33 @@
     }
   }
 
+
+  /* ===================== หมวดหมู่ในหน้าขาย ===================== */
+  .cats{
+    display:flex; gap:8px; overflow-x:auto; padding:2px 0 14px;
+    -webkit-overflow-scrolling:touch; scrollbar-width:none;
+  }
+  .cats::-webkit-scrollbar{display:none}
+  .cat{
+    flex:0 0 auto; border:1px solid var(--line); background:var(--bg); color:var(--ink-2);
+    border-radius:99px; padding:8px 15px; cursor:pointer; font:inherit;
+    font-weight:700; font-size:13.5px; white-space:nowrap; transition:.16s;
+  }
+  .cat b{color:var(--muted); font-weight:700; font-size:12px; margin-left:4px}
+  .cat:hover{border-color:var(--orange); color:var(--orange)}
+  .cat.on{background:var(--orange); border-color:var(--orange); color:#fff}
+  .cat.on b{color:rgba(255,255,255,.75)}
+
+  /* ปุ่มเมนูที่อยู่ในบิลแล้ว ให้เห็นชัดว่ากดไปกี่จาน */
+  .posbtn{position:relative}
+  .posbtn.has{border-color:var(--orange); background:var(--tint)}
+  .posbtn-c{
+    position:absolute; top:-7px; right:-7px; min-width:24px; height:24px; padding:0 6px;
+    border-radius:99px; background:var(--orange); color:#fff;
+    font-size:12.5px; font-weight:800; display:grid; place-items:center;
+    box-shadow:0 2px 6px rgba(226,96,10,.4);
+  }
+
 </style>
 </head>
 <body>
@@ -1404,6 +1431,7 @@ function menuDialog(m){
     sub: m ? 'แก้ชื่อ ราคาขาย หรือยอดขายต่อวัน' : 'ใส่ชื่อกับราคาขายก่อน แล้วค่อยไปใส่สูตรทีหลัง',
     fields:[
       {k:'name', label:'ชื่อเมนู', type:'text', value:m?.name ?? '', placeholder:'เช่น เครปกรอบ นูเทลล่า', wide:true},
+      {k:'cat', label:'หมวด (เช่น เครป โตเกียว)', type:'text', value: m ? menuCat(m) : '', wide:true},
       {k:'price', label:'ราคาขาย (บาท)', type:'number', value:m?.price ?? ''},
       {k:'qtyPerDay', label:'ขายได้วันละ (จาน)', type:'number', value:m?.qtyPerDay ?? ''}
     ],
@@ -1416,7 +1444,7 @@ function menuDialog(m){
               : v.price < 0 ? 'ราคาติดลบไม่ได้'
               : v.qtyPerDay < 0 ? 'จำนวนจานติดลบไม่ได้' : null,
     save: v => {
-      const data = {name:v.name.trim(), price:v.price, qtyPerDay:v.qtyPerDay};
+      const data = {name:v.name.trim(), cat:(v.cat||'').trim(), price:v.price, qtyPerDay:v.qtyPerDay};
       if(m) Object.assign(m, data);
       else db.menus.push(Object.assign({id:uid(), items:[]}, data));
       save(); render();
@@ -1641,13 +1669,30 @@ function loadShopMenu(){
 
 let order = null;   // {lines:[{menuId,name,price,qty,addons:[{name,price}]}]}
 
+/* ===================== หมวดหมู่เมนู (ใช้ในหน้าขาย) ===================== */
+// ร้านยังไม่เคยตั้งหมวด ให้เดาจากชื่อเมนูไปก่อน แก้เองได้ในหน้าตั้งค่า
+const CAT_GUESS = ['เครป','โตเกียว','ไข่ป๋วง','แพนเค้ก','วาฟเฟิล','ขนมปัง','น้ำ'];
+function menuCat(m){
+  if(m.cat) return m.cat;
+  const name = String(m.name || '');
+  const hit = CAT_GUESS.find(c => name.includes(c));
+  return hit || 'อื่น ๆ';
+}
+function allCats(){
+  const out = [];
+  db.menus.forEach(m => { const c = menuCat(m); if(!out.includes(c)) out.push(c); });
+  return out;
+}
+let posCat = null;              // null = ดูทุกหมวด
+function pickCat(c){ posCat = (c === '*' ? null : c); render(); }
+
 function openPOS(){
   if(!db.menus.length){
     openDialog({ title:'ยังไม่มีเมนู', sub:'ตั้งเมนูกับราคาไว้ก่อน แล้วค่อยมาเปิดบิล',
       html:'<p style="margin:0;color:var(--ink-2)">ไปที่แท็บ <b>เมนู</b> กดปุ่ม <b>เพิ่ม</b> ใส่ชื่อกับราคาขาย แล้วกลับมาที่นี่ครับ</p>' });
     return;
   }
-  order = { lines: [] };
+  order = { lines: [] }; posCat = null;
   render(); window.scrollTo({top:0});
 }
 function clearBill(){ if(order) order.lines = []; render(); }
@@ -1724,11 +1769,24 @@ function payBill(){
 function viewPOS(){
   if(!order) order = { lines: [] };
   const lines = order.lines;
-  const menuBtns = db.menus.map(m => `
-    <button class="posbtn" onclick="tapMenu('${m.id}')">
+  const cats = allCats();
+  const shown = posCat ? db.menus.filter(m => menuCat(m) === posCat) : db.menus;
+
+  const catTabs = cats.length > 1 ? `<div class="cats">
+      <button class="cat${posCat ? '' : ' on'}" onclick="pickCat('*')">ทั้งหมด <b>${db.menus.length}</b></button>
+      ${cats.map(c => `<button class="cat${posCat === c ? ' on' : ''}" onclick="pickCat('${esc(c)}')">
+        ${esc(c)} <b>${db.menus.filter(m => menuCat(m) === c).length}</b></button>`).join('')}
+    </div>` : '';
+
+  const menuBtns = shown.map(m => {
+    const inBill = lines.filter(l => l.menuId === m.id).reduce((a,l) => a + n(l.qty), 0);
+    return `
+    <button class="posbtn${inBill ? ' has' : ''}" onclick="tapMenu('${m.id}')">
+      ${inBill ? `<span class="posbtn-c">${inBill}</span>` : ''}
       <span class="posbtn-n">${esc(m.name || '(ไม่มีชื่อ)')}</span>
       <span class="posbtn-p">${baht(m.price)}</span>
-    </button>`).join('');
+    </button>`;
+  }).join('');
 
   const billRows = lines.map(l => `
     <div class="bill-line">
@@ -1759,7 +1817,8 @@ function viewPOS(){
           <button class="btn sm" onclick="go('menu')">แก้เมนู</button>
         </div>
         <p class="sub">กดที่เมนูเพื่อเพิ่มลงบิล · กดซ้ำ = เพิ่มจำนวน</p>
-        <div class="posgrid">${menuBtns}</div>
+        ${catTabs}
+        <div class="posgrid">${menuBtns || '<div class="empty" style="padding:24px">ไม่มีเมนูในหมวดนี้</div>'}</div>
       </div>
     </div>
 
@@ -1842,6 +1901,129 @@ function entryRow(e, showDay){
   </div>`;
 }
 
+
+/* ===================== สถิติสำหรับหน้า Dashboard ===================== */
+
+// เมนูขายดีของวันนั้น เรียงจากยอดเงินมากไปน้อย
+function topMenus(key){
+  const map = new Map();
+  (db.sales||[]).filter(x => x.d === key).forEach(x => {
+    const k = x.name || '(ไม่มีชื่อ)';
+    const r = map.get(k) || {name:k, qty:0, baht:0};
+    r.qty += n(x.qty); r.baht += n(x.total);
+    map.set(k, r);
+  });
+  return [...map.values()].sort((a,b) => b.baht - a.baht);
+}
+
+// ไส้/ท็อปปิ้งที่ลูกค้าเพิ่มบ่อยที่สุดของวันนั้น
+function topAddons(key){
+  const map = new Map();
+  (db.sales||[]).filter(x => x.d === key).forEach(x => {
+    (x.addons||[]).forEach(a => {
+      const r = map.get(a.name) || {name:a.name, qty:0};
+      r.qty += n(x.qty);
+      map.set(a.name, r);
+    });
+  });
+  return [...map.values()].sort((a,b) => b.qty - a.qty);
+}
+
+// จำนวนบิลของวันนั้น (บิลเดียวอาจมีหลายรายการ)
+function billsOf(key){
+  const set = new Set();
+  (db.sales||[]).filter(x => x.d === key).forEach(x => set.add(x.bill || x.id));
+  return set.size;
+}
+
+// ช่วงเวลาที่ขายดี
+const SLOTS = [['เช้า','ก่อน 11 โมง',0,11], ['กลางวัน','11 โมง–บ่าย 3',11,15],
+               ['เย็น','บ่าย 3 เป็นต้นไป',15,24]];
+function byTimeSlot(key){
+  const out = SLOTS.map(([name,when]) => ({name, when, baht:0, qty:0}));
+  (db.sales||[]).filter(x => x.d === key).forEach(x => {
+    const h = parseInt(String(x.t||'0').slice(0,2), 10) || 0;
+    const i = SLOTS.findIndex(([,,a,b]) => h >= a && h < b);
+    if(i >= 0){ out[i].baht += n(x.total); out[i].qty += n(x.qty); }
+  });
+  return out;
+}
+
+// ค่าเฉลี่ยยอดขายของ N วันก่อนหน้า (ไม่นับวันนี้ และไม่นับวันที่ไม่ได้ขาย)
+function avgSaleBefore(key, days){
+  const list = allDays().filter(k => k < key).slice(0, days).map(k => sumDay(k).sale).filter(v => v > 0);
+  if(!list.length) return 0;
+  return list.reduce((a,b) => a + b, 0) / list.length;
+}
+
+/* ---------- ส่วนที่เอาไปวางในหน้า Dashboard ---------- */
+function dashStats(key){
+  const d = sumDay(key);
+  const menus = topMenus(key);
+  if(!menus.length) return '';
+
+  const bills = billsOf(key);
+  const avg7 = avgSaleBefore(key, 7);
+  const diff = avg7 ? (d.sale - avg7) / avg7 * 100 : 0;
+  const top = menus[0].baht || 1;
+  const adds = topAddons(key).slice(0, 5);
+  const slots = byTimeSlot(key).filter(s => s.baht > 0);
+  const slotTop = Math.max(...slots.map(s => s.baht), 1);
+
+  return `
+  <div class="card">
+    <h2>วันนี้ขายอะไรดี</h2>
+    <p class="sub">เรียงจากทำเงินมากสุด · ${menus.reduce((a,m)=>a+m.qty,0)} จาน จาก ${bills} บิล</p>
+    <div class="rank">${menus.map((m,i) => `
+      <div class="rank-row">
+        <div class="rank-name">${i===0 ? '🏆 ' : ''}${esc(m.name)}</div>
+        <div class="rank-val">${baht(m.baht)}</div>
+        <div class="meter"><i style="width:${clamp(m.baht/top*100,3,100)}%"></i></div>
+        <div class="rank-sub">${m.qty} จาน · เฉลี่ยจานละ ${baht(m.baht/m.qty)} บาท</div>
+      </div>`).join('')}</div>
+  </div>
+
+  ${adds.length ? `<div class="card">
+    <h2>ไส้ที่ลูกค้าเพิ่มบ่อย</h2>
+    <p class="sub">เอาไว้ดูว่าควรเตรียมอะไรเผื่อไว้เยอะ ๆ</p>
+    <div class="list">${adds.map(a => `
+      <div class="li-read">
+        <div class="li-main"><div class="li-title">${esc(a.name)}</div></div>
+        <span class="chip">${a.qty} ครั้ง</span>
+      </div>`).join('')}</div>
+  </div>` : ''}
+
+  ${slots.length > 1 ? `<div class="card">
+    <h2>ช่วงไหนขายดี</h2>
+    <p class="sub">ไว้วางแผนว่าควรเตรียมของตอนไหน</p>
+    <div class="rank">${slots.map(s => `
+      <div class="rank-row">
+        <div class="rank-name">${s.name}</div>
+        <div class="rank-val">${baht(s.baht)}</div>
+        <div class="meter"><i style="width:${clamp(s.baht/slotTop*100,3,100)}%"></i></div>
+        <div class="rank-sub">${s.when} · ${s.qty} จาน</div>
+      </div>`).join('')}</div>
+  </div>` : ''}`;
+}
+
+// บรรทัดเทียบกับค่าเฉลี่ย ใช้วางใต้ตัวเลขวันนี้
+function compareLine(key){
+  const d = sumDay(key);
+  const avg7 = avgSaleBefore(key, 7);
+  const bills = billsOf(key);
+  if(!d.sale) return '';
+  const parts = [];
+  if(bills) parts.push(`${bills} บิล · เฉลี่ยบิลละ ${baht(d.sale / bills)} บาท`);
+  if(avg7 > 0){
+    const diff = (d.sale - avg7) / avg7 * 100;
+    const word = diff >= 5 ? `ดีกว่าปกติ ${Math.round(diff)}%`
+               : diff <= -5 ? `น้อยกว่าปกติ ${Math.round(-diff)}%`
+               : 'พอ ๆ กับปกติ';
+    parts.push(`${word} (ปกติวันละ ${baht(avg7)})`);
+  }
+  return parts.length ? `<p class="hint" style="margin-top:14px">${parts.join(' · ')}</p>` : '';
+}
+
 function viewToday(){
   const key = dayKey();
   const d = sumDay(key);
@@ -1858,7 +2040,10 @@ function viewToday(){
       <div class="q"><div class="k">ซื้อของ</div><div class="v">${baht(d.exp)}</div></div>
       <div class="q"><div class="k">เหลือ</div><div class="v ${d.net>=0?'good':'bad'}">${baht(d.net)}</div></div>
     </div>
+    ${compareLine(key)}
   </div>
+
+  ${dashStats(key)}
 
   <div class="card">
     <h2>รายการวันนี้</h2>
