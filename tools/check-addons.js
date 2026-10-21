@@ -1,0 +1,91 @@
+// ตรวจว่า "ไส้ / ท็อปปิ้ง" หาเจอจริงในหน้าต่างสั่งสินค้า
+const fs = require('fs');
+const src = fs.readFileSync(process.argv[2] || 'index.html', 'utf8');
+const script = src.split('<script>')[1].split('</script>')[0].replace(/^render\(\);$/m, '');
+
+global.localStorage = { getItem: () => null, setItem: () => {} };
+const opened = [];
+const stub = () => ({ innerHTML:'', textContent:'', hidden:false, value:'', dataset:{},
+  addEventListener(){}, removeEventListener(){}, showModal(){}, close(){},
+  querySelectorAll:()=>[], querySelector:()=>stub(), focus(){}, setAttribute(){},
+  classList:{toggle(){},add(){},remove(){},contains:()=>false}, scrollIntoView(){}, replaceWith(){}, insertAdjacentHTML(){} });
+global.document = { body: stub(), getElementById: stub, querySelector: () => stub(), createElement: stub };
+global.window = { addEventListener(){}, scrollTo(){} };
+global.navigator = {};
+
+const probe = `
+(() => {
+  const out = [];
+  // ดักเฉพาะหน้าต่าง "เลือกไส้" — หน้าต่างสั่งสินค้าเองก็เรียก openDialog ทุกครั้งที่วาดใหม่
+  let seen = [];
+  const realOpen = openDialog;
+  openDialog = cfg => { if(String(cfg.title||'').indexOf('ไส้') >= 0) seen.push(cfg); return realOpen(cfg); };
+
+  // --- เมนูตัวอย่างที่เปิดมาเจอครั้งแรก ต้องชวนให้ใส่เมนูร้าน ---
+  out.push(['เมนูตัวอย่างยังไม่มีโตเกียว จึงชวนให้ใส่เมนูร้าน', needShopMenu() === true]);
+  out.push(['หน้าขายมีปุ่มใส่เมนูร้าน', viewPOS().indexOf('loadShopMenu()') >= 0]);
+  hideShopHint();
+  out.push(['กดไม่ต้องแล้วการ์ดหายไป', needShopMenu() === false && viewPOS().indexOf('loadShopMenu()') < 0]);
+
+  // --- ใส่เมนูร้าน: ต้องได้ชุดไส้มาด้วย ไม่ใช่แค่ชื่อเมนู ---
+  db.menus = shopMenu(); db.groups = []; migrateGroups(db);
+  out.push(['ใส่เมนูร้านแล้วมีโตเกียว', db.menus.filter(m => m.name.includes('โตเกียว')).length === 3]);
+  out.push(['ชุดไส้ถูกแตกออกมาใช้ร่วมกัน', (db.groups||[]).length >= 5]);
+  out.push(['ไม่ต้องชวนใส่เมนูร้านแล้ว', (delete db.hideShopHint, needShopMenu() === false)]);
+
+  db.sales = []; order = { lines: [] }; posCat = null; orderOpen = true;
+
+  // --- ป้ายบอกจำนวนไส้ต้องขึ้นที่แถวเมนู ---
+  const withTops = db.menus.filter(m => menuAddons(m).length);
+  const html = orderDialogHTML();
+  out.push(['แถวเมนูบอกว่าเลือกไส้ได้กี่อย่าง',
+    (html.match(/posrow-top/g)||[]).length === withTops.length && withTops.length === 5]);
+
+  // --- กดเมนูที่มีไส้ ต้องเด้งให้เลือกไส้เลย ---
+  const crepe = db.menus.find(m => m.name.includes('วานิลา'));
+  seen = [];
+  tapMenu(crepe.id);
+  const picker = seen[0];
+  out.push(['กดเมนูที่มีไส้แล้วเด้งให้เลือกไส้เลย', !!picker]);
+  out.push(['ในหน้าต่างเลือกไส้มีไส้ให้กดจริง',
+    !!picker && (picker.html.match(/class="top[" ]/g)||[]).length === menuAddons(crepe).length]);
+  out.push(['แยกหัวข้อไส้คาว-ไส้หวานให้', !!picker && picker.html.indexOf('ไส้คาว') >= 0 && picker.html.indexOf('ไส้หวาน') >= 0]);
+
+  // --- เลือกไส้แล้วต้องขึ้นในบิลและคิดเงินเพิ่ม ---
+  const lid = order.lines[0].lid;
+  const before = orderTotal();
+  pickLineTop(lid, 'ไข่ไก่');
+  out.push(['เลือกไส้แล้วขึ้นในบิล', orderDialogHTML().indexOf('ไข่ไก่') >= 0]);
+  out.push(['ไส้บวกราคาให้ถูก', orderTotal() === before + 10]);
+  out.push(['ปุ่มเปลี่ยนเป็นแก้ไส้', orderDialogHTML().indexOf('แก้ไส้ (1 อย่าง)') >= 0]);
+  pickLineTop(lid, 'ไข่ไก่');
+  out.push(['กดซ้ำเอาไส้ออกได้', orderTotal() === before]);
+
+  // --- เมนูที่ไม่มีไส้ ต้องไม่เด้ง และไม่มีปุ่มหลอกให้กด ---
+  const plain = db.menus.find(m => !menuAddons(m).length);
+  seen = [];
+  tapMenu(plain.id);
+  out.push(['เมนูที่ไม่มีไส้ไม่เด้งหน้าต่างเลือกไส้', seen.length === 0]);
+  const plainLine = order.lines.find(l => l.menuId === plain.id);
+  const bill = orderDialogHTML();
+  out.push(['เมนูที่ไม่มีไส้ไม่มีปุ่มเลือกไส้',
+    (bill.match(/class="bl-top/g)||[]).length === order.lines.length - 1]);
+
+  // --- กดเมนูเดิมซ้ำต้องเพิ่มจำนวน ไม่ใช่เด้งใหม่ทุกครั้ง ---
+  seen = [];
+  tapMenu(plain.id);
+  out.push(['กดเมนูเดิมซ้ำแค่เพิ่มจำนวน', n(plainLine.qty) === 2 && seen.length === 0]);
+
+  const o = t => (orderDialogHTML().match(new RegExp('<' + t + '[ >]', 'g'))||[]).length;
+  const c = t => (orderDialogHTML().match(new RegExp('</' + t + '>', 'g'))||[]).length;
+  out.push(['แท็กครบ', ['div','span','button','p','small','b'].every(t => o(t) === c(t))]);
+
+  return { out, groups: (db.groups||[]).map(g => g.name + '(' + g.items.length + ')') };
+})()
+`;
+const r = eval(script + probe);
+let bad = 0;
+r.out.forEach(([name, v]) => { if (!v) bad++; console.log('  ' + (v ? '✓' : '✗'), name); });
+console.log('\n  ชุดไส้:', r.groups.join(' · '));
+console.log(' ', bad ? bad + ' ข้อไม่ผ่าน' : 'ผ่านทุกข้อ');
+process.exit(bad ? 1 : 0);

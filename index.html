@@ -476,10 +476,13 @@
   .bl-name{font-weight:700; font-size:15px}
   .bl-add{font-size:12px; color:var(--orange-d); font-variant-numeric:tabular-nums}
   .bl-top{
-    border:none; background:none; padding:3px 0 0; cursor:pointer;
-    color:var(--muted); font:inherit; font-size:12px; font-weight:700;
+    margin-top:5px; padding:4px 10px; cursor:pointer; font:inherit; font-size:12px; font-weight:800;
+    border:1px dashed var(--orange); border-radius:99px;
+    background:var(--tint); color:var(--orange-d);
   }
-  .bl-top:hover{color:var(--orange)}
+  .bl-top:hover{background:var(--orange); border-style:solid; color:#fff}
+  .bl-top.on{border-style:solid; border-color:var(--line); background:var(--soft); color:var(--muted)}
+  .bl-top.on:hover{border-color:var(--orange); background:var(--tint); color:var(--orange-d)}
   .bl-qty{display:flex; align-items:center; border:1px solid var(--line); border-radius:10px; overflow:hidden}
   .bl-qty button{
     width:34px; height:34px; border:none; background:var(--soft); color:var(--ink);
@@ -623,6 +626,9 @@
   .posrow:focus-visible{outline:2px solid var(--orange); outline-offset:-2px}
   .posrow.has{background:var(--tint)}
   .posrow-n{flex:1; min-width:0; font-weight:700; font-size:15px; line-height:1.35}
+  .posrow-top{
+    display:block; margin-top:2px; font-size:11.5px; font-weight:700; color:var(--orange-d);
+  }
   .posrow-c{
     flex:0 0 auto; min-width:24px; height:24px; padding:0 7px; border-radius:99px;
     background:var(--orange); color:#fff; font-size:12.5px; font-weight:800;
@@ -818,7 +824,8 @@
   .dlg-body .bl-name{font-size:14px}
   .dlg-body .bl-qty button{width:30px; height:30px; font-size:17px}
   .dlg-body .bl-qty span{min-width:28px; font-size:14px}
-  .dlg-body .bl-top{font-size:12px}
+  .dlg-body .bl-top{font-size:11.5px; padding:3px 9px; margin-top:4px}
+  .dlg-body .posrow-top{font-size:11px}
 
   /* ยอดรวมกับปุ่มติดอยู่ล่างหน้าต่างเสมอ ไม่ต้องเลื่อนหา */
   .dlg-sum{
@@ -1923,12 +1930,14 @@ function shopMenu(){
 function loadShopMenu(){
   const go = () => {
     db.menus = shopMenu();
-    delete db.isDemo;
-    save(); tab = 'menu'; openMenuId = null; render();
-    toast('ใส่เมนูให้แล้ว ' + db.menus.length + ' เมนู');
+    db.groups = [];
+    migrateGroups(db);            // แตกไส้ในใบเมนูออกเป็นชุดไส้ที่ใช้ร่วมกัน
+    delete db.isDemo; delete db.hideShopHint;
+    save(); tab = 'sale'; openMenuId = null; posCat = null; render();
+    toast('ใส่ให้แล้ว ' + db.menus.length + ' เมนู · ชุดไส้ ' + db.groups.length + ' ชุด');
   };
   if(db.menus.length) askConfirm('ใส่เมนูจากใบเมนูร้าน',
-    'จะแทนที่เมนูเดิมทั้งหมด — ยอดขายกับรายจ่ายที่บันทึกไว้ไม่หาย', 'ใส่เลย', go);
+    'จะแทนที่เมนูกับชุดไส้เดิมทั้งหมด — ยอดขายกับรายจ่ายที่บันทึกไว้ไม่หาย', 'ใส่เลย', go);
   else go();
 }
 
@@ -1971,9 +1980,12 @@ const orderCount = () => (order ? order.lines : []).reduce((s,l) => s + n(l.qty)
 function tapMenu(id){
   const m = findMenu(id); if(!m || !order) return;
   const last = order.lines.find(l => l.menuId === id && !(l.addons||[]).length);
-  if(last) last.qty = n(last.qty) + 1;
-  else order.lines.push({ lid: uid(), menuId:id, name:m.name, price:n(m.price), qty:1, addons:[] });
+  if(last){ last.qty = n(last.qty) + 1; repaintOrder(); return; }
+  const line = { lid: uid(), menuId:id, name:m.name, price:n(m.price), qty:1, addons:[] };
+  order.lines.push(line);
   repaintOrder();
+  // เมนูที่มีไส้ ให้เลือกไส้ต่อเลย ไม่ต้องไปหาปุ่มเอง
+  if(menuAddons(m).length) lineAddons(line.lid);
 }
 function lineQty(lid, v){
   const l = order.lines.find(x => x.lid === lid); if(!l) return;
@@ -1989,8 +2001,8 @@ function lineAddons(lid){
   const m = findMenu(l.menuId);
   const tops = menuAddons(m);
   if(!tops.length){
-    openDialog({ title:'ยังไม่มีท็อปปิ้ง', sub: m ? m.name : '',
-      html:'<p style="margin:0;color:var(--ink-2)">ตั้งท็อปปิ้งของเมนูนี้ได้ที่แท็บ <b>เมนู</b> → เลือกเมนู → <b>ท็อปปิ้งที่เพิ่มได้</b></p>' });
+    openDialog({ title:'เมนูนี้ยังไม่ได้ตั้งไส้', sub: m ? m.name : '',
+      html:'<p style="margin:0;color:var(--ink-2)">ไปที่แท็บ <b>ตั้งค่า</b> → แตะเมนูนี้ → <b>ชุดไส้ที่ใส่ได้</b> แล้วติ๊กชุดไส้ที่ใช้ครับ</p>' });
     return;
   }
   const picked = new Set((l.addons||[]).map(a => a.name));
@@ -2082,23 +2094,27 @@ function orderDialogHTML(){
 
   const rows = shown.map(m => {
     const inBill = lines.filter(l => l.menuId === m.id).reduce((a,l) => a + n(l.qty), 0);
+    const tops = menuAddons(m).length;
     return `
     <button class="posrow${inBill ? ' has' : ''}" onclick="tapMenu('${m.id}')">
-      <span class="posrow-n">${esc(m.name || '(ไม่มีชื่อ)')}</span>
+      <span class="posrow-n">${esc(m.name || '(ไม่มีชื่อ)')}${tops ? `<small class="posrow-top">เลือกไส้ได้ ${tops}</small>` : ''}</span>
       ${inBill ? `<span class="posrow-c">${inBill}</span>` : ''}
       <span class="posrow-p">${baht(m.price)}</span>
       <span class="posrow-add">${icon('plus',16)}</span>
     </button>`;
   }).join('');
 
-  const billRows = lines.map(l => `
+  const billRows = lines.map(l => {
+    const tops = menuAddons(findMenu(l.menuId)).length;
+    const picked = (l.addons||[]).length;
+    return `
     <div class="bill-line">
       <div class="bl-main">
         <div class="bl-name">${esc(l.name || '(ไม่มีชื่อ)')}</div>
-        ${(l.addons||[]).length
+        ${picked
           ? `<div class="bl-add">${l.addons.map(a => esc(a.name) + (n(a.price) > 0 ? ' +' + baht(a.price) : '')).join(' · ')}</div>`
           : ''}
-        <button class="bl-top" onclick="lineAddons('${l.lid}')">+ ไส้ / ท็อปปิ้ง</button>
+        ${tops ? `<button class="bl-top${picked ? ' on' : ''}" onclick="lineAddons('${l.lid}')">${picked ? `แก้ไส้ (${picked} อย่าง)` : `+ เลือกไส้ · มี ${tops} อย่าง`}</button>` : ''}
       </div>
       <div class="bl-qty">
         <button onclick="lineQty('${l.lid}',-1)" aria-label="ลด">−</button>
@@ -2107,7 +2123,8 @@ function orderDialogHTML(){
       </div>
       <div class="bl-sum">${baht(lineTotal(l))}</div>
       <button class="bl-del" onclick="delLine('${l.lid}')" aria-label="ลบ">${icon('x',14)}</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   return `
       ${catTabs}
@@ -2133,6 +2150,13 @@ function billsToday(key){
   });
   return [...map.values()].sort((a,b) => String(b.t).localeCompare(String(a.t)));
 }
+
+// เครื่องนี้ยังเป็นเมนูตัวอย่างอยู่ไหม (ดูจากว่ามีโตเกียวหรือยัง)
+function needShopMenu(){
+  if(db.hideShopHint) return false;
+  return !db.menus.some(m => String(m.name||'').includes('โตเกียว'));
+}
+function hideShopHint(){ db.hideShopHint = 1; save(); render(); }
 
 function viewPOS(){
   const key = dayKey();
@@ -2179,6 +2203,15 @@ function viewPOS(){
           ${icon('plus',20)}<span>สั่งสินค้า</span>
         </button>
       </div>
+
+      ${needShopMenu() ? `<div class="card">
+        ${cardHead('menu','เมนูยังเป็นชุดตัวอย่าง','ใส่เมนูจริงของร้าน ไส้ทุกอย่างจะมาด้วย')}
+        <p class="hint" style="margin:0 0 12px">เครื่องนี้ยังมีแค่เมนูตัวอย่าง ยังไม่มี <b>โตเกียว ไข่ป๋วง แพนเค้ก</b> และยังไม่มีไส้คาว-ไส้หวานให้เลือก</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap">
+          <button class="btn primary" onclick="loadShopMenu()">${icon('plus',16)} ใส่เมนูร้าน 8 เมนู</button>
+          <button class="btn ghost" onclick="hideShopHint()">ไม่ต้อง</button>
+        </div>
+      </div>` : ''}
 
       ${menus.length ? `<div class="card">
         ${cardHead('menu','ขายดีวันนี้', `เฉลี่ยบิลละ ${baht(avgBill)} บาท`)}
