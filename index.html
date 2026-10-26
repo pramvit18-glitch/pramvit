@@ -2151,7 +2151,7 @@ function viewMenu(){
 
       ${costSplit(m)}
 
-      ${addonList(m)}
+      ${menuGroupList(m)}
 
       <div class="sec">จานนี้ใช้ของอะไรบ้าง</div>
       <div class="list">${items || `<div class="empty" style="padding:16px">ยังไม่ได้ใส่ว่าใช้ของอะไร</div>`}</div>
@@ -3414,23 +3414,32 @@ let saleDraft = null;
 function saleDialog(existing){
   if(!db.menus.length){
     openDialog({ title:'ยังไม่มีเมนู', sub:'ใส่เมนูที่ขายก่อน แล้วค่อยมาบันทึกการขาย',
-      html:'<p style="margin:0;color:var(--ink-2)">ไปที่แท็บ <b>เมนู</b> แล้วกดปุ่ม <b>เพิ่ม</b> เพื่อใส่ชื่อกับราคาขายก่อนครับ</p>' });
+      html:'<p style="margin:0;color:var(--ink-2)">ไปที่แท็บ <b>ตั้งค่า</b> แล้วกดปุ่ม <b>เพิ่ม</b> ในการ์ดเมนู เพื่อใส่ชื่อกับราคาขายก่อนครับ</p>' });
     return;
   }
   const first = db.menus[0];
+  // รายการเก่าอาจชี้ไปเมนูที่ถูกลบหรือถูกแทนที่ไปแล้ว ต้องหาเมนูที่ใกล้เคียงให้ ไม่งั้นกดบันทึกแล้วเงียบ
+  let mid = existing ? existing.menuId : first.id;
+  let gone = false;
+  if(!findMenu(mid)){
+    const byName = db.menus.find(x => existing && x.name === existing.name);
+    mid = byName ? byName.id : first.id;
+    gone = true;
+  }
   saleDraft = existing
-    ? { menuId: existing.menuId || first.id, qty: n(existing.qty) || 1,
+    ? { menuId: mid, qty: n(existing.qty) || 1,
         picked: new Set((existing.addons||[]).map(a => a.name)),
-        id: existing.id, t: existing.t, d: existing.d }
-    : { menuId: first.id, qty: 1, picked: new Set() };
+        id: existing.id, t: existing.t, d: existing.d,
+        oldName: gone ? (existing.name || '') : '' }
+    : { menuId: mid, qty: 1, picked: new Set() };
   renderSaleDialog();
 }
 
 function saleTotal(){
   const m = findMenu(saleDraft.menuId);
   if(!m) return 0;
-  const extra = (m.addons||[]).filter(a => saleDraft.picked.has(a.name))
-                              .reduce((s,a) => s + n(a.price), 0);
+  const extra = menuAddons(m).filter(a => saleDraft.picked.has(a.name))
+                             .reduce((s,a) => s + n(a.price), 0);
   return (n(m.price) + extra) * n(saleDraft.qty);
 }
 
@@ -3439,27 +3448,29 @@ function renderSaleDialog(){
   const tops = menuAddons(m);
   openDialog({
     title: saleDraft.id ? 'แก้รายการขาย' : 'บันทึกการขาย',
-    sub: 'เลือกเมนู ใส่จำนวน แล้วติ๊กท็อปปิ้งที่ลูกค้าเพิ่ม',
+    sub: saleDraft.oldName
+      ? `เมนูเดิม "${saleDraft.oldName}" ไม่มีในร้านแล้ว — เลือกเมนูที่ใช้แทนด้านล่าง`
+      : 'เลือกเมนู ใส่จำนวน แล้วติ๊กไส้ที่ลูกค้าเพิ่ม',
     html: `
       <div class="sec" style="margin-top:0">ขายอะไร</div>
       <div class="pills">${db.menus.map(x => `
-        <button class="pill${x.id === saleDraft.menuId ? ' on' : ''}" onclick="pickMenu('${x.id}')">
+        <button type="button" class="pill${x.id === saleDraft.menuId ? ' on' : ''}" onclick="pickMenu('${x.id}')">
           ${esc(x.name || '(ไม่มีชื่อ)')}<b>${baht(x.price)}</b>
         </button>`).join('')}</div>
 
       <div class="sec">กี่จาน</div>
       <div class="stepper">
-        <button onclick="bumpQty(-1)" aria-label="ลด">−</button>
+        <button type="button" onclick="bumpQty(-1)" aria-label="ลด">−</button>
         <span id="saleQty">${n(saleDraft.qty)}</span>
-        <button onclick="bumpQty(1)" aria-label="เพิ่ม">+</button>
+        <button type="button" onclick="bumpQty(1)" aria-label="เพิ่ม">+</button>
       </div>
 
       ${tops.length ? `<div class="sec">ท็อปปิ้งที่เพิ่ม</div>
       <div class="tops">${tops.map(a => `
-        <button class="top${saleDraft.picked.has(a.name) ? ' on' : ''}" onclick="toggleTop('${esc(a.name)}')">
-          ${esc(a.name)} <b>+${baht(a.price)}</b>
+        <button type="button" class="top${saleDraft.picked.has(a.name) ? ' on' : ''}" onclick="toggleTop('${esc(a.name)}')">
+          ${esc(a.name)} <b>${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</b>
         </button>`).join('')}</div>`
-      : `<p class="hint">เมนูนี้ยังไม่ได้ตั้งท็อปปิ้ง — เพิ่มได้ที่แท็บเมนู</p>`}
+      : `<p class="hint">เมนูนี้ยังไม่ได้ตั้งไส้ — ตั้งได้ที่แท็บ <b>ตั้งค่า</b></p>`}
 
       <div class="dlg-live" style="margin-top:18px" id="saleSum">รวม ${baht(saleTotal())} บาท</div>`,
     foot: [
@@ -3481,9 +3492,9 @@ function toggleTop(name){
 }
 function commitSale(){
   const m = findMenu(saleDraft.menuId);
-  if(!m) return;
-  const addons = (m.addons||[]).filter(a => saleDraft.picked.has(a.name))
-                               .map(a => ({name:a.name, price:n(a.price)}));
+  if(!m) return toast('เลือกเมนูก่อนนะครับ');
+  const addons = menuAddons(m).filter(a => saleDraft.picked.has(a.name))
+                              .map(a => ({name:a.name, price:n(a.price)}));
   const rec = {
     id: saleDraft.id || uid(),
     d: saleDraft.d || dayKey(),
@@ -3883,55 +3894,30 @@ function viewMore(){
   </div>`;
 }
 
-/* ---------- ท็อปปิ้งของแต่ละเมนู ---------- */
-function addonDialog(menuId, idx){
-  const m = findMenu(menuId); if(!m) return;
-  const cur = idx >= 0 ? (m.addons||[])[idx] : null;
-  openDialog({
-    title: cur ? 'แก้ท็อปปิ้ง' : 'เพิ่มท็อปปิ้ง',
-    sub: `ของที่ลูกค้าเพิ่มได้ในเมนู ${m.name || '(ไม่มีชื่อ)'}`,
-    fields:[
-      {k:'name', label:'ชื่อท็อปปิ้ง', type:'text', value: cur ? cur.name : '',
-       placeholder:'เช่น เพิ่มไข่', wide:true},
-      {k:'price', label:'คิดเพิ่มกี่บาท', type:'number', value: cur ? cur.price : '', wide:true}
-    ],
-    check: v => !v.name.trim() ? 'ใส่ชื่อท็อปปิ้งด้วย'
-              : v.price < 0 ? 'ราคาติดลบไม่ได้' : null,
-    extraFoot: cur ? {label:'ลบ', cls:'danger', fn:`dlg.close(); delAddon('${menuId}',${idx})`} : null,
-    save: v => {
-      const data = {name:v.name.trim(), price:v.price};
-      if(cur) Object.assign(cur, data);
-      else (m.addons = m.addons||[]).push(Object.assign({id:uid()}, data));
-      save(); render();
-    }
-  });
-}
-function delAddon(menuId, idx){
-  if(!adminOk(() => delAddon(menuId, idx))) return;
-  const m = findMenu(menuId); if(!m) return;
-  (m.addons||[]).splice(idx,1); save(); render();
-}
-function addonList(m){
-  const rows = (m.addons||[]).map((a,i) => `
-    <div class="li" role="button" tabindex="0" onclick="addonDialog('${m.id}',${i})"
-         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();addonDialog('${m.id}',${i})}">
+// ไส้ที่เมนูนี้ใส่ได้ อ่านจาก "ชุดไส้" ที่ใช้ร่วมกัน (แก้ที่เดียวเปลี่ยนทุกเมนู)
+function menuGroupList(m){
+  const gs = (m.groupIds||[]).map(id => findGroup(id)).filter(Boolean);
+  const rows = gs.map(g => `
+    <div class="li" role="button" tabindex="0" onclick="groupEditor('${g.id}')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();groupEditor('${g.id}')}">
       <div class="li-main">
-        <div class="li-title">${esc(a.name)}</div>
-        ${a.group ? `<div class="li-sub">${esc(a.group)}</div>` : ''}
+        <div class="li-title">${esc(g.name)}</div>
+        <div class="li-sub">${g.items.length} อย่าง${g.items.every(it => n(it.price) === 0) && g.items.length ? " · ฟรี" : ""}</div>
       </div>
-      <div class="li-end">
-        <span class="chip">${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</span>
-        <span class="li-chev">${icon('chev',16)}</span>
-      </div>
-    </div>`).join('');
+      <span class="li-chev">${icon('chev',16)}</span>
+    </div>`).join("");
   return `
     <div class="head-row" style="margin-top:22px">
-      <h2>ท็อปปิ้งที่เพิ่มได้</h2>
-      <button class="btn sm primary" onclick="addonDialog('${m.id}',-1)">${icon('plus',14)} เพิ่ม</button>
+      <h2>ไส้ที่เมนูนี้ใส่ได้</h2>
+      <button type="button" class="btn sm primary" onclick="pickGroups('${m.id}')">${icon('edit',14)} เลือกชุดไส้</button>
     </div>
-    <p class="sub">ตอนบันทึกการขายจะเลือกติ๊กได้ ราคาบวกให้อัตโนมัติ</p>
-    <div class="list">${rows || '<div class="empty" style="padding:18px">ยังไม่มีท็อปปิ้ง</div>'}</div>`;
+    <p class="sub">ตอนสั่งสินค้าจะติ๊กได้ ราคาบวกให้เอง · แตะชื่อชุดเพื่อแก้ราคาไส้</p>
+    <div class="list">${rows || '<div class="empty" style="padding:18px">ยังไม่ได้เลือกชุดไส้ให้เมนูนี้</div>'}</div>`;
 }
+
+/* ท็อปปิ้งแบบผูกกับเมนูทีละอัน ถูกแทนด้วย "ชุดไส้" ที่ใช้ร่วมกันแล้ว
+   addonDialog / delAddon / addonList ถูกเอาออก เพราะไม่มีหน้าไหนเรียก
+   และมันเขียนลง m.addons ที่ migrateGroups ย้ายไป db.groups หมดแล้ว */
 
 
 /* ===================== หน้าตั้งค่าเมนู =====================
