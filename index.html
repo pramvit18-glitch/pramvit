@@ -533,10 +533,16 @@
   .toast{
     position:fixed; left:50%; transform:translateX(-50%) translateY(20px);
     bottom:calc(var(--nav-h) + 22px + env(safe-area-inset-bottom, 0px));
+    top:auto; right:auto; margin:0;
+    max-width:min(92vw, 420px); width:max-content; text-align:center;
     background:var(--ink); color:#fff; padding:13px 20px; border-radius:12px;
-    font-weight:700; font-size:14px; z-index:60; opacity:0; pointer-events:none;
+    border:none; overflow:visible;
+    font-weight:700; font-size:14px; line-height:1.45; z-index:60; opacity:0; pointer-events:none;
     transition:opacity .2s, transform .2s; box-shadow:0 8px 28px rgba(27,23,21,.3);
   }
+  /* ตอนใช้ popover เบราว์เซอร์ตั้ง display:none ให้เอง ต้องเปิดกลับเอง */
+  .toast:popover-open{display:block}
+  .toast::backdrop{background:none}
   .toast.on{opacity:1; transform:translateX(-50%) translateY(0)}
   @media(min-width:760px){ .toast{bottom:30px} }
 
@@ -1729,8 +1735,10 @@ function renderBanner(){
     </div>` : '';
 }
 function startFresh(){
-  if(!adminOk(() => startFresh())) return; setShopData(blank()); tab='today'; render(); }
-function keepDemo(){ delete db.isDemo; save(); render(); }
+  if(!adminOk(() => startFresh())) return;
+  setShopData(blank()); tab='today'; render(); toast('เริ่มกรอกของร้านเราแล้ว');
+}
+function keepDemo(){ delete db.isDemo; save(); render(); toast('ใช้ข้อมูลชุดนี้ต่อแล้ว'); }
 
 function resetAll(){
   if(!adminOk(() => resetAll())) return;
@@ -1917,6 +1925,7 @@ function ingDialog(ing){
       if(ing) Object.assign(ing, data);
       else db.ingredients.push(Object.assign({id:uid()}, data));
       save(); render();
+      toast(savedMsg('ของที่ซื้อมา', data.name, !ing));
     }
   });
 }
@@ -1927,9 +1936,11 @@ function delIng(id){
   const i = findIng(id);
   const used = db.menus.filter(m => (m.items||[]).some(it => it.ingId===id)).map(m=>m.name||'(ไม่มีชื่อ)');
   const go = () => {
+    const nm = i ? i.name : '';
     db.ingredients = db.ingredients.filter(x => x.id!==id);
     db.menus.forEach(m => m.items = (m.items||[]).filter(it => it.ingId!==id));
     save(); render();
+    toast(delMsg('ของที่ซื้อมา', nm));
   };
   if(used.length) askConfirm(`ลบ "${esc(i?.name||'')}" ?`,
     `ของชิ้นนี้ถูกใช้ในสูตรของ ${esc(used.join(', '))} — ลบแล้วสูตรเหล่านั้นจะหายไปด้วย`, 'ลบเลย', go);
@@ -2013,6 +2024,7 @@ function saveRecipe(){
     save();
   }
   recipeDraft = null; render(); window.scrollTo({top:0});
+  toast('บันทึกของที่ใช้ในเมนูนี้แล้ว');
 }
 
 function viewRecipe(){
@@ -2204,6 +2216,7 @@ function menuDialog(m){
       if(m) Object.assign(m, data);
       else db.menus.push(Object.assign({id:uid(), items:[]}, data));
       save(); render();
+      toast(savedMsg('เมนู', data.name, !m));
     }
   });
 }
@@ -2217,6 +2230,7 @@ function delMenu(id){
       db.menus = db.menus.filter(x => x.id!==id);
       if(openMenuId === id) openMenuId = null;
       save(); render();
+      toast(delMsg('เมนู', m ? m.name : ''));
     });
 }
 // หน้าต่างเดียวใช้ได้ทั้งเพิ่มและแก้ไขรายการในสูตร (idx = -1 คือเพิ่มใหม่)
@@ -2243,6 +2257,8 @@ function itemDialog(mid, idx){
       if(cur) Object.assign(cur, {ingId:v.ingId, qty:v.qty});
       else (m.items = m.items||[]).push({ingId:v.ingId, qty:v.qty});
       save(); render();
+      const ingName = (findIng(v.ingId)||{}).name;
+      toast(savedMsg('ของที่ใช้', ingName, !cur));
     }
   });
 }
@@ -2250,7 +2266,9 @@ function addItem(mid){ itemDialog(mid, -1); }
 function editItem(mid, idx){ itemDialog(mid, idx); }
 function delItem(mid,idx){
   const m = findMenu(mid); if(!m) return;
+  const gone = m.items[idx];
   m.items.splice(idx,1); save(); render();
+  toast(delMsg('ของที่ใช้', gone ? (findIng(gone.ingId)||{}).name : ''));
 }
 
 /* --------- แท็บ 3: ต้นทุนคงที่ --------- */
@@ -2291,8 +2309,13 @@ function viewFixed(){
     </div>
   </div>`;
 }
-function setFixed(k,v){ db.fixed[k]=n(v); save(); refreshFixed(); }
-function setTarget(v){ db.targetMargin=n(v); save(); refreshFixed(); }
+let typedTimer = null;
+function savedSoon(msg){                 // รอให้หยุดพิมพ์ก่อน แล้วค่อยบอกครั้งเดียว
+  clearTimeout(typedTimer);
+  typedTimer = setTimeout(() => toast(msg), 900);
+}
+function setFixed(k,v){ db.fixed[k]=n(v); save(); refreshFixed(); savedSoon('บันทึกค่าใช้จ่ายประจำแล้ว'); }
+function setTarget(v){ db.targetMargin=n(v); save(); refreshFixed(); savedSoon('บันทึกกำไรที่อยากได้แล้ว'); }
 
 // อัปเดตเฉพาะการ์ดสรุปด้านบน ไม่แตะการ์ดที่มีช่องกรอก
 // (ถ้าวาดทั้งหน้าใหม่ ช่องที่กำลังพิมพ์อยู่จะหลุดโฟกัสทุกตัวอักษร)
@@ -2494,7 +2517,12 @@ function openPOS(){
   order = { lines: [] }; posCat = null;
   render(); window.scrollTo({top:0});
 }
-function clearBill(){ if(order) order.lines = []; repaintOrder(); }
+function clearBill(){
+  const had = order ? order.lines.length : 0;
+  if(order) order.lines = [];
+  repaintOrder();
+  if(had) toast('ล้างบิลแล้ว');
+}
 function closePOS(){ order = null; tab = 'today'; render(); window.scrollTo({top:0}); }
 
 const lineTotal = l => (n(l.price) + (l.addons||[]).reduce((s,a) => s + n(a.price), 0)) * n(l.qty);
@@ -2734,7 +2762,10 @@ function shopHintCard(){
 function shopLine(){
   return [db.shopName, db.shopBranch].filter(x => String(x||'').trim()).join(' · ');
 }
-function toggleShopOpen(){ db.shopOpen = db.shopOpen ? 0 : 1; save(); render(); }
+function toggleShopOpen(){
+  db.shopOpen = db.shopOpen ? 0 : 1; save(); render();
+  toast(db.shopOpen ? 'เปลี่ยนเป็นร้านเปิดอยู่' : 'เปลี่ยนเป็นร้านปิดแล้ว');
+}
 
 /* ===================== หลายร้านในแอปเดียว =====================
    แต่ละร้านมีเมนู ไส้ ยอดขาย รายจ่าย ของตัวเองแยกขาดจากกัน
@@ -2994,6 +3025,17 @@ function topsHTML(tops, picked, lid){
       </button>`).join('')}</div>`).join('');
 }
 
+/* ===================== ข้อความแจ้งหลังบันทึก / แก้ไข / ลบ =====================
+   ทุกครั้งที่ข้อมูลถูกเปลี่ยนจริง ต้องมีข้อความบอก จะได้รู้ว่ากดติดแล้ว */
+function cut(name, max){                 // ชื่อยาว ๆ ตัดให้พอดีข้อความแจ้ง
+  const t = String(name || '').trim();
+  if(!t) return '';
+  return t.length > (max || 18) ? t.slice(0, max || 18) + '…' : t;
+}
+const savedMsg = (what, name, isNew) =>
+  (isNew ? 'เพิ่ม' : 'แก้') + what + (name ? ' "' + cut(name) + '" ' : '') + 'แล้ว';
+const delMsg = (what, name) => 'ลบ' + what + (name ? ' "' + cut(name) + '" ' : '') + 'แล้ว';
+
 /* ข้อความแจ้งสั้น ๆ มุมล่าง */
 let toastTimer = null;
 function toast(msg){
@@ -3001,12 +3043,18 @@ function toast(msg){
   if(!el){
     el = document.createElement('div');
     el.id = 'toast'; el.className = 'toast';
+    try{ el.setAttribute('popover', 'manual'); }catch(e){}
     document.body.appendChild(el);
   }
   el.textContent = msg;
+  // ถ้ามีหน้าต่างเปิดอยู่ ต้องยกข้อความขึ้นชั้นบนสุดด้วย ไม่งั้นโดนบัง
+  try{ if(el.showPopover && !el.matches(':popover-open')) el.showPopover(); }catch(e){}
   el.classList.add('on');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('on'), 2200);
+  toastTimer = setTimeout(() => {
+    el.classList.remove('on');
+    setTimeout(() => { try{ if(el.hidePopover) el.hidePopover(); }catch(e){} }, 220);
+  }, 2400);
 }
 
 /* ===================== หน้า "วันนี้" — หัวใจของแอป ===================== */
@@ -3503,8 +3551,11 @@ function commitSale(){
     addons, total: saleTotal()
   };
   const i = (db.sales||[]).findIndex(x => x.id === rec.id);
+  const iBefore = (db.sales||[]).length;
   if(i >= 0) db.sales[i] = rec; else (db.sales = db.sales||[]).push(rec);
+  const wasEdit = !!saleDraft.id && (db.sales||[]).length === iBefore;
   saleDraft = null; save(); dlg.close(); render();
+  toast((wasEdit ? 'แก้รายการขาย' : 'บันทึกการขาย') + ' "' + cut(rec.name) + '" แล้ว ฿' + baht(rec.total));
 }
 
 /* ---------- บันทึกรายจ่าย ---------- */
@@ -3528,6 +3579,7 @@ function expenseDialog(existing){
       const i = (db.expenses||[]).findIndex(x => x.id === rec.id);
       if(i >= 0) db.expenses[i] = rec; else (db.expenses = db.expenses||[]).push(rec);
       save(); render();
+      toast(savedMsg('รายจ่าย', rec.note, !existing) + ' ฿' + baht(rec.amount));
     }
   });
 }
@@ -3544,9 +3596,12 @@ function editEntry(kind, id){
 }
 function delEntry(kind, id){
   if(!adminOk(() => delEntry(kind, id))) return;
-  if(kind === 'sale') db.sales = (db.sales||[]).filter(x => x.id !== id);
+  const isSale = kind === 'sale';
+  const gone = (isSale ? (db.sales||[]) : (db.expenses||[])).find(x => x.id === id);
+  if(isSale) db.sales = (db.sales||[]).filter(x => x.id !== id);
   else db.expenses = (db.expenses||[]).filter(x => x.id !== id);
   save(); render();
+  toast(delMsg(isSale ? 'รายการขาย' : 'รายจ่าย', gone ? (isSale ? gone.name : gone.note) : ''));
 }
 
 /* ===================== หน้า "ย้อนหลัง" ===================== */
@@ -3788,6 +3843,7 @@ function editSales(){
     save: v => {
       db.menus.forEach(m => m.qtyPerDay = n(v['q_'+m.id]));
       save(); render();
+      toast('บันทึกจำนวนจานต่อวันแล้ว');
     }
   });
 }
@@ -4076,6 +4132,8 @@ function toggleMenuGroup(menuId, gid){
   if(ids.has(gid)) ids.delete(gid); else ids.add(gid);
   m.groupIds = [...ids];
   save(); pickGroups(menuId);          // เปิดหน้าต่างเดิมซ้ำเพื่อให้เห็นติ๊กเปลี่ยน
+  const g = findGroup(gid);
+  toast((ids.has(gid) ? 'ใส่ชุด' : 'เอาชุด') + ' "' + cut(g ? g.name : '') + '" ' + (ids.has(gid) ? 'ให้' : 'ออกจาก') + 'เมนูนี้แล้ว');
 }
 
 /* ---------- ชุดไส้: สร้าง / เปลี่ยนชื่อ / ลบ ---------- */
@@ -4092,6 +4150,7 @@ function groupDialog(g){
       if(g) g.name = v.name.trim();
       else (db.groups = db.groups||[]).push({id:uid(), name:v.name.trim(), items:[]});
       save(); render();
+      toast(savedMsg('ชุดไส้', v.name.trim(), !g));
     }
   });
 }
@@ -4103,9 +4162,11 @@ function delGroup(gid){
     used ? `ชุดนี้ถูกใช้อยู่ใน ${used} เมนู ลบแล้วเมนูเหล่านั้นจะเลือกไส้ชุดนี้ไม่ได้อีก`
          : 'ยังไม่มีเมนูไหนใช้ชุดนี้',
     'ลบ', () => {
+      const nm = g.name;
       db.groups = (db.groups||[]).filter(x => x.id !== gid);
       db.menus.forEach(m => m.groupIds = (m.groupIds||[]).filter(x => x !== gid));
       save(); tab = 'setup'; render();
+      toast(delMsg('ชุดไส้', nm));
     });
 }
 
@@ -4150,13 +4211,16 @@ function groupItemDialog(gid, idx){
       if(cur) Object.assign(cur, data);
       else g.items.push(Object.assign({id:uid()}, data));
       save(); render(); groupEditor(gid);
+      toast(savedMsg('ไส้', data.name, !cur));
     }
   });
 }
 function delGroupItem(gid, idx){
   if(!adminOk(() => delGroupItem(gid, idx))) return;
   const g = findGroup(gid); if(!g) return;
+  const gone = g.items[idx];
   g.items.splice(idx,1); save(); render(); groupEditor(gid);
+  toast(delMsg('ไส้', gone ? gone.name : ''));
 }
 
 /* ===================== สำรอง / กู้คืน ===================== */
@@ -4198,10 +4262,12 @@ function applyData(raw){
       if(wasLocked && store.shops.some(x => x.id === wasLocked)){ store.locked = wasLocked; store.active = wasLocked; }
       if(!store.shops.some(x => x.id === store.active)) store.active = store.shops[0].id;
       db = curShop(); save(); render();
+      toast('กู้คืนข้อมูลแล้ว ' + store.shops.length + ' ร้าน');
       return true;
     }
     if(!data || !Array.isArray(data.ingredients)) return false;
     setShopData(data); render();
+    toast('กู้คืนข้อมูลลงร้าน "' + cut(db.shopName) + '" แล้ว');
     return true;
   }catch(e){ return false; }
 }
@@ -4225,7 +4291,7 @@ function importJSON(input){
 /* ===================== ข้อมูลตัวอย่าง ===================== */
 function loadDemo(){
   if(!adminOk(() => loadDemo())) return;
-  const go = () => { setShopData(seedHistory(buildDemo())); tab='today'; render(); };
+  const go = () => { setShopData(seedHistory(buildDemo())); tab='today'; render(); toast('ใส่ข้อมูลตัวอย่างให้แล้ว'); };
   if(db.ingredients.length && !db.isDemo)
     askConfirm('ใส่ข้อมูลตัวอย่าง', 'จะทับข้อมูลเดิมทั้งหมด รวมถึงยอดขายที่บันทึกไว้', 'ทับเลย', go);
   else go();
