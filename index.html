@@ -531,20 +531,20 @@
 
   /* ข้อความแจ้งผลมุมล่าง */
   .toast{
-    position:fixed; left:50%; transform:translateX(-50%) translateY(20px);
-    bottom:calc(var(--nav-h) + 22px + env(safe-area-inset-bottom, 0px));
-    top:auto; right:auto; margin:0;
-    max-width:min(92vw, 420px); width:max-content; text-align:center;
-    background:var(--ink); color:#fff; padding:13px 20px; border-radius:12px;
+    position:fixed; left:auto; bottom:auto; margin:0;
+    top:calc(env(safe-area-inset-top, 0px) + 14px);
+    right:14px; transform:translateY(-12px);
+    max-width:min(calc(100vw - 28px), 380px); width:max-content; text-align:left;
+    background:var(--ink); color:#fff; padding:13px 18px; border-radius:12px;
     border:none; overflow:visible;
     font-weight:700; font-size:14px; line-height:1.45; z-index:60; opacity:0; pointer-events:none;
-    transition:opacity .2s, transform .2s; box-shadow:0 8px 28px rgba(27,23,21,.3);
+    transition:opacity .2s, transform .2s; box-shadow:0 10px 30px rgba(27,23,21,.32);
   }
   /* ตอนใช้ popover เบราว์เซอร์ตั้ง display:none ให้เอง ต้องเปิดกลับเอง */
   .toast:popover-open{display:block}
   .toast::backdrop{background:none}
-  .toast.on{opacity:1; transform:translateX(-50%) translateY(0)}
-  @media(min-width:760px){ .toast{bottom:30px} }
+  .toast.on{opacity:1; transform:translateY(0)}
+  @media(min-width:760px){ .toast{top:22px; right:22px; max-width:420px} }
 
 
   /* ===================== หน้าขาย: เมนูซ้าย บิลขวา ===================== */
