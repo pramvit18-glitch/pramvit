@@ -1303,9 +1303,19 @@ function menuAddons(m){
 }
 const findGroup = id => (db.groups||[]).find(g => g.id === id);
 
+let saveWarned = false;
 function save(){
-  try{ localStorage.setItem(HUB, JSON.stringify(store)); }
-  catch(e){ /* เบราว์เซอร์ปิดการเก็บข้อมูล — ใช้ต่อได้แต่ไม่บันทึก */ }
+  try{
+    localStorage.setItem(HUB, JSON.stringify(store));
+    saveWarned = false;
+  }catch(e){
+    // ที่เก็บเต็ม หรือเบราว์เซอร์ปิดการเก็บข้อมูลไว้ — ของที่กรอกจะหายตอนปิดแอป
+    // ต้องบอกให้รู้ ไม่ใช่เงียบ แต่บอกครั้งเดียวพอ ไม่ให้เด้งรัวทุกการกระทำ
+    if(!saveWarned){
+      saveWarned = true;
+      if(typeof toast === 'function') toast('บันทึกลงเครื่องไม่ได้ — รีบกดสำรองข้อมูลเก็บไว้');
+    }
+  }
 }
 // เปลี่ยนข้อมูลของร้านที่กำลังใช้อยู่ทั้งก้อน (ชื่อร้านกับ id ยังเป็นของเดิม)
 function setShopData(data){
@@ -1503,7 +1513,14 @@ function baht(v){
     : Math.round(x).toLocaleString('th-TH');
 }
 function esc(s){ return String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+// ค่าที่ต้องไปอยู่ใน onclick="fn('...')" ต้องหนี ' และ \ ด้วย
+// ไม่งั้นชื่อแบบ ไข่'พิเศษ จะทำให้สตริง JS ขาด ปุ่มกดไม่ติดแบบเงียบ ๆ
+function jsq(s){
+  return esc(String(s ?? '').replace(/[\r\n]+/g, ' ').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
+}
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+// เงินติดลบต้องเป็น -฿400 ไม่ใช่ ฿-400
+function money(v){ const x = n(v); return (x < 0 ? '-฿' : '฿') + baht(Math.abs(x)); }
 
 // ราคาต่อหน่วยมักเป็นเลขจุดทศนิยมยาว ๆ (0.0450) คนทั่วไปอ่านยาก
 // ถ้าต่ำกว่า 1 บาทให้บอกเป็นสตางค์แทน
@@ -1861,6 +1878,8 @@ function dlgSubmit(e){
 function dlgDismiss(){ dlg.close(); }   // ที่เหลือให้ตัวดักเหตุการณ์ close จัดการ จะได้ไม่ทำซ้ำ
 dlg.addEventListener('close', () => {
   dlg.removeEventListener('input', dlgLive);
+  // มีหน้าต่างใหม่เปิดแทนไปแล้ว = ไม่ใช่การปิดจริง อย่าไปยุ่งกับค่าของหน้าต่างใหม่
+  if(dlg.open) return;
   const back = dlgCfg && dlgCfg.onDismiss;
   dlgCfg = {};                       // กัน onDismiss ทำงานซ้ำตอนกล่องถัดไปเปิด
   if(typeof back === 'function') back();
@@ -2656,7 +2675,7 @@ function catTabsHTML(){
   const cats = allCats();
   if(cats.length < 2) return '';
   return `<button type="button" class="cat${posCat ? '' : ' on'}" onclick="pickCat('*')">ทั้งหมด <b>${db.menus.length}</b></button>`
-    + cats.map(c => `<button type="button" class="cat${posCat === c ? ' on' : ''}" onclick="pickCat('${esc(c)}')">${esc(c)} <b>${db.menus.filter(m => menuCat(m) === c).length}</b></button>`).join('');
+    + cats.map(c => `<button type="button" class="cat${posCat === c ? ' on' : ''}" onclick="pickCat('${jsq(c)}')">${esc(c)} <b>${db.menus.filter(m => menuCat(m) === c).length}</b></button>`).join('');
 }
 
 function posRowsHTML(){
@@ -2736,7 +2755,9 @@ function billsToday(key){
     if((x.t||'') > b.t) b.t = x.t || b.t;
     map.set(k, b);
   });
-  return [...map.values()].sort((a,b) => String(b.t).localeCompare(String(a.t)));
+  const mins = t => { const [h,m] = String(t||'').split(':').map(Number);
+    return (isFinite(h) ? h : 0) * 60 + (isFinite(m) ? m : 0); };
+  return [...map.values()].sort((a,b) => mins(b.t) - mins(a.t));
 }
 
 // เครื่องนี้ยังเป็นเมนูตัวอย่างอยู่ไหม (ดูจากว่ามีโตเกียวหรือยัง)
@@ -3020,7 +3041,7 @@ function topsHTML(tops, picked, lid){
   return groups.map(row => `
     ${row.g ? `<div class="sec">${esc(row.g)}</div>` : ''}
     <div class="tops">${row.list.map(a => `
-      <button type="button" class="top${picked.has(a.name) ? ' on' : ''}" aria-pressed="${picked.has(a.name)}" onclick="pickLineTop('${lid}','${esc(a.name)}',this)">
+      <button type="button" class="top${picked.has(a.name) ? ' on' : ''}" aria-pressed="${picked.has(a.name)}" onclick="pickLineTop('${lid}','${jsq(a.name)}',this)">
         ${esc(a.name)} <b>${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</b>
       </button>`).join('')}</div>`).join('');
 }
@@ -3515,7 +3536,7 @@ function renderSaleDialog(){
 
       ${tops.length ? `<div class="sec">ท็อปปิ้งที่เพิ่ม</div>
       <div class="tops">${tops.map(a => `
-        <button type="button" class="top${saleDraft.picked.has(a.name) ? ' on' : ''}" onclick="toggleTop('${esc(a.name)}')">
+        <button type="button" class="top${saleDraft.picked.has(a.name) ? ' on' : ''}" onclick="toggleTop('${jsq(a.name)}')">
           ${esc(a.name)} <b>${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</b>
         </button>`).join('')}</div>`
       : `<p class="hint">เมนูนี้ยังไม่ได้ตั้งไส้ — ตั้งได้ที่แท็บ <b>ตั้งค่า</b></p>`}
@@ -3676,7 +3697,7 @@ function viewHist(){
     <div class="mon3">
       <div><span>รายได้รวม</span><b>฿${baht(m.sale)}</b></div>
       <div><span>ซื้อของ + ลงทุน</span><b>฿${baht(m.exp)}</b></div>
-      <div><span>กำไรคงเหลือ</span><b class="${m.net>=0?'good':'bad'}">฿${baht(m.net)}</b></div>
+      <div><span>กำไรคงเหลือ</span><b class="${m.net>=0?'good':'bad'}">${money(m.net)}</b></div>
     </div>
   </div>
 
