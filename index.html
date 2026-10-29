@@ -420,18 +420,20 @@
     .headline{padding-top:18px}
 
     .bottomnav{
-      position:static; transform:none; width:auto; max-width:none;
-      background:transparent; border-top:none; border-bottom:1px solid var(--line);
-      margin:14px 36px 0; padding:0; gap:4px;
+      position:static; transform:none; width:max-content; max-width:none;
+      background:var(--bg); border-radius:var(--r-pill); box-shadow:var(--sh-card);
+      margin:10px 36px 16px; padding:5px; gap:2px;
     }
     .bottomnav button{
-      flex:0 0 auto; height:auto; padding:10px 14px 12px; flex-direction:row; gap:8px;
-      font-size:14.5px; color:var(--muted); border-bottom:2px solid transparent;
-      margin-bottom:-1px; transition:.16s;
+      flex:0 0 auto; height:auto; padding:9px 18px; flex-direction:row; gap:8px;
+      font-size:14px; color:var(--muted); border-radius:var(--r-pill); transition:.16s;
     }
     .bottomnav button svg{width:17px; height:17px}
     .bottomnav button:hover{color:var(--ink-2)}
-    .bottomnav button.on{color:var(--brand); border-bottom-color:var(--brand)}
+    .bottomnav button.on{color:var(--brand); background:var(--tint)}
+    /* วงกลมกับจุดเป็นของแถบแนวตั้งบนมือถือ จอใหญ่ไม่ต้องใช้ */
+    .bottomnav button::before,
+    .bottomnav button.on::after{display:none}
 
     .tiles{grid-template-columns:repeat(4,1fr)}
     .pick{grid-template-columns:26px 1fr auto}
