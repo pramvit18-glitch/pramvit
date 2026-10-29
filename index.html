@@ -768,6 +768,11 @@
 
   /* ===================== กราฟ ===================== */
   .chart{margin:4px -4px 0; overflow:hidden}
+  .chart .cday{cursor:pointer}
+  .chart .cday:hover .cday-bg,
+  .chart .cday:focus-visible .cday-bg{opacity:1}
+  .chart .cday:focus{outline:none}
+  .chart .cday:focus-visible .cday-bg{stroke:var(--brand); stroke-width:1.5}
   .chart svg{display:block; width:100%; height:auto}
   .chart text{font-family:inherit}
 
@@ -3245,8 +3250,15 @@ function chartBody(key, days){
     const isToday = d.key === key;
     const fill = isToday ? 'var(--brand)' : 'var(--brand-l)';
     const showLabel = isToday || (d.key === best.key && best.sale > 0);
-    return `<g>
-      <title>${thaiDate(d.key)} — ขายได้ ${baht(d.sale)} บาท${d.exp ? ' · ซื้อของ ' + baht(d.exp) : ''}</title>
+    const hitX = padL + slot*i;
+    const open = `dayMoneyDialog('${d.key}')`;
+    const say = `${thaiDate(d.key)} ขายได้ ${baht(d.sale)} บาท${d.exp ? ' ซื้อของ ' + baht(d.exp) + ' บาท' : ''} แตะเพื่อดูรายละเอียด`;
+    return `<g class="cday" role="button" tabindex="0" aria-label="${esc(say)}"
+         onclick="${open}"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${open}}">
+      <title>${thaiDate(d.key)} — ขายได้ ${baht(d.sale)} บาท${d.exp ? ' · ซื้อของ ' + baht(d.exp) : ''} · แตะเพื่อดู</title>
+      <rect class="cday-bg" x="${hitX.toFixed(1)}" y="${padT-16}" width="${slot.toFixed(1)}"
+            height="${(labelY - padT + 22).toFixed(1)}" rx="8" fill="var(--soft)" opacity="0"/>
       ${h > 0 ? `<rect x="${x.toFixed(1)}" y="${(base-h).toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}"
             rx="4" ry="4" fill="${fill}"/>
         <rect x="${x.toFixed(1)}" y="${(base-4).toFixed(1)}" width="${barW.toFixed(1)}" height="4" fill="${fill}"/>`
@@ -3257,6 +3269,8 @@ function chartBody(key, days){
       <text x="${(x+barW/2).toFixed(1)}" y="${labelY}" text-anchor="middle" font-size="10.5"
             font-weight="${d.key===key ? '800' : '600'}"
             fill="${d.key===key ? 'var(--ink)' : 'var(--muted)'}">${DOW[d.dow]}</text>
+      <rect class="cday-hit" x="${hitX.toFixed(1)}" y="${padT-16}" width="${slot.toFixed(1)}"
+            height="${(labelY - padT + 22).toFixed(1)}" fill="transparent" pointer-events="all"/>
     </g>`;
   }).join('');
 
@@ -3276,6 +3290,7 @@ function chartBody(key, days){
         ${bars}
       </svg>
     </div>
+    <p class="hint" style="margin:8px 0 0">แตะแท่งไหนก็ได้ เพื่อดูว่าวันนั้นขายอะไรไปบ้าง</p>
     <details>
       <summary>ดูเป็นตัวเลข</summary>
       <table>

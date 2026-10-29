@@ -34,6 +34,13 @@ const probe = `
   out.push(['มีเส้นเฉลี่ยแบบประ', svg.indexOf('stroke-dasharray') >= 0]);
   out.push(['มีตารางตัวเลขให้ดูแทนกราฟ', svg.indexOf('<table>') >= 0 && svg.indexOf('ดูเป็นตัวเลข') >= 0]);
   out.push(['มีคำอธิบายสำหรับโปรแกรมอ่านหน้าจอ', svg.indexOf('role="img"') >= 0 && svg.indexOf('aria-label') >= 0]);
+  // บนมือถือไม่มีการเอาเมาส์ชี้ ทุกแท่งจึงต้องแตะเพื่อดูรายละเอียดของวันนั้นได้
+  out.push(['ทุกแท่งแตะได้ เพื่อดูรายละเอียดของวันนั้น',
+    svg.split(String.fromCharCode(34)+"cday"+String.fromCharCode(34)).length - 1 === 7
+    && svg.split('onclick="dayMoneyDialog(').length - 1 === 7]);
+  out.push(['แท่งที่แตะได้บอกเครื่องอ่านหน้าจอด้วย',
+    (svg.match(/role="button"/g)||[]).length === 7 && svg.indexOf('aria-label') >= 0]);
+  out.push(["มีข้อความบอกว่าแตะแท่งได้", svg.indexOf('แตะแท่ง') >= 0]);
   out.push(['ทุกแท่งมีคำอธิบายตอนชี้', (svg.match(/<title>/g)||[]).length === days.filter(d=>d.sale>0 || true).length]);
 
   const o = t => (svg.match(new RegExp('<' + t + '[ >]', 'g'))||[]).length;
