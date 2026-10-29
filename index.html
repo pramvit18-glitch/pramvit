@@ -972,9 +972,10 @@
              border-top:1px solid var(--line); font-size:12.5px; color:var(--ink-2); font-weight:600}
 
   /* การ์ดสถิติสีพาสเทล */
-  .stat-card{border-radius:18px; padding:16px 16px 10px; position:relative; overflow:hidden}
+  .stat-card{border-radius:var(--r-card); padding:16px 16px 10px; position:relative;
+             overflow:hidden; box-shadow:var(--sh-card)}
   .stat-card.tint-o{background:var(--tint)}
-  .stat-card.tint-g{background:var(--good-bg)}
+  .stat-card.tint-g{background:var(--soft)}
   .stat-k{font-size:12.5px; font-weight:700; color:var(--ink-2)}
   .stat-v{font-size:26px; font-weight:800; letter-spacing:-.03em; margin-top:2px;
           font-variant-numeric:tabular-nums}
@@ -3452,7 +3453,7 @@ function viewToday(){
     <div class="stat-card tint-g dash-c">
       <div class="stat-k">เฉลี่ยต่อบิล</div>
       <div class="stat-v">${baht(perBill)}<small> บาท</small></div>
-      <div class="stat-chart">${miniBars(week.map(w => billsOf(w.key) ? w.sale/billsOf(w.key) : 0), 'var(--good)', 140, 46)}</div>
+      <div class="stat-chart">${miniBars(week.map(w => billsOf(w.key) ? w.sale/billsOf(w.key) : 0), 'var(--ink-2)', 140, 46)}</div>
     </div>
 
     <div class="card dash-d">
