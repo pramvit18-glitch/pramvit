@@ -66,6 +66,33 @@ const probe = `
     const e = pressSave({name: db.menus[0].name, price: 99, qtyPerDay: 0});
     return e || db.menus[0].price === 99 || 'ราคาไม่เปลี่ยน';
   });
+  // เพิ่มเมนูแล้วเลือกไส้ได้ในหน้าต่างเดียว ไม่ต้องกลับมาทำรอบสอง
+  check('เพิ่มเมนูพร้อมเลือกชุดไส้ได้ในครั้งเดียว', () => {
+    menuDraftGroups = new Set();
+    addMenu();
+    const picker = cfg.extra || '';
+    if(picker.indexOf('gchip') < 0) return 'หน้าต่างเพิ่มเมนูไม่มีที่ให้เลือกชุดไส้';
+    toggleDraftGroup(db.groups[0].id, null);
+    toggleDraftGroup(db.groups[1].id, null);
+    const e = pressSave({name:'เครปทดสอบไส้', price: 25, qtyPerDay: 0});
+    if(e) return e;
+    const made = db.menus.find(x => x.name === 'เครปทดสอบไส้');
+    if(!made) return 'ไม่ได้เมนูใหม่';
+    if((made.groupIds||[]).length !== 2) return 'ชุดไส้ไม่ติดมากับเมนู (ได้ ' + (made.groupIds||[]).length + ')';
+    if(menuAddons(made).length < 2) return 'เลือกชุดไส้แล้วแต่ตอนขายยังไม่มีไส้ให้ติ๊ก';
+    return true;
+  });
+
+  // แก้เมนูเดิมต้องเห็นว่าติ๊กชุดไหนไว้อยู่ และเอาออกได้
+  check('แก้เมนูแล้วติ๊กชุดไส้เดิมค้างไว้ให้ และเอาออกได้', () => {
+    const made = db.menus.find(x => x.name === 'เครปทดสอบไส้');
+    menuDialog(made);
+    if(menuDraftGroups.size !== 2) return 'ไม่ได้ติ๊กชุดเดิมค้างไว้';
+    toggleDraftGroup(db.groups[0].id, null);
+    const e = pressSave({name: made.name, price: 25, qtyPerDay: 0});
+    if(e) return e;
+    return (made.groupIds||[]).length === 1 || 'เอาชุดออกไม่ได้';
+  });
   check('เพิ่มเมนูใหม่', () => {
     const before = db.menus.length;
     addMenu();

@@ -397,6 +397,29 @@
   .dlg-x:hover{background:var(--tint); color:var(--brand-d)}
   .dlg-x:active{transform:scale(.92)}
   .dlg-body{padding:17px 20px 0; display:grid; gap:13px; grid-template-columns:1fr 1fr}
+  .dlg-extra{grid-column:1/-1; margin-top:4px}
+  .gpick-head{
+    display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:9px;
+  }
+  .gpick-head span{font-size:12px; font-weight:800; color:var(--ink-2)}
+  .gpick-head small{font-size:11.5px; color:var(--muted); font-weight:600}
+  .gpick{display:flex; flex-wrap:wrap; gap:8px}
+  .gchip{
+    display:inline-flex; flex-direction:column; align-items:flex-start; gap:1px;
+    border:1.5px solid var(--line); background:var(--bg); color:var(--ink);
+    border-radius:14px; padding:9px 14px; cursor:pointer; font:inherit; transition:.14s;
+  }
+  .gchip-n{font-weight:800; font-size:13.5px}
+  .gchip small{font-size:11px; color:var(--muted); font-weight:700}
+  .gchip:hover{border-color:var(--brand-l)}
+  .gchip.on{border-color:var(--brand); background:var(--tint); color:var(--brand)}
+  .gchip.on small{color:var(--brand)}
+  .gchip.on .gchip-n::before{content:'✓ '; font-weight:900}
+  .gpick-empty{
+    background:var(--soft); border-radius:14px; padding:13px 15px;
+  }
+  .gpick-empty b{font-size:13.5px}
+  .gpick-empty p{margin:3px 0 0; font-size:12.5px; color:var(--ink-2); line-height:1.55}
   .dlg-live{grid-column:1/-1; background:var(--tint); color:var(--brand-d); border-radius:11px;
             padding:12px 14px; font-size:13.5px; font-weight:700; line-height:1.5;
             font-variant-numeric:tabular-nums}
@@ -1942,6 +1965,7 @@ function openDialog(cfg){
       <input id="dlg_${f.k}" data-k="${f.k}" type="${t}" ${f.type==='number'?'step="any" inputmode="decimal"':''}
         value="${esc(f.value ?? '')}" placeholder="${esc(f.placeholder||'')}"></div>`;
   }).join('')
+    + (cfg.extra ? `<div class="dlg-extra">${cfg.extra}</div>` : '')
     + (cfg.live ? `<div class="dlg-live" id="dlgLive"></div>` : '')
     + `<div class="dlg-err" id="dlgErr"></div>`;
 
@@ -2314,17 +2338,57 @@ function viewMenu(){
 }
 const findMenu = id => db.menus.find(m => m.id===id);
 // หน้าต่างเดียวใช้ได้ทั้งเพิ่มและแก้ไข (ส่ง null = เพิ่มใหม่)
+// ชุดไส้ที่ติ๊กไว้ในหน้าต่างเพิ่ม/แก้เมนู (ยังไม่บันทึกจนกว่าจะกดบันทึก)
+let menuDraftGroups = new Set();
+// ติ๊กในที่เลย ไม่วาดหน้าต่างใหม่ ข้อความที่พิมพ์ค้างไว้จะได้ไม่หาย
+function toggleDraftGroup(gid, el){
+  if(menuDraftGroups.has(gid)) menuDraftGroups.delete(gid); else menuDraftGroups.add(gid);
+  const on = menuDraftGroups.has(gid);
+  if(el){ el.classList.toggle('on', on); el.setAttribute('aria-pressed', on); }
+  const sum = document.getElementById('gpickSum');
+  if(sum) sum.textContent = draftGroupSum();
+}
+function draftGroupSum(){
+  const gs = [...menuDraftGroups].map(id => findGroup(id)).filter(Boolean);
+  if(!gs.length) return 'ยังไม่ได้เลือก — เมนูนี้จะไม่มีไส้ให้ติ๊กตอนขาย';
+  const items = gs.reduce((a,g) => a + g.items.length, 0);
+  return `เลือก ${gs.length} ชุด · ติ๊กได้ ${items} อย่างตอนขาย`;
+}
+function groupPickerHTML(){
+  if(!(db.groups||[]).length){
+    return `<div class="gpick-empty">
+      <b>ยังไม่มีชุดไส้ในร้านนี้</b>
+      <p>บันทึกเมนูนี้ก่อนได้เลย แล้วค่อยไปสร้างชุดไส้ที่การ์ด "ชุดไส้ที่ใส่ได้" ในหน้าตั้งค่า</p>
+    </div>`;
+  }
+  return `
+    <div class="gpick-head">
+      <span>ไส้ที่เมนูนี้ใส่ได้</span>
+      <small id="gpickSum">${esc(draftGroupSum())}</small>
+    </div>
+    <div class="gpick">${db.groups.map(g => {
+      const on = menuDraftGroups.has(g.id);
+      return `<button type="button" class="gchip${on ? ' on' : ''}" aria-pressed="${on}"
+        onclick="toggleDraftGroup('${g.id}', this)">
+        <span class="gchip-n">${esc(g.name)}</span>
+        <small>${g.items.length} อย่าง</small>
+      </button>`;
+    }).join('')}</div>`;
+}
+
 function menuDialog(m){
   if(!adminOk(() => menuDialog(m))) return;
+  menuDraftGroups = new Set(m ? (m.groupIds || []) : []);
   openDialog({
     title: m ? 'แก้ไขเมนู' : 'เพิ่มเมนูใหม่',
-    sub: m ? 'แก้ชื่อ ราคาขาย หรือยอดขายต่อวัน' : 'ใส่ชื่อกับราคาขายก่อน แล้วค่อยไปใส่สูตรทีหลัง',
+    sub: m ? 'แก้ชื่อ ราคา และเลือกไส้ที่ใส่ได้' : 'ใส่ชื่อ ราคา แล้วติ๊กไส้ที่ใส่ได้ ในหน้าต่างเดียวจบ',
     fields:[
       {k:'name', label:'ชื่อเมนู', type:'text', value:m?.name ?? '', placeholder:'เช่น เครปกรอบ นูเทลล่า', wide:true},
       {k:'cat', label:'หมวด (เช่น เครป โตเกียว)', type:'text', value: m ? menuCat(m) : '', wide:true},
       {k:'price', label:'ราคาขาย (บาท)', type:'number', value:m?.price ?? ''},
       {k:'qtyPerDay', label:'ขายได้วันละ (จาน)', type:'number', value:m?.qtyPerDay ?? ''}
     ],
+    extra: groupPickerHTML(),
     live: m ? (v => {
       const c = menuCost(m), pf = v.price - c;
       if(!(v.price > 0)) return `ต้นทุนวัตถุดิบจานละ ${baht(c)} บาท`;
@@ -2334,11 +2398,14 @@ function menuDialog(m){
               : v.price < 0 ? 'ราคาติดลบไม่ได้'
               : v.qtyPerDay < 0 ? 'จำนวนจานติดลบไม่ได้' : null,
     save: v => {
-      const data = {name:v.name.trim(), cat:(v.cat||'').trim(), price:v.price, qtyPerDay:v.qtyPerDay};
+      const data = {name:v.name.trim(), cat:(v.cat||'').trim(), price:v.price,
+                    qtyPerDay:v.qtyPerDay, groupIds:[...menuDraftGroups]};
       if(m) Object.assign(m, data);
       else db.menus.push(Object.assign({id:uid(), items:[]}, data));
+      const gs = menuDraftGroups.size;
+      menuDraftGroups = new Set();
       save(); render();
-      toast(savedMsg('เมนู', data.name, !m));
+      toast(savedMsg('เมนู', data.name, !m) + (gs ? ` · ใส่ไส้ ${gs} ชุด` : ''));
     }
   });
 }
