@@ -486,18 +486,20 @@
   .stepper span{min-width:62px; text-align:center; font-weight:800; font-size:19px;
                 font-variant-numeric:tabular-nums}
 
+  /* ต้องมี .tops นำหน้าทุกข้อ เพราะคลาส "top" ไปชนกับ .rankx-no.top (เลขอันดับ 1)
+     ถ้าไม่กั้น เลข 1 จะโดนเครื่องหมายถูกของชิปไส้เบียดจนมองไม่เห็น */
   .tops{display:flex; flex-wrap:wrap; gap:8px}
-  .top{
+  .tops .top{
     border:1.5px solid var(--line); background:var(--bg); color:var(--ink);
     border-radius:99px; padding:9px 15px; cursor:pointer; font:inherit;
     font-weight:700; font-size:13.5px; transition:.16s;
   }
-  .top b{color:var(--muted); font-weight:700; font-variant-numeric:tabular-nums}
-  .top:hover{border-color:var(--brand)}
-  .top::before{content:'✓'; margin-right:5px; font-weight:900; opacity:0; transition:opacity .12s}
-  .top.on{background:var(--tint); border-color:var(--brand); color:var(--brand-d)}
-  .top.on b{color:var(--brand-d)}
-  .top.on::before{opacity:1}
+  .tops .top b{color:var(--muted); font-weight:700; font-variant-numeric:tabular-nums}
+  .tops .top:hover{border-color:var(--brand)}
+  .tops .top::before{content:'✓'; margin-right:5px; font-weight:900; opacity:0; transition:opacity .12s}
+  .tops .top.on{background:var(--tint); border-color:var(--brand); color:var(--brand-d)}
+  .tops .top.on b{color:var(--brand-d)}
+  .tops .top.on::before{opacity:1}
 
   /* ย้อนหลังรายวัน */
   .days{display:flex; flex-direction:column}
@@ -1060,7 +1062,7 @@
   .billrow-n{font-weight:700; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .billrow-s{font-size:12px; color:var(--muted)}
   .billrow-v{
-    flex:0 0 auto; font-weight:800; font-size:15.5px; color:var(--good-ink);
+    flex:0 0 auto; font-weight:800; font-size:15.5px; color:var(--ink);
     font-variant-numeric:tabular-nums;
   }
 
