@@ -908,6 +908,34 @@
   .mnav-b:disabled{opacity:.32; cursor:default}
   .mnav-t{flex:1; min-width:0; text-align:center; font-size:17px; font-weight:800; letter-spacing:-.02em}
 
+  .mbox{display:flex; flex-direction:column; gap:2px; background:var(--soft);
+        border-radius:18px; padding:6px}
+  .mbox-row{
+    display:flex; align-items:center; gap:10px; padding:11px 12px;
+    background:var(--bg); border-radius:14px;
+  }
+  .mbox-ic{
+    width:28px; height:28px; flex:0 0 auto; border-radius:50%;
+    display:grid; place-items:center;
+  }
+  .mbox-ic svg{width:15px; height:15px}
+  .mbox-row.in .mbox-ic{background:var(--good-bg); color:var(--good-ink)}
+  .mbox-row.out .mbox-ic{background:var(--tint); color:var(--brand)}
+  .mbox-row.net .mbox-ic{background:var(--soft); color:var(--ink-2)}
+  .mbox-k{flex:1; min-width:0; font-size:13px; font-weight:700; color:var(--ink-2);
+          overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .mbox-row b{
+    flex:0 0 auto; font-size:17px; font-weight:800; font-variant-numeric:tabular-nums;
+    letter-spacing:-.02em;
+  }
+  .mbox-row.in b{color:var(--good-ink)}
+  .mbox-row.out b{color:var(--brand)}
+  .mbox-row.net{background:var(--ink); }
+  .mbox-row.net .mbox-k{color:rgba(255,255,255,.8)}
+  .mbox-row.net .mbox-ic{background:rgba(255,255,255,.14); color:#fff}
+  .mbox-row.net b{color:#fff}
+  .mbox-row.net b.bad{color:#ff8f8f}
+
   .mon3{display:flex; gap:10px; margin-top:16px}
   .mon3 > div{
     flex:1; min-width:0; background:var(--soft); border-radius:13px; padding:12px 13px;
@@ -3449,6 +3477,8 @@ function viewToday(){
   const slotTop = Math.max(...slots.map(s => s.baht), 1);
   const topBaht = menus.length ? menus[0].baht : 1;
 
+  const todayExp = (db.expenses||[]).filter(x => x.d === key)
+                     .sort((a,b) => String(b.t||'').localeCompare(String(a.t||'')));
   const billSeries = week.map(w => billsOf(w.key));
   const netSeries = week.map(w => w.net);
 
@@ -3541,12 +3571,13 @@ function viewToday(){
     </div>` : ''}
 
     <div class="card dash-i">
-      ${cardHead('down','บันทึกรายจ่าย','ซื้อของเข้าร้าน ค่าแก๊ส ค่าเดินทาง',
-        `<button class="btn sm primary" onclick="expenseDialog(null)">${icon('plus',14)} เพิ่ม</button>`)}
-      <div class="mon-nums">
-        <div><span>วันนี้ซื้อของ</span><b>${baht(d.exp)}</b></div>
-        <div><span>เดือนนี้</span><b>${baht(mm.exp)}</b></div>
-      </div>
+      ${cardHead('down','รายรับ-รายจ่ายวันนี้','เงินออกถูกหักจากยอดขายเป็น "เหลือ" ให้แล้ว',
+        `<button type="button" class="btn sm primary" onclick="expenseDialog(null)">${icon('plus',14)} เพิ่ม</button>`)}
+      ${moneyBox(d.sale, d.exp)}
+      ${todayExp.length ? `<div class="sec" style="margin:16px 0 8px">เงินออกวันนี้</div>
+        ${expRows(todayExp.slice(0,4), false)}` : ''}
+      <button type="button" class="seeall" onclick="dayMoneyDialog('${key}')">
+        ดูรายละเอียดของวันนี้${todayExp.length > 4 ? ` (รายจ่าย ${todayExp.length} รายการ)` : ''}</button>
     </div>
 
   </div>`;
@@ -3771,10 +3802,12 @@ function viewHist(){
     </div>
     <p class="hint" style="margin:14px 0 0">เฉลี่ยขายวันละ ฿${baht(avgSale)}</p>
     <div class="mon3">
-      <div><span>รายได้รวม</span><b>฿${baht(m.sale)}</b></div>
-      <div><span>ซื้อของ + ลงทุน</span><b>฿${baht(m.exp)}</b></div>
-      <div><span>กำไรคงเหลือ</span><b class="${m.net>=0?'good':'bad'}">${money(m.net)}</b></div>
+      <div><span>เงินเข้า</span><b>${money(m.sale)}</b></div>
+      <div><span>เงินออก</span><b>${money(m.exp)}</b></div>
+      <div><span>${m.net>=0?'เหลือ':'ขาดทุน'}</span><b class="${m.net>=0?'good':'bad'}">${money(Math.abs(m.net))}</b></div>
     </div>
+    <button type="button" class="seeall" onclick="monthMoneyDialog('${mk}')">
+      ${icon('sum',14)} ดูรายรับ-รายจ่ายของเดือนนี้ทั้งหมด</button>
   </div>
 
   <div class="card">
@@ -3787,7 +3820,7 @@ function viewHist(){
     </div>
     ${shown.length ? `<div class="dayx">${shown.map(k => {
       const s = sumDay(k);
-      return `<button type="button" class="dayx-row" onclick="openDay('${k}')">
+      return `<button type="button" class="dayx-row" onclick="dayMoneyDialog('${k}')">
         <span class="dayx-top">
           <span class="dayx-d">${thaiDate(k)}</span>
           <span class="dayx-net ${s.net>=0?'good':'bad'}">${s.net>=0?'เหลือ':'ขาดทุน'} ฿${baht(Math.abs(s.net))}</span>
@@ -3808,6 +3841,109 @@ function openDay(key){
     title: thaiDate(key, true),
     sub: `ขายได้ ${baht(d.sale)} · ซื้อของ ${baht(d.exp)} · เหลือ ${baht(d.net)} บาท`,
     html: `<div class="list">${rows.map(e => entryRow(e,false)).join('') || '<div class="empty">ไม่มีรายการ</div>'}</div>`
+  });
+}
+
+/* ===================== รายรับ-รายจ่าย =====================
+   รายจ่ายไม่ได้เก็บไว้เฉย ๆ — มันถูกหักออกจากยอดขายเป็น "เหลือ" ทั้งในวันและในเดือน
+   ส่วนนี้ทำให้ดูได้ว่าเงินเข้าเท่าไร ออกเท่าไร และออกไปกับอะไรบ้าง */
+
+// สรุปสามบรรทัด: เข้า / ออก / เหลือ
+function moneyBox(sale, exp){
+  const net = sale - exp;
+  return `<div class="mbox">
+    <div class="mbox-row in">
+      <span class="mbox-ic">${icon('up',15)}</span>
+      <span class="mbox-k">เงินเข้า (ขายได้)</span>
+      <b>${money(sale)}</b>
+    </div>
+    <div class="mbox-row out">
+      <span class="mbox-ic">${icon('down',15)}</span>
+      <span class="mbox-k">เงินออก (ซื้อของ/ค่าใช้จ่าย)</span>
+      <b>${money(exp)}</b>
+    </div>
+    <div class="mbox-row net">
+      <span class="mbox-ic">${icon('sum',15)}</span>
+      <span class="mbox-k">${net >= 0 ? 'เหลือ' : 'ขาดทุน'}</span>
+      <b class="${net >= 0 ? 'good' : 'bad'}">${money(Math.abs(net))}</b>
+    </div>
+  </div>`;
+}
+
+// รายการรายจ่าย เรียงใหม่ก่อน พร้อมวันที่ถ้าดูหลายวัน
+function expRows(list, showDay){
+  if(!list.length) return '<div class="empty" style="padding:18px"><p style="margin:0">ยังไม่มีรายจ่าย</p></div>';
+  return `<div class="list">${list.map(e => `
+    <div class="li" role="button" tabindex="0" onclick="editEntry('exp','${e.id}')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editEntry('exp','${e.id}')}">
+      <div class="li-main">
+        <div class="li-title">${esc(e.note || 'ซื้อของ')}</div>
+        <div class="li-sub">${showDay ? thaiDate(e.d) + ' · ' : ''}${esc(e.t || '')}</div>
+      </div>
+      <div class="li-end">
+        <span class="amt out">−${money(e.amount)}</span>
+        <span class="li-chev">${icon('chev',16)}</span>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+// รายจ่ายของทั้งเดือน จัดกลุ่มตามหัวข้อที่ซื้อซ้ำ ๆ
+function expByNote(mk){
+  const list = (db.expenses||[]).filter(x => monthKey(x.d) === mk);
+  const map = new Map();
+  list.forEach(x => {
+    const k = String(x.note || 'ซื้อของ').trim();
+    const row = map.get(k) || {note:k, total:0, times:0};
+    row.total += n(x.amount); row.times++;
+    map.set(k, row);
+  });
+  return [...map.values()].sort((a,b) => b.total - a.total);
+}
+
+function dayMoneyDialog(key){
+  const d = sumDay(key);
+  const exps = (db.expenses||[]).filter(x => x.d === key)
+                 .sort((a,b) => String(b.t||'').localeCompare(String(a.t||'')));
+  const bills = billsToday(key);
+  openDialog({
+    title: thaiDate(key, true),
+    sub: `${bills.length} บิล · รายจ่าย ${exps.length} รายการ`,
+    html: `
+      ${moneyBox(d.sale, d.exp)}
+      <div class="sec" style="margin-top:18px">เงินเข้า · ${bills.length} บิล</div>
+      ${bills.length ? `<div class="bills">${bills.map(billRowHTML).join('')}</div>`
+        : '<div class="empty" style="padding:18px"><p style="margin:0">วันนี้ยังไม่มีการขาย</p></div>'}
+      <div class="sec">เงินออก · ${exps.length} รายการ</div>
+      ${expRows(exps, false)}`,
+    foot:[{label:'ปิด', cls:'ghost', fn:'dlg.close()'},
+          {label:'เพิ่มรายจ่าย', cls:'primary wide', fn:`dlg.close(); expenseDialog(null)`}]
+  });
+}
+
+function monthMoneyDialog(mk){
+  const m = sumMonth(mk);
+  const list = (db.expenses||[]).filter(x => monthKey(x.d) === mk)
+                 .sort((a,b) => (b.d + (b.t||'')).localeCompare(a.d + (a.t||'')));
+  const groups = expByNote(mk);
+  openDialog({
+    title: 'รายรับ-รายจ่าย ' + thaiMonth(mk),
+    sub: `บันทึกไว้ ${m.days} วัน · รายจ่าย ${list.length} รายการ`,
+    html: `
+      ${moneyBox(m.sale, m.exp)}
+      ${groups.length ? `<div class="sec" style="margin-top:18px">เงินออกไปกับอะไรบ้าง</div>
+        <div class="rankx">${groups.map(g => `
+          <div class="rankx-row">
+            <span class="rankx-no">${g.times}</span>
+            <div class="rankx-main">
+              <div class="rankx-n">${esc(g.note)}</div>
+              <div class="meter"><i style="width:${clamp(g.total / Math.max(groups[0].total,1) * 100, 4, 100)}%"></i></div>
+            </div>
+            <div class="rankx-v">${money(g.total)}<span>${g.times} ครั้ง</span></div>
+          </div>`).join('')}</div>` : ''}
+      <div class="sec">รายจ่ายทั้งหมดของเดือนนี้</div>
+      ${expRows(list, true)}`,
+    foot:[{label:'ปิด', cls:'ghost', fn:'dlg.close()'},
+          {label:'เพิ่มรายจ่าย', cls:'primary wide', fn:`dlg.close(); expenseDialog(null)`}]
   });
 }
 
