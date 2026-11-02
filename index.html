@@ -267,7 +267,7 @@
 
   /* ---------- การ์ดสถานะของวันที่เลือก ---------- */
   .srow{
-    display:flex; align-items:center; gap:14px; margin-top:14px; padding:14px 16px;
+    display:flex; align-items:center; gap:14px; margin-top:14px; padding:15px 18px;
     background:var(--bg); border-radius:var(--r-card); box-shadow:var(--sh-card);
   }
   .srow-ic{
@@ -312,7 +312,7 @@
   }
 
   /* ---------- แท็บซอยเนื้อหาแดชบอร์ด ---------- */
-  .dseg{display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; margin:4px -20px 14px; padding:0 20px}
+  .dseg{display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; margin:14px -20px 14px; padding:0 20px}
   .dseg::-webkit-scrollbar{display:none}
   .dseg-b{
     flex:0 0 auto; border:none; cursor:pointer; font:inherit; padding:9px 15px;
@@ -1076,7 +1076,7 @@
   /* ไอคอน + ข้อความอยู่แถวบนเสมอ ส่วนป้ายกับปุ่มตกลงแถวล่างเมื่อที่ไม่พอ
      ไม่งั้นคำอธิบายจะถูกบีบจนเหลือคอลัมน์แคบ ๆ แล้วตัดคำมั่ว */
   .card-head{
-    display:flex; flex-wrap:wrap; align-items:flex-start; gap:10px 12px; margin-bottom:16px;
+    display:flex; flex-wrap:wrap; align-items:flex-start; gap:10px 12px; margin-bottom:14px;
   }
   .card-head > .ic-tile{order:1}
   .card-head-t{order:2; flex:1 1 60%; min-width:150px}
@@ -4203,8 +4203,9 @@ function segBar(bar, items){
 }
 // แผงเนื้อหาของแท็บย่อยหนึ่งอัน (cls = 'dash' ถ้าอยากให้การ์ดเรียงเป็นกริด)
 function segPane(bar, key, inner, cls){
-  return `<div class="${cls === undefined ? 'dash' : cls} dpane${segOn(bar,key) ? ' on' : ''}"
-               data-sb="${bar}" data-seg="${key}">${inner}</div>`;
+  // เรียงคลาสให้เหมือนกับที่แดชบอร์ดเขียนไว้: [กริด] dpane [on]
+  const c = [cls === undefined ? 'dash' : cls, 'dpane', segOn(bar,key) ? 'on' : ''].filter(Boolean).join(' ');
+  return `<div class="${c}" data-sb="${bar}" data-seg="${key}">${inner}</div>`;
 }
 function setSeg(bar, key){
   segs[bar] = key;

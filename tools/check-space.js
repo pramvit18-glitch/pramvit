@@ -37,6 +37,35 @@ push(`จังหวะหัวข้อเท่ากันหมด (${[...
 // การ์ดกับการ์ดห่างกัน 14 ทั้งแอป การ์ดสถานะต้องไม่ใช้ค่าอื่น
 push('การ์ดสถานะห่างเท่าการ์ดอื่น', /\.srow\{[^}]*margin-top:14px/.test(css));
 
+/* ---------- จังหวะแนวตั้งของคอลัมน์หลัก ----------
+   บนหน้าตั้งค่า ของเรียงกันเป็น การ์ดสถานะ → แถบชิป → การ์ด → การ์ด
+   ทุกช่องต้องเป็น 14px ช่องไหนหลุดไปจะเห็นเป็นของเกาะกันทันที */
+const gapOf = (sel, prop) => {
+  const b = (new RegExp('\\.' + sel + '\\{([^}]*)\\}').exec(css) || [])[1] || '';
+  const m = new RegExp(prop + ':\\s*(-?\\d+)px').exec(b);
+  if (m) return Number(m[1]);
+  const sh = /margin:\s*(-?\d+)px/.exec(b);          // margin ย่อ: ค่าแรกคือบน
+  return sh ? Number(sh[1]) : null;
+};
+const col = {
+  'การ์ดสถานะ → แถบชิป': gapOf('dseg', 'margin-top'),
+  'แถบชิป → การ์ดแรก':   gapOf('dseg', 'margin-bottom'),
+  'การ์ด → การ์ด':        gapOf('card, \\.block', 'margin-bottom'),
+  'หัวหน้า → การ์ดสถานะ': gapOf('srow', 'margin-top'),
+};
+Object.entries(col).forEach(([k, v]) => push(`ช่อง "${k}" = 14px (ได้ ${v}px)`, v === 14));
+
+// หัวการ์ด → เนื้อหา ต้องเป็นค่าเดียวกันทั้งแบบ cardHead() และแบบ <h2>+.sub
+const headGap = gapOf('card-head', 'margin-bottom');
+const subGap = (/\.card > h2 \+ \.sub[^{]*\{[^}]*margin:0 0 (\d+)px/.exec(css) || [])[1];
+push(`หัวการ์ด → เนื้อหา ใช้ค่าเดียวกันทั้งสองแบบ (${headGap}px / ${subGap}px)`,
+  headGap !== null && String(headGap) === subGap);
+
+// ขอบในของการ์ดสถานะต้องตรงกับการ์ดทั่วไป ไม่งั้นดูแคบกว่าใบอื่นที่อยู่ใต้มัน
+const pad = sel => (new RegExp('\\.' + sel + '\\{[^}]*padding:(?:\\d+px )?(\\d+)px').exec(css) || [])[1];
+push(`ขอบในซ้าย-ขวาของการ์ดสถานะเท่าการ์ดอื่น (${pad('srow')}px / ${pad('card, \\.block')}px)`,
+  pad('srow') === pad('card, \\.block'));
+
 /* ---------- หน้าขาย (CSS) ---------- */
 push('แถบสรุปหน้าขายวางเลขบนฐานเดียวกัน', /\.possum-n\{[^}]*align-items:baseline/.test(css));
 push('มีปุ่มเมนูกดด่วน', /\.qmenu\{[^}]*grid-template-columns/.test(css));
