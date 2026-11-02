@@ -2461,8 +2461,17 @@ function orderSetupDialog(){
   const link = orderLink();
   openDialog({ icon:'cart',
     title:'ให้ลูกค้าสั่งเองได้',
-    sub: on ? 'เปิดอยู่ · ลูกค้าสแกน QR แล้วสั่งได้เลย' : 'ยังไม่ได้เปิด',
+    sub: on ? (db.shopOpen ? 'เปิดอยู่ · ลูกค้าสแกน QR แล้วสั่งได้เลย'
+                           : 'เปิดรับอยู่ แต่ร้านปิด ลูกค้ายังสั่งไม่ได้')
+            : 'ยังไม่ได้เปิด',
     html:`
+      ${on && !db.shopOpen ? `<div style="display:flex; gap:11px; align-items:center;
+             background:var(--warn-bg); color:var(--warn-ink); border-radius:12px;
+             padding:12px 14px; margin:0 0 14px; font-size:13.5px; font-weight:700; line-height:1.5">
+        <span style="flex:1">ร้านปิดอยู่ ลูกค้าจะเห็นว่า "ร้านปิด" และยังสั่งไม่ได้</span>
+        <button type="button" class="btn sm primary" style="flex:0 0 auto"
+                onclick="toggleShopOpen(); orderSetupDialog()">เปิดร้าน</button>
+      </div>` : ''}
       <p style="margin:0 0 14px; color:var(--ink-2); font-size:13.5px; line-height:1.65">
         เปิดแล้วลูกค้าจะกดสั่งจากมือถือตัวเองได้ ออเดอร์จะเด้งมาที่เครื่องนี้ มีเสียงเตือน
         แม่ค้ากดรับแล้วลูกค้าจะเห็นเลขคิว <b>จ่ายเงินตอนมารับของ</b>
@@ -2535,13 +2544,22 @@ async function toggleOrders(){
   if(!db.menus.length){ toast('ตั้งเมนูกับราคาไว้ก่อน ลูกค้าถึงจะสั่งได้'); return; }
 
   if(!db.orderKey) db.orderKey = uid() + uid();   // รหัสช่องของร้าน เดายาก
+
+  /* มีสองสวิตช์ที่คนละเรื่องกัน: "ร้านเปิดอยู่ไหม" กับ "รับออเดอร์ทางลิงก์ไหม"
+     ถ้าเปิดรับออเดอร์ทั้งที่ร้านยังปิดอยู่ ลูกค้าจะเห็นว่า "ร้านปิดอยู่"
+     แล้วแม่ค้างงว่าเปิดรับไปแล้วทำไมยังสั่งไม่ได้ — เปิดร้านให้เลย
+     ไม่ถามซ้ำ เพราะคนที่กดเปิดรับออเดอร์ก็คือคนที่ตั้งใจจะขายอยู่แล้ว */
+  const wasClosed = !db.shopOpen;
+  if(wasClosed) db.shopOpen = 1;
+
   db.orderOn = true; save();
   try{ await publishMenu(); }
   catch(e){ db.orderOn = false; save(); toast('ต่อที่เก็บออเดอร์ไม่ติด ลองเช็ก URL อีกที'); return; }
   seenOrders = null;
   startOrderWatch();
   dlg.close(); render();
-  toast('เปิดรับออเดอร์แล้ว — คัดลอกลิงก์ไปทำ QR ติดหน้าร้านได้เลย');
+  toast(wasClosed ? 'เปิดร้านและเปิดรับออเดอร์แล้ว — คัดลอกลิงก์ไปทำ QR ได้เลย'
+                  : 'เปิดรับออเดอร์แล้ว — คัดลอกลิงก์ไปทำ QR ติดหน้าร้านได้เลย');
 }
 
 function unlockDevice(){

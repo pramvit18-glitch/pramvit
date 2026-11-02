@@ -167,8 +167,35 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('หยุดรับแล้ว ไม่โชว์เมนูเลย', !t5.includes('เครปกรอบ'));
   push('หยุดรับแล้ว ขึ้นรูปใหญ่บอกสถานะ', await cust5.locator('#view .empty.big .empty-ic').count() === 1);
 
+  /* ---------- เปิดรับออเดอร์ตอนร้านปิดอยู่ ---------- */
+  // เคยพลาด: มีสองสวิตช์ (ร้านเปิดไหม / รับออเดอร์ไหม) แม่ค้ากดเปิดรับออเดอร์
+  // แต่ร้านยังปิดค้างอยู่ ลูกค้าเลยเห็น "ร้านปิดอยู่" แล้วแม่ค้างงว่าทำไม
+  await seller.evaluate(async () => {
+    db.shopOpen = 0; db.orderOn = 0; save(); await publishMenu();
+  });
+  await seller.evaluate(async () => { await toggleOrders(); });   // กดเปิดรับออเดอร์
+  await seller.waitForTimeout(700);
+  push('เปิดรับออเดอร์ตอนร้านปิด ระบบเปิดร้านให้ด้วย',
+    await seller.evaluate(() => !!db.shopOpen) === true);
+  const openedMenu = await (await fetch(`${CLOUD}/s/${key}/menu.json`)).json();
+  push('คลาวด์บอกว่าร้านเปิดและรับออเดอร์อยู่',
+    openedMenu.open === true && openedMenu.taking === true);
+
+  const cust6 = await b.newPage({ viewport:{width:390,height:844} });
+  await cust6.goto(`${APP}/order.html?s=${key}&c=${encodeURIComponent(CLOUD)}`);
+  await cust6.waitForTimeout(600);
+  const t6 = await cust6.textContent('#view');
+  push('ลูกค้าไม่เจอ "ร้านปิดอยู่" แล้ว', !t6.includes('ร้านปิดอยู่'));
+  push('ลูกค้ากดสั่งได้จริง', (await cust6.locator('#view button.li').count()) === 2);
+
+  /* ---------- ปิดร้านตอนรับออเดอร์อยู่ ต้องถึงลูกค้าเอง ---------- */
+  await seller.evaluate(() => { toggleShopOpen(); });   // ไม่ได้สั่งเผยแพร่เอง
+  await seller.waitForTimeout(2500);                    // publishMenuSoon หน่วง 1.5 วิ
+  const closedMenu = await (await fetch(`${CLOUD}/s/${key}/menu.json`)).json();
+  push('กดปิดร้าน ลูกค้ารู้เองโดยไม่ต้องสั่งเผยแพร่', closedMenu.open === false);
+
   // เปิดกลับไว้ให้ข้อถัด ๆ ไปใช้ต่อ
-  await seller.evaluate(async () => { db.orderOn = 1; save(); await publishMenu(); });
+  await seller.evaluate(async () => { db.shopOpen = 1; db.orderOn = 1; save(); await publishMenu(); });
 
   /* ---------- หา URL ของที่เก็บจากชื่อโปรเจกต์ ---------- */
   // เจ้าของร้านไม่ควรต้องรู้ว่า URL จริงมีชื่อโซนปนอยู่
