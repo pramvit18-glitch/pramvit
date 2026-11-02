@@ -2513,9 +2513,14 @@ function openDialog(cfg){
   ic.innerHTML = cfg.icon ? icon(cfg.icon, 19) : '';
   // tone: 'r' แดง (ลบ/อันตราย) · 'w' เหลือง (เตือน) · 'g' เขียว (สำเร็จ) · ไม่ใส่ = แดงอ่อนปกติ
   ic.className = 'ic-tile' + (cfg.tone ? ' tone-' + cfg.tone : '');
-  dlg.classList.remove('scrolled','dragging','snapback');
-  dlg.style.removeProperty('--drag');
-  dlg.scrollTop = 0;
+  // ล้างสถานะเลื่อน/ลาก เฉพาะตอนเปิดหน้าต่างใหม่เท่านั้น
+  // หน้าต่างสั่งสินค้าเรียก openDialog() ซ้ำทุกครั้งที่กด +/− เพื่อวาดบิลใหม่
+  // ถ้าล้างทุกครั้ง หน้าต่างจะดีดกลับขึ้นบนสุดทุกครั้งที่กดเพิ่มจำนวน
+  if(!dlg.open){
+    dlg.classList.remove('scrolled','dragging','snapback');
+    dlg.style.removeProperty('--drag');
+    dlg.scrollTop = 0;
+  }
   document.getElementById('dlgTitle').innerHTML = esc(cfg.title)
     + (cfg.tag ? ` <button type="button" class="dlg-tag${cfg.tag.on ? ' on' : ''}" onclick="${cfg.tag.fn}">${esc(cfg.tag.label)}</button>` : '');
   document.getElementById('dlgSub').textContent = cfg.sub || '';
@@ -3376,6 +3381,9 @@ function closeOrderDialog(){
 
 function drawOrderDialog(){
   const has = !!(order && order.lines.length);
+  // รายการเมนูกับบิลมีแถบเลื่อนของตัวเอง แต่ innerHTML ถูกวาดใหม่ทั้งก้อนทุกครั้งที่กด +/−
+  // ถ้าไม่จำตำแหน่งไว้ เลื่อนหาเมนูที่อยู่ล่าง ๆ แล้วกดเพิ่ม จะเด้งกลับไปเมนูแรกทุกที
+  const keep = scrollOf('.dlg-body .poslist', '.dlg-bill');
   openDialog({ icon:'cart',
     title: 'สั่งสินค้า',
     sub: quickPick ? 'เฉพาะเมนูที่ขายดีใน 7 วันล่าสุด' : 'กดเมนูที่ลูกค้าสั่ง หรือค้นหาชื่อเมนู',
@@ -3386,8 +3394,27 @@ function drawOrderDialog(){
          {label:'เพิ่มลงบิล', cls:'primary wide', fn:'payBill()'}]
       : [{label:'ปิด', cls:'ghost', fn:'closeOrderDialog()'}]
   });
+  keep.restore();
   const q = document.getElementById('posq');
   if(q && posQ) { q.value = posQ; }
+}
+
+/* จำตำแหน่งเลื่อนของกล่องที่ส่งชื่อมา แล้วคืนให้หลังวาดใหม่
+   ใช้ตอนที่ต้องสร้าง DOM ใหม่ทั้งก้อนแต่ไม่อยากให้ผู้ใช้เสียที่ที่เลื่อนไว้ */
+function scrollOf(...sels){
+  const saved = sels.map(s => {
+    const el = document.querySelector(s);
+    return [s, el ? el.scrollTop : 0];
+  });
+  return {
+    restore(){
+      saved.forEach(([s, top]) => {
+        if(!top) return;
+        const el = document.querySelector(s);
+        if(el) el.scrollTop = top;
+      });
+    }
+  };
 }
 
 function catTabsHTML(){
