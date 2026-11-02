@@ -275,6 +275,21 @@
 
   /* หน้า "สั่งไม่ได้ตอนนี้" — ลูกค้าต้องเห็นแล้วรู้ทันที ไม่ต้องอ่าน
      รูปใหญ่กว่าปกติเท่าตัว เพราะทั้งหน้ามีอยู่แค่นี้ */
+  /* คำขอบคุณหลังลูกค้าสั่งเสร็จ — เด่นแต่ไม่กินที่เท่าหน้า "สั่งไม่ได้" */
+  .empty.thanks{padding:30px 14px 26px}
+  .empty.thanks .empty-ic{width:76px; height:76px; border-radius:22px; margin-bottom:18px}
+  .empty.thanks .empty-ic svg{width:38px; height:38px}
+  .empty.thanks h3{font-size:21px; margin-bottom:8px}
+  .empty.thanks p{font-size:14px}
+
+  /* ป้ายพาไปดูคิวของตัวเอง (อยู่บนหน้าเลือกของ) */
+  .banner{
+    display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    border:none; font:inherit; color:inherit; cursor:pointer; padding:14px 16px;
+  }
+  .banner-t{display:block; font-size:15px; font-weight:800; letter-spacing:-.01em}
+  .banner-s{display:block; font-size:12.5px; color:var(--muted); font-weight:600; margin-top:2px}
+
   .empty.big{padding:56px 14px 60px}
   .empty.big .empty-ic{width:96px; height:96px; border-radius:26px; margin-bottom:22px}
   .empty.big .empty-ic svg{width:46px; height:46px}
@@ -429,11 +444,22 @@ async function cloud(method, path, body){
 /* ---------- สถานะหน้าจอ ---------- */
 let menu = null;          // ใบเมนูที่แม่ค้าเผยแพร่ไว้
 let cart = [];            // ของที่ลูกค้าเลือกไว้
-let sent = null;          // {id, at} ออเดอร์ที่ส่งไปแล้ว
-let mine = null;          // ออเดอร์ของเราที่อ่านกลับมาจากที่เก็บ
+let sentList = [];        // [{id, at}] ออเดอร์ที่ส่งไปแล้ว เรียงเก่าไปใหม่
+let mineMap = {};         // {id: ออเดอร์ที่อ่านกลับมาจากที่เก็บ}
+let mode = 'menu';        // 'menu' = กำลังเลือกของ · 'queue' = กำลังดูคิวของตัวเอง
 let poll = null;
 
 const SENT_KEY = 'crepe-order-sent-' + SHOP;
+const KEEP_MS  = 6*3600*1000;   // จำออเดอร์ของตัวเองไว้ 6 ชม. (ตรงกับที่ฝั่งร้านลบทิ้ง)
+
+function saveSent(){
+  try{ localStorage.setItem(SENT_KEY, JSON.stringify(sentList)); }catch(e){}
+}
+// ออเดอร์ที่ยังไม่จบ — ใช้ตัดสินว่าต้องถามที่เก็บต่อไหม และโชว์ป้ายค้างไหม
+const liveOrders = () => sentList.filter(x => {
+  const o = mineMap[x.id];
+  return !o || (o.status !== 'done' && o.status !== 'rej');
+});
 
 /* ===================== เริ่มทำงาน ===================== */
 start();
@@ -452,14 +478,12 @@ async function start(){
 
   // เคยสั่งค้างไว้ไหม (รีเฟรชหน้าแล้วต้องยังเห็นคิวของตัวเอง)
   try{
-    const raw = localStorage.getItem(SENT_KEY);
-    if(raw){
-      const s = JSON.parse(raw);
-      // เก็บไว้ 6 ชั่วโมงพอ เลยกว่านั้นถือว่าจบไปแล้ว
-      if(s && s.id && Date.now() - n(s.at) < 6*3600*1000) sent = s;
-      else localStorage.removeItem(SENT_KEY);
-    }
-  }catch(e){}
+    const raw = JSON.parse(localStorage.getItem(SENT_KEY) || '[]');
+    // ของเดิมเคยเก็บเป็นออเดอร์เดียว ไม่ใช่รายการ — รับได้ทั้งสองแบบ
+    const arr = Array.isArray(raw) ? raw : [raw];
+    sentList = arr.filter(x => x && x.id && Date.now() - n(x.at) < KEEP_MS);
+    if(sentList.length !== arr.length) saveSent();
+  }catch(e){ sentList = []; }
 
   try{
     menu = await cloud('GET', `s/${SHOP}/menu`);
@@ -481,7 +505,7 @@ async function start(){
 
   head(menu.name || 'สั่งของ', menu.branch || 'เลือกของที่อยากได้ แล้วกดสั่ง');
 
-  if(sent){ watchMine(); } else { draw(); }
+  if(sentList.length){ watchMine(); } else { draw(); }
 }
 
 function head(title, sub){
@@ -503,7 +527,9 @@ function draw(){
   }
 
   el('foot').hidden = false;
+  mode = 'menu';
   el('view').innerHTML = `
+    ${myOrdersBanner()}
     <div class="card">
       ${cardHead('menu', 'เลือกของที่อยากได้', 'แตะที่เมนู แล้วเลือกไส้กับจำนวน')}
       <div class="list">
@@ -537,6 +563,23 @@ function closedView(title, sub){
       <p>${esc(sub)}</p>
     </div>
   </div>`;
+}
+
+/* สั่งไปแล้วแต่กลับมาเลือกของเพิ่ม ต้องมีทางกลับไปดูคิวของตัวเองเสมอ
+   ไม่งั้นลูกค้าจะคิดว่าออเดอร์แรกหายไปแล้ว */
+function myOrdersBanner(){
+  if(!sentList.length) return '';
+  const nos = sentList.map(x => mineMap[x.id]).filter(o => o && o.no).map(o => o.no);
+  const live = liveOrders().length;
+  return `<button type="button" class="card banner" onclick="goQueue()">
+    <span class="ic-tile">${icon('today',18)}</span>
+    <span class="card-head-t">
+      <span class="banner-t">${live ? 'ออเดอร์ของคุณกำลังทำอยู่' : 'ดูออเดอร์ที่สั่งไปแล้ว'}</span>
+      <span class="banner-s">${nos.length ? 'คิวที่ ' + nos.map(x => esc(String(x))).join(', ')
+                                           : 'รอร้านกดรับออเดอร์'} · แตะเพื่อดู</span>
+    </span>
+    <span class="li-chev">${icon('chev',16)}</span>
+  </button>`;
 }
 
 function addonText(m){
@@ -660,7 +703,7 @@ const cartCount = () => cart.reduce((s,c) => s + n(c.qty), 0);
 
 function bar(){
   const b = el('bar');
-  if(sent || !cart.length || !menu.open){ b.hidden = true; return; }
+  if(mode !== 'menu' || !cart.length || !menu.open){ b.hidden = true; return; }
   b.hidden = false;
   el('barTotal').textContent = '฿' + baht(cartTotal());
   el('barCount').textContent = `${cartCount()} ชิ้น`;
@@ -711,8 +754,8 @@ async function send(){
 
   try{
     const res = await cloud('POST', `s/${SHOP}/orders`, body);
-    sent = { id: res.name, at: body.at };
-    try{ localStorage.setItem(SENT_KEY, JSON.stringify(sent)); }catch(e){}
+    sentList.push({ id: res.name, at: body.at });   // ต่อท้าย ไม่ทับของเดิม
+    saveSent();
     cart = [];
     el('dlg').close();
     watchMine();
@@ -722,91 +765,107 @@ async function send(){
   }
 }
 
-/* ===================== หน้ารอคิว ===================== */
+/* ===================== หน้ารอคิว =====================
+   ลูกค้าสั่งซ้ำได้ แต่ออเดอร์เก่าต้องไม่หายไปไหน
+   (ของเดิมกด "สั่งเพิ่ม" แล้วคิวเดิมหายเลย ลูกค้าไม่รู้ว่าของตัวเองถึงไหนแล้ว) */
 function watchMine(){
+  mode = 'queue';
   drawMine();
   bar();
   if(poll) clearInterval(poll);
-  // ถามที่เก็บทุก 4 วินาที พอรู้สถานะแล้วหยุดเอง
+  // ถามที่เก็บทุก 4 วินาที พอทุกออเดอร์จบแล้วหยุดเอง
   poll = setInterval(refreshMine, 4000);
   refreshMine();
 }
 
 async function refreshMine(){
-  try{
-    mine = await cloud('GET', `s/${SHOP}/orders/${sent.id}`);
-  }catch(e){ return; }
-  drawMine();
-  if(mine && (mine.status === 'done' || mine.status === 'rej')) clearInterval(poll);
+  const live = liveOrders();
+  if(!live.length){ clearInterval(poll); return; }
+  // ถามเฉพาะออเดอร์ที่ยังไม่จบ ที่จบแล้วไม่ต้องถามซ้ำให้เปลืองโควตา
+  for(const x of live){
+    try{ mineMap[x.id] = await cloud('GET', `s/${SHOP}/orders/${x.id}`); }catch(e){}
+  }
+  if(mode === 'queue') drawMine(); else draw();
+  if(!liveOrders().length) clearInterval(poll);
 }
 
+const STEPS = [['new','ส่งแล้ว'], ['cook','กำลังทำ'], ['done','รับได้เลย']];
+
 function drawMine(){
-  const st = (mine && mine.status) || 'new';
+  el('foot').hidden = false;
+  const done = sentList.length && sentList.every(x => mineMap[x.id] && mineMap[x.id].status === 'done');
+  const live = liveOrders().length;
 
-  if(st === 'rej'){
-    el('view').innerHTML = `
-      <div class="card">
-        ${cardHead('x', 'ทางร้านรับไม่ไหว', 'ขอโทษด้วยนะครับ')}
-        <div class="note bad">${icon('x',17)}<span>ทางร้านรับออเดอร์นี้ไม่ไหวครับ${mine && mine.why ? ' — ' + esc(mine.why) : ''}</span></div>
-        <button class="btn primary block" style="margin-top:14px" onclick="again()">สั่งใหม่อีกครั้ง</button>
-      </div>`;
-    return;
-  }
-
-  const steps = [
-    ['new',  'ส่งแล้ว'],
-    ['cook', 'กำลังทำ'],
-    ['done', 'รับได้เลย']
-  ];
-  const at = steps.findIndex(s => s[0] === st);
+  // คำขอบคุณ — ลูกค้าจะได้รู้สึกว่าทางร้านรับรู้แล้วจริง ๆ ไม่ใช่กดส่งไปแล้วเงียบ
+  const t = done ? ['ขอบคุณที่อุดหนุนนะครับ', 'มารับของที่ร้านได้เลย']
+          : live ? ['ขอบคุณที่สั่งนะครับ',    'ทางร้านได้รับออเดอร์ของคุณแล้ว']
+                 : ['ขอบคุณที่แวะมานะครับ',   ''];
 
   el('view').innerHTML = `
     <div class="card">
-      ${cardHead('today', 'ออเดอร์ของคุณ', 'หน้านี้อัปเดตเองทุก 4 วินาที')}
-      <div class="qbig">
-        ${mine && mine.no ? `<b>${esc(String(mine.no))}</b><span>เลขคิวของคุณ</span>`
-                          : `<b>…</b><span>รอร้านกดรับออเดอร์</span>`}
+      <div class="empty thanks">
+        <div class="empty-ic">${icon(done ? 'check' : 'cart', 46)}</div>
+        <h3>${t[0]}</h3>
+        ${t[1] ? `<p>${t[1]}</p>` : ''}
       </div>
-      <div class="steps">
-        ${steps.map((s, i) => `<div class="step ${i <= at ? 'on' : ''}"><i></i>${s[1]}</div>`).join('')}
-      </div>
-      ${st === 'done' ? `<div class="note ok">${icon('check',17)}<span>ของเสร็จแล้ว มารับที่ร้านได้เลยครับ</span></div>`
-        : st === 'cook' ? `<div class="note">${icon('cart',17)}<span>ร้านรับออเดอร์แล้ว กำลังทำอยู่</span></div>`
-        : `<div class="note">${icon('cart',17)}<span>ส่งให้ร้านแล้ว รอร้านกดรับสักครู่นะครับ</span></div>`}
     </div>
-    ${mine ? orderCard(mine) : ''}
+    ${sentList.map(x => queueCard(mineMap[x.id])).join('')}
     <div class="card">
-      <button class="btn ghost block" onclick="again()">${icon('plus',16)} สั่งเพิ่มอีกออเดอร์</button>
+      <button class="btn ghost block" onclick="backToMenu()">${icon('plus',16)} สั่งเพิ่มอีกออเดอร์</button>
     </div>`;
 }
 
-function orderCard(o){
-  const items = Array.isArray(o.items) ? o.items : [];
-  return `
-    <div class="card">
-      ${cardHead('sum', 'ที่สั่งไว้', 'จ่ายเงินตอนมารับของ',
-        `<span class="head-tag">฿${baht(o.total)}</span>`)}
-      <div class="list">
-        ${items.map(it => `
-          <div class="li" style="cursor:default">
-            <span class="av">${esc(String(it.qty))}</span>
-            <div class="li-main">
-              <div class="li-title">${esc(it.name)}</div>
-              ${(it.addons||[]).length ? `<div class="li-sub">${esc(it.addons.map(a => a.name).join(' · '))}</div>` : ''}
-            </div>
-            <span class="li-p">฿${baht(it.total)}</span>
-          </div>`).join('')}
-      </div>
-      <div class="sumrow"><span>รวม</span><b>฿${baht(o.total)}</b></div>
+// การ์ดของออเดอร์หนึ่งใบ — เลขคิว ขั้นตอน และรายการที่สั่ง
+function queueCard(o){
+  const st = (o && o.status) || 'new';
+
+  if(st === 'rej'){
+    return `<div class="card">
+      ${cardHead('x', 'ออเดอร์นี้ร้านรับไม่ไหว', 'ขอโทษด้วยนะครับ')}
+      <div class="note bad">${icon('x',17)}<span>ทางร้านรับออเดอร์นี้ไม่ไหวครับ${o && o.why ? ' — ' + esc(o.why) : ''}</span></div>
     </div>`;
+  }
+
+  const at = STEPS.findIndex(x => x[0] === st);
+  const items = (o && Array.isArray(o.items)) ? o.items : [];
+
+  return `<div class="card">
+    ${cardHead('today',
+      st === 'done' ? 'ของเสร็จแล้ว' : st === 'cook' ? 'ร้านกำลังทำอยู่' : 'รอร้านกดรับออเดอร์',
+      st === 'done' ? 'มารับที่ร้านได้เลยครับ'
+      : st === 'cook' ? 'อีกสักครู่นะครับ'
+      : 'ส่งให้ร้านแล้ว รอสักครู่',
+      o ? `<span class="head-tag">฿${baht(o.total)}</span>` : '')}
+    <div class="qbig">
+      ${o && o.no ? `<b>${esc(String(o.no))}</b><span>เลขคิวของคุณ</span>`
+                  : `<b>…</b><span>ยังไม่ได้เลขคิว</span>`}
+    </div>
+    <div class="steps">
+      ${STEPS.map((x, i) => `<div class="step ${i <= at ? 'on' : ''}"><i></i>${x[1]}</div>`).join('')}
+    </div>
+    ${items.length ? `<div class="list">
+      ${items.map(it => `
+        <div class="li" style="cursor:default">
+          <span class="av">${esc(String(it.qty))}</span>
+          <div class="li-main">
+            <div class="li-title">${esc(it.name)}</div>
+            ${(it.addons||[]).length ? `<div class="li-sub">${esc(it.addons.map(a => a.name).join(' · '))}</div>` : ''}
+          </div>
+          <span class="li-p">฿${baht(it.total)}</span>
+        </div>`).join('')}
+    </div>
+    <div class="sumrow"><span>รวม · จ่ายตอนมารับของ</span><b>฿${baht(o.total)}</b></div>` : ''}
+  </div>`;
 }
 
-function again(){
-  if(poll) clearInterval(poll);
-  sent = null; mine = null; cart = [];
-  try{ localStorage.removeItem(SENT_KEY); }catch(e){}
+// กลับไปหน้าเลือกของ โดย **ไม่** ทิ้งออเดอร์เดิม กดกลับมาดูคิวได้ตลอด
+function backToMenu(){
+  mode = 'menu';
+  cart = [];
   draw();
 }
+function goQueue(){ watchMine(); }
+
 </script>
 </body>
 </html>

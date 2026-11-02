@@ -91,6 +91,8 @@ const push = (name, v) => { ok.push([name, !!v]); };
   await cust.waitForTimeout(700);
 
   push('ส่งออเดอร์แล้วเข้าหน้ารอคิว', (await cust.locator('.qbig').count()) === 1);
+  push('ส่งแล้วมีคำขอบคุณให้ลูกค้า',
+    (await cust.textContent('#view')).includes('ขอบคุณที่สั่ง'));
 
   /* ---------- ออเดอร์เด้งถึงแม่ค้าไหม ---------- */
   await seller.evaluate(() => pollOrders());
@@ -133,7 +135,41 @@ const push = (name, v) => { ok.push([name, !!v]); };
 
   await cust.evaluate(() => refreshMine());
   await cust.waitForTimeout(400);
-  push('ลูกค้าเห็นว่าของเสร็จแล้ว', (await cust.textContent('.note')).includes('เสร็จแล้ว'));
+  const doneTxt = await cust.textContent('#view');
+  push('ลูกค้าเห็นว่าของเสร็จแล้ว', doneTxt.includes('ของเสร็จแล้ว'));
+  push('ของเสร็จแล้วมีคำขอบคุณปิดท้าย', doneTxt.includes('ขอบคุณที่อุดหนุน'));
+
+  /* ---------- สั่งเพิ่มแล้วออเดอร์เดิมต้องไม่หาย ---------- */
+  // ของเดิมกด "สั่งเพิ่ม" แล้วล้างออเดอร์เก่าทิ้ง ลูกค้าไม่รู้ว่าของตัวเองถึงไหน
+  await cust.evaluate(() => backToMenu());
+  await cust.waitForTimeout(300);
+  push('กดสั่งเพิ่มแล้วออเดอร์เดิมยังอยู่',
+    await cust.evaluate(() => sentList.length) === 1);
+  // ไม่มีป้าย = ออเดอร์เดิมหายไปแล้ว ต้องรายงานเป็นข้อตก ไม่ใช่ปล่อยให้ค้างรอจนล้มทั้งชุด
+  const hasBanner = await cust.locator('#view .banner').count() === 1;
+  push('หน้าเลือกของมีป้ายพากลับไปดูคิว', hasBanner);
+  if(hasBanner){
+    await cust.locator('#view .banner').click();
+    await cust.waitForTimeout(300);
+  }
+  push('แตะป้ายแล้วกลับไปดูคิวเดิมได้',
+    hasBanner && (await cust.textContent('#view')).includes('ขอบคุณ'));
+
+  // สั่งใบที่สองแล้วต้องเห็นทั้งสองใบ
+  await cust.evaluate(() => backToMenu());
+  await cust.waitForTimeout(300);
+  await cust.locator('#view button.li').first().click();
+  await cust.waitForTimeout(300);
+  await cust.locator('button', { hasText:'ใส่ตะกร้า' }).click();
+  await cust.waitForTimeout(300);
+  await cust.locator('#barBtn').click();
+  await cust.waitForTimeout(300);
+  await cust.locator('#sendBtn').click();
+  await cust.waitForTimeout(900);
+  push('สั่งใบที่สองได้ และเก็บไว้ทั้งสองใบ',
+    await cust.evaluate(() => sentList.length) === 2);
+  push('หน้าคิวโชว์ออเดอร์ครบทุกใบ',
+    await cust.locator('#view .qbig').count() === 2);
 
   /* ---------- ร้านปิด = สั่งไม่ได้ ---------- */
   await seller.evaluate(async () => { db.shopOpen = 0; save(); await publishMenu(); });
