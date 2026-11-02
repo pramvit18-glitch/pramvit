@@ -109,16 +109,25 @@ push('ใช้ --ease ซ้ำหลายที่ ไม่ได้ก๊�
 /* ---------- สลับหน้าแล้วมีทรานซิชัน ---------- */
 push('มีแอนิเมชันตอนเปลี่ยนหน้า ครบทั้งลอยขึ้นและเลื่อนซ้าย-ขวา',
   ['viewup','viewr','viewl'].every(k => new RegExp('@keyframes ' + k + '\\b').test(css)));
-push('แอนิเมชันเปลี่ยนหน้าผูกกับทั้งเนื้อหาและส่วนบนหน้าแรก',
-  /#view\.swap,\s*#homeTop\.swap\{animation:viewup/.test(css)
-  && /#view\.swap-r,\s*#homeTop\.swap-r\{animation:viewr/.test(css));
+// คลาสแอนิเมชันต้องเป็นคลาสทั่วไป ไม่ผูกกับ id ไหน จะได้ใช้กับแผงย่อยในหน้าได้ด้วย
+push('คลาสแอนิเมชันใช้ซ้ำได้ ไม่ผูกกับ #view อย่างเดียว',
+  /\n\s*\.swap\s*\{animation:viewup/.test(clean) && !/#view\.swap/.test(clean));
 // ทิศต้องมาจากลำดับแท็บจริง ไม่ใช่เดาหรือสุ่ม
 push('ทิศการเลื่อนคิดจากลำดับบนแถบล่าง',
   /TABS\.findIndex\(t => t\[0\] === k\)/.test(script) && /to > from \? 'swap-r' : 'swap-l'/.test(script));
-push('หน้าที่ไม่ได้อยู่บนแถบล่างใช้ลอยขึ้นแทน ไม่เดาทิศมั่ว',
-  /from < 0 \|\| to < 0/.test(script));
+// เข้าหน้าย่อยที่ไม่ได้อยู่บนแถบ = เดินเข้าไปข้างใน / กลับออกมา = ถอยออก
+push('เข้าหน้าย่อยเลื่อนมาจากขวา ถอยออกเลื่อนมาจากซ้าย',
+  /to < 0\s*\?\s*'swap-r'/.test(script) && /from < 0\s*\?\s*'swap-l'/.test(script));
+push('มีตัวช่วยเล่นแอนิเมชันตัวเดียว ใช้ซ้ำทุกที่', /function playSwap\(el, cls\)/.test(script));
 push('ล้างคลาสทิศเก่าก่อนใส่อันใหม่',
   /classList\.remove\('swap','swap-r','swap-l'\)/.test(script));
+
+/* ---------- แท็บย่อยในหน้าก็ต้องเลื่อนเหมือนกัน ----------
+   เดิม setSeg() แค่สลับคลาส แผงโผล่ทันที ดีดไม่เข้ากับที่อื่นในแอป */
+push('สลับแท็บย่อยแล้วแผงเลื่อนเข้ามา', /if\(now && prev !== key\) playSwap\(now, dir\)/.test(script));
+push('ทิศของแท็บย่อยคิดจากลำดับแผงจริงใน DOM',
+  /order\.indexOf\(key\) > order\.indexOf\(prev\)/.test(script));
+push('กดแท็บย่อยเดิมซ้ำไม่เล่นแอนิเมชัน', /prev !== key/.test(script));
 push('เล่นเฉพาะตอนเปลี่ยนหน้า ไม่ใช่ทุกครั้งที่วาดใหม่',
   /if\(tab !== shownTab\)/.test(script) && /shownTab = tab/.test(script));
 push('รีสตาร์ทแอนิเมชันด้วยการบังคับ reflow', /void el\.offsetWidth/.test(script));
@@ -127,7 +136,7 @@ push('รีสตาร์ทแอนิเมชันด้วยการ�
 const rm = [...clean.matchAll(/@media\(prefers-reduced-motion:reduce\)\{([\s\S]*?)\n  \}/g)]
   .map(m => m[1]).join('\n');
 push('ปิดการยุบตอนกดให้คนที่ตั้งค่าลดการเคลื่อนไหว', /transform:none/.test(rm));
-push('ปิดแอนิเมชันเปลี่ยนหน้าด้วย', /#view\.swap[^}]*animation:none/.test(clean));
+push('ปิดแอนิเมชันเปลี่ยนหน้าด้วย', /\.swap,\s*\.swap-r,\s*\.swap-l\{animation:none\}/.test(clean));
 push('มีบล็อก prefers-reduced-motion หลายจุดครอบคลุมทั้งแอป',
   (css.match(/prefers-reduced-motion/g) || []).length >= 4);
 

@@ -755,12 +755,12 @@
   @keyframes viewup{from{opacity:0; transform:translateY(8px)}  to{opacity:1; transform:none}}
   @keyframes viewr {from{opacity:0; transform:translateX(26px)} to{opacity:1; transform:none}}
   @keyframes viewl {from{opacity:0; transform:translateX(-26px)}to{opacity:1; transform:none}}
-  #view.swap, #homeTop.swap{animation:viewup .28s var(--ease)}
-  #view.swap-r, #homeTop.swap-r{animation:viewr .3s var(--ease)}
-  #view.swap-l, #homeTop.swap-l{animation:viewl .3s var(--ease)}
+  /* เป็นคลาสทั่วไป ใช้ได้ทั้งกับทั้งหน้า (#view) และกับแผงย่อยในหน้า (.dpane) */
+  .swap  {animation:viewup .28s var(--ease)}
+  .swap-r{animation:viewr  .3s  var(--ease)}
+  .swap-l{animation:viewl  .3s  var(--ease)}
   @media(prefers-reduced-motion:reduce){
-    #view.swap, #homeTop.swap, #view.swap-r, #homeTop.swap-r,
-    #view.swap-l, #homeTop.swap-l{animation:none}
+    .swap, .swap-r, .swap-l{animation:none}
   }
   details > summary{transition:background-color .15s, color .15s; border-radius:10px}
   details > summary:active{background:var(--soft); color:var(--brand)}
@@ -2316,19 +2316,19 @@ function render(){
   // เนื้อหาลอยขึ้นมาเฉพาะตอนเปลี่ยนหน้า
   // render() ถูกเรียกบ่อยมาก (กดบันทึก เปิด-ปิดร้าน สลับวัน) ถ้าเล่นทุกครั้งจะรำคาญ
   if(tab !== shownTab){
-    // เลื่อนเข้าทางไหน ดูจากลำดับบนแถบล่าง
-    // หน้าที่ไม่ได้อยู่บนแถบ (เข้าจากตั้งค่า) หาลำดับไม่เจอ → ใช้ลอยขึ้นธรรมดา
+    // ทิศการเลื่อน คิดจากตำแหน่งของหน้าในโครงสร้าง
+    //  · อยู่บนแถบล่างทั้งคู่   → เทียบลำดับซ้าย-ขวาบนแถบ
+    //  · จากแถบล่างเข้าหน้าย่อย → เลื่อนมาจากขวา เหมือนเดินเข้าไปข้างใน
+    //  · จากหน้าย่อยกลับออกมา   → เลื่อนมาจากซ้าย เหมือนถอยออก
     const at = k => TABS.findIndex(t => t[0] === k);
     const from = at(shownTab), to = at(tab);
-    const cls = (from < 0 || to < 0 || from === to) ? 'swap'
-              : (to > from ? 'swap-r' : 'swap-l');
+    const cls = from === to            ? 'swap'
+              : (from >= 0 && to >= 0) ? (to > from ? 'swap-r' : 'swap-l')
+              : to < 0                 ? 'swap-r'      // เข้าไปข้างใน
+              : from < 0               ? 'swap-l'      // ถอยออกมา
+              :                          'swap';
     shownTab = tab;
-    [view, document.getElementById('homeTop')].forEach(el => {
-      if(!el || !el.classList) return;
-      el.classList.remove('swap','swap-r','swap-l');
-      void el.offsetWidth;            // บังคับให้เบราว์เซอร์เริ่มแอนิเมชันรอบใหม่
-      el.classList.add(cls);
-    });
+    [view, document.getElementById('homeTop')].forEach(el => playSwap(el, cls));
   }
 }
 let shownTab = null;        // หน้าที่วาดไว้ล่าสุด ใช้ดูว่าเปลี่ยนหน้าหรือแค่วาดซ้ำ
@@ -4412,9 +4412,29 @@ function segPane(bar, key, inner, cls){
   return `<div class="${c}" data-sb="${bar}" data-seg="${key}">${inner}</div>`;
 }
 function setSeg(bar, key){
+  const prev = segs[bar];
   segs[bar] = key;
+
+  // แผงทุกใบวาดไว้อยู่แล้ว ลำดับใน DOM คือลำดับบนแถบชิป ใช้ดูทิศได้เลย
+  const panes = [...document.querySelectorAll('.dpane[data-sb="' + bar + '"]')];
+  const order = panes.map(p => p.dataset.seg);
+  const dir = order.indexOf(key) > order.indexOf(prev) ? 'swap-r' : 'swap-l';
+
   document.querySelectorAll('[data-sb="' + bar + '"][data-seg]')
     .forEach(el => el.classList.toggle('on', el.dataset.seg === key));
+
+  // ให้แผงที่เพิ่งโผล่เลื่อนเข้ามาทางเดียวกับที่นิ้วกด เหมือนตอนเปลี่ยนแท็บล่าง
+  const now = panes.find(p => p.dataset.seg === key);
+  if(now && prev !== key) playSwap(now, dir);
+}
+
+/* เล่นแอนิเมชันเลื่อนเข้าให้ element หนึ่งตัว
+   ต้องล้างคลาสเก่าแล้วบังคับ reflow ก่อน ไม่งั้นเบราว์เซอร์มองว่าเป็นอนิเมชันเดิมและไม่เล่นซ้ำ */
+function playSwap(el, cls){
+  if(!el || !el.classList) return;
+  el.classList.remove('swap','swap-r','swap-l');
+  void el.offsetWidth;
+  el.classList.add(cls);
 }
 
 const DSEGS = [['sale','ขาย','cart'], ['money','เงิน','sum'], ['menu','เมนู','menu'], ['time','ช่วงเวลา','today']];
