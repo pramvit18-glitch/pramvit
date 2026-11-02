@@ -164,6 +164,165 @@
     content:''; width:5px; height:5px; border-radius:50%; background:var(--brand);
   }
 
+  /* ===================== หน้าแรก: หัวใหญ่ ค้นหา ทางลัด แถบวัน =====================
+     ส่วนนี้อยู่นอก #view จึงไม่ถูกวาดใหม่ทั้งก้อนตอนพิมพ์ค้นหา */
+  .appbar.big{grid-template-columns:1fr auto; padding:12px 20px 4px}
+  .appbar.big .appbar-ic{display:none}
+  .appbar.big .titles{text-align:left}
+  .appbar.big .titles h1{font-size:30px; letter-spacing:-.025em; line-height:1.2}
+
+  #homeTop[hidden], #homeBody[hidden], #searchRes[hidden]{display:none}
+  #searchRes{margin-top:12px}
+
+  /* หัวข้อประจำแถว + ลิงก์ด้านขวา */
+  .home-sec{display:flex; align-items:baseline; gap:10px; margin:22px 0 10px}
+  .home-sec h2{flex:1; margin:0; font-size:15px; font-weight:800; letter-spacing:-.01em}
+  .home-sec button{
+    border:none; background:none; cursor:pointer; font:inherit; padding:0;
+    color:var(--brand); font-weight:800; font-size:13px;
+  }
+
+  /* ---------- ช่องค้นหา ---------- */
+  .hsearch{position:relative; margin-top:4px}
+  .hsearch > svg{
+    position:absolute; left:16px; top:50%; transform:translateY(-50%);
+    width:18px; height:18px; color:var(--muted); pointer-events:none;
+  }
+  .hsearch input{
+    padding:14px 44px; border-radius:var(--r-pill); background:var(--bg);
+    border:1px solid transparent; box-shadow:var(--sh-card); font-weight:600;
+  }
+  .hsearch input::-webkit-search-cancel-button{display:none}
+  .hsearch-x{
+    position:absolute; right:10px; top:50%; transform:translateY(-50%);
+    width:30px; height:30px; border:none; border-radius:50%; cursor:pointer;
+    background:var(--soft); color:var(--ink-2); display:none; place-items:center;
+  }
+  .hsearch-x svg{width:14px; height:14px}
+  .hsearch.has .hsearch-x{display:grid}
+
+  /* ---------- แถวทางลัด เลื่อนข้างได้ ---------- */
+  .quick{
+    display:flex; gap:14px; overflow-x:auto; scrollbar-width:none;
+    margin:0 -20px; padding:4px 20px 6px;
+  }
+  .quick::-webkit-scrollbar{display:none}
+  .quick-b{
+    flex:0 0 auto; width:68px; padding:0; border:none; background:none; cursor:pointer; font:inherit;
+    display:flex; flex-direction:column; align-items:center; gap:7px; color:var(--ink-2);
+  }
+  .quick-ic{
+    width:58px; height:58px; border-radius:50%; display:grid; place-items:center; position:relative;
+    background:var(--bg); box-shadow:var(--sh-card); color:var(--ink); transition:.16s;
+  }
+  .quick-b:hover .quick-ic{color:var(--brand)}
+  .quick-b:active .quick-ic{transform:scale(.93)}
+  .quick-ic svg{width:23px; height:23px}
+  /* กุญแจเล็ก ๆ บอกว่าต้องใส่รหัสคนดูแลก่อน */
+  .quick-ic .lk{
+    position:absolute; right:-1px; bottom:-1px; width:19px; height:19px; border-radius:50%;
+    background:var(--soft); display:grid; place-items:center; box-shadow:0 0 0 2px var(--page);
+  }
+  .quick-ic .lk svg{width:11px; height:11px; color:var(--muted)}
+  .quick-n{
+    font-size:11.5px; font-weight:700; line-height:1.3; text-align:center; max-width:100%;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+
+  /* ---------- เดือน + แถบวันในสัปดาห์ ---------- */
+  .wk{margin-top:20px}
+  .wk-head{display:flex; align-items:center; gap:4px; margin-bottom:8px}
+  .wk-m{
+    border:none; background:none; cursor:pointer; font:inherit; padding:0; color:var(--ink);
+    font-size:20px; font-weight:800; letter-spacing:-.02em;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .wk-m svg{width:16px; height:16px; color:var(--ink-2)}
+  .wk-nav{margin-left:auto; display:flex; gap:6px}
+  .wk-nav button{
+    width:32px; height:32px; border:none; border-radius:50%; cursor:pointer;
+    background:var(--bg); box-shadow:var(--sh-card); color:var(--ink-2); display:grid; place-items:center;
+  }
+  .wk-nav button:disabled{opacity:.35; cursor:default; box-shadow:none}
+  .wk-nav svg{width:15px; height:15px}
+  .wk-row{display:grid; grid-template-columns:repeat(7,1fr); gap:2px}
+  .wk-d{
+    border:none; background:none; cursor:pointer; font:inherit; padding:4px 0 6px; color:var(--ink);
+    display:flex; flex-direction:column; align-items:center; gap:6px;
+  }
+  .wk-d .dow{font-size:12px; font-weight:700; color:var(--muted)}
+  .wk-d.sun .dow{color:var(--brand)}
+  .wk-d .num{
+    width:38px; height:38px; border-radius:50%; display:grid; place-items:center;
+    font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; transition:.16s;
+  }
+  .wk-d.today:not(.on) .num{box-shadow:inset 0 0 0 2px var(--brand-l)}
+  .wk-d.on .num{background:var(--brand); color:#fff; font-weight:800; box-shadow:0 6px 14px rgba(211,43,43,.3)}
+  .wk-d:disabled{opacity:.32; cursor:default}
+  /* จุดใต้วัน = วันนั้นมีบันทึก */
+  .wk-d .dot{width:5px; height:5px; border-radius:50%; background:var(--brand-l)}
+  .wk-d.on .dot{background:var(--brand)}
+  .wk-d .dot.off{background:transparent}
+
+  /* ---------- การ์ดสถานะของวันที่เลือก ---------- */
+  .srow{
+    display:flex; align-items:center; gap:14px; margin-top:16px; padding:14px 16px;
+    background:var(--bg); border-radius:var(--r-card); box-shadow:var(--sh-card);
+  }
+  .srow-ic{
+    width:48px; height:48px; flex:0 0 auto; border-radius:50%; display:grid; place-items:center;
+    background:var(--good-bg); color:var(--good-ink);
+  }
+  .srow.warn .srow-ic{background:var(--warn-bg); color:var(--warn-ink)}
+  .srow.flat .srow-ic{background:var(--soft); color:var(--ink-2)}
+  .srow-ic svg{width:22px; height:22px}
+  .srow-t{flex:1; min-width:0}
+  .srow-t b{display:block; font-size:15px; font-weight:800; letter-spacing:-.01em}
+  .srow-t span{
+    display:block; font-size:12.5px; color:var(--muted); font-weight:600;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .srow-a{
+    flex:0 0 auto; border:none; background:none; cursor:pointer; font:inherit; padding:6px 2px;
+    color:var(--brand); font-weight:800; font-size:13.5px;
+  }
+
+  /* ---------- แถวเมนูขายดี เลื่อนข้างได้ ---------- */
+  .hil{display:flex; gap:14px; overflow-x:auto; scrollbar-width:none; margin:0 -20px; padding:4px 20px 6px}
+  .hil::-webkit-scrollbar{display:none}
+  .hil-b{
+    flex:0 0 auto; width:76px; padding:0; border:none; background:none; cursor:pointer; font:inherit;
+    display:flex; flex-direction:column; align-items:center; gap:7px; color:var(--ink);
+  }
+  .hil-av{
+    width:62px; height:62px; border-radius:50%; display:grid; place-items:center; position:relative;
+    background:var(--tint); color:var(--brand-d); font-size:21px; font-weight:800; transition:.16s;
+    box-shadow:0 0 0 2px var(--bg), 0 0 0 4px var(--brand-l);
+  }
+  .hil-b:active .hil-av{transform:scale(.93)}
+  .hil-av b{
+    position:absolute; right:-4px; bottom:-3px; min-width:21px; height:21px; padding:0 5px;
+    border-radius:var(--r-pill); background:var(--brand); color:#fff;
+    font-size:11px; font-weight:800; display:grid; place-items:center; box-shadow:0 0 0 2px var(--bg);
+  }
+  .hil-n{
+    font-size:11.5px; font-weight:700; line-height:1.3; text-align:center; max-width:100%;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+
+  /* ---------- แท็บซอยเนื้อหาแดชบอร์ด ---------- */
+  .dseg{display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; margin:4px -20px 14px; padding:0 20px}
+  .dseg::-webkit-scrollbar{display:none}
+  .dseg-b{
+    flex:0 0 auto; border:none; cursor:pointer; font:inherit; padding:9px 15px;
+    border-radius:var(--r-pill); background:var(--bg); box-shadow:var(--sh-card);
+    color:var(--ink-2); font-size:13.5px; font-weight:700; transition:.16s;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .dseg-b svg{width:15px; height:15px}
+  .dseg-b.on{background:var(--brand); color:#fff; box-shadow:0 7px 18px rgba(211,43,43,.28)}
+  .dash.dpane:not(.on){display:none}
+
   /* ===================== ปุ่ม ===================== */
   button{font:inherit}
   .btn{
@@ -1265,6 +1424,35 @@
   </div>
 
   <div id="banner"></div>
+
+  <!-- ส่วนบนของหน้าแรก อยู่นอก #view เพื่อให้ช่องค้นหาไม่หลุดโฟกัสตอนพิมพ์ -->
+  <div id="homeTop" hidden>
+    <div class="hsearch" id="hsearch">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/>
+      </svg>
+      <input id="searchQ" type="search" autocomplete="off" enterkeyhint="search"
+             placeholder="ค้นหาเมนู ของที่ซื้อ รายจ่าย" oninput="runSearch(this.value)">
+      <button type="button" class="hsearch-x" onclick="clearSearch()" aria-label="ล้างคำค้น">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+          <path d="M6 6l12 12M18 6 6 18"/>
+        </svg>
+      </button>
+    </div>
+    <div id="searchRes" hidden></div>
+
+    <div id="homeBody">
+      <div class="home-sec">
+        <h2>เมนูของฉัน</h2>
+        <button type="button" onclick="quickCustomize()">ปรับแต่ง</button>
+      </div>
+      <div class="quick" id="quickRow"></div>
+      <div class="wk" id="wkStrip"></div>
+      <div id="statusRow"></div>
+      <div id="hiliteWrap"></div>
+    </div>
+  </div>
+
   <div id="view"></div>
 </main>
 
@@ -1841,6 +2029,18 @@ function render(){
        ${icon(ic,22)}<span>${l}</span></button>`).join('');
 
   renderBanner();
+
+  // ส่วนบนของหน้าแรก (ค้นหา ทางลัด แถบวัน สถานะ เมนูขายดี) โผล่เฉพาะแท็บแดชบอร์ด
+  const home = tab === 'today';
+  document.getElementById('appbar').classList.toggle('big', home);
+  document.getElementById('homeTop').hidden = !home;
+  if(home){
+    renderHome();
+  }else{
+    const si = document.getElementById('searchQ');
+    if(si) si.value = '';
+  }
+
   document.getElementById('view').innerHTML =
     tab==='sale'  ? viewPOS()   :
     tab==='today' ? viewToday() :
@@ -1855,6 +2055,8 @@ const ADMIN_TABS = ['ing','fixed','dash','menu'];   // เครื่องม�
 function go(t){
   if(ADMIN_TABS.includes(t) && !adminOk(() => go(t))) return;
   if(t === 'setup') openMenuId = null;
+  // กลับเข้าหน้าแรกจากแท็บอื่น ให้เด้งกลับมาที่วันนี้เสมอ จะได้ไม่ค้างอยู่วันเก่า
+  if(t === 'today'){ if(tab !== 'today') dashDay = dayKey(); } else homeQ = '';
   if(t === 'sale' && !order) order = { lines: [] };   // เข้าแท็บขายแล้วมีบิลเปล่ารอเลย
   tab = t; render(); window.scrollTo({top:0});
 }
@@ -3543,8 +3745,281 @@ function cardHead(ic, title, sub, right){
   </div>`;
 }
 
+/* ===================== ส่วนบนของหน้าแรก =====================
+   ค้นหา / ทางลัด / แถบวันในสัปดาห์ / การ์ดสถานะ / แถวเมนูขายดี
+   ทั้งหมดวาดลงในเปลือกหน้าเว็บ (#homeTop) ไม่ได้อยู่ใน #view
+   เพราะช่องค้นหาต้องไม่ถูกสร้างใหม่ทุกครั้งที่พิมพ์ ไม่งั้นคีย์บอร์ดเด้งปิด */
+
+let dashDay = dayKey();        // วันที่แดชบอร์ดกำลังดูอยู่ แตะแถบวันเพื่อย้อนหลัง
+let dashSeg = 'sale';          // แท็บย่อยบนแดชบอร์ด
+let homeQ   = '';              // คำค้นบนหน้าแรก
+
+const DOW_TH = ['จ','อ','พ','พฤ','ศ','ส','อา'];
+
+function addDays(key, step){
+  const [y,m,d] = key.split('-').map(Number);
+  return dayKey(new Date(y, m-1, d + step));
+}
+// จันทร์–อาทิตย์ ของสัปดาห์ที่วันนั้นอยู่
+function weekOf(key){
+  const [y,m,d] = key.split('-').map(Number);
+  const shift = (new Date(y, m-1, d).getDay() + 6) % 7;   // 0 = จันทร์
+  return Array.from({length:7}, (_,i) => dayKey(new Date(y, m-1, d - shift + i)));
+}
+// ชื่อวันที่อ่านง่าย ใช้ในหัวการ์ดที่เปลี่ยนตามวันที่เลือก
+function dayLabel(key){
+  if(key === dayKey()) return 'วันนี้';
+  if(key === addDays(dayKey(), -1)) return 'เมื่อวาน';
+  return thaiDate(key);
+}
+// รูปที่เอาไปต่อท้ายคำได้เลย เช่น "บิล" + ofDay → "บิลวันนี้" / "บิลวันที่ 28 ต.ค."
+function ofDay(key){
+  const l = dayLabel(key);
+  return (l === 'วันนี้' || l === 'เมื่อวาน') ? l : 'วันที่ ' + l;
+}
+const hasRecord = key => (db.sales||[]).some(x => x.d === key) || (db.expenses||[]).some(x => x.d === key);
+
+/* ---------- แถวทางลัด ---------- */
+const QUICK_KEY = 'crepe-quick-v1';
+const QUICK = [
+  ['ing',   'วัตถุดิบ',     'ing'],
+  ['menu',  'เมนู',         'menu'],
+  ['fixed', 'ต้นทุนคงที่',  'fixed'],
+  ['dash',  'ภาพรวม',       'dash'],
+  ['exp',   'เพิ่มรายจ่าย', 'down'],
+  ['hist',  'ย้อนหลัง',     'hist'],
+  ['bk',    'สำรองข้อมูล',  'box'],
+  ['shop',  'สลับร้าน',     'store'],
+  ['setup', 'ตั้งค่า',      'more']
+];
+const QUICK_DEF = ['ing','menu','fixed','dash','exp'];
+const QUICK_RUN = { exp: () => expenseDialog(null), bk: () => openBackup(), shop: () => shopHub() };
+
+function quickPicked(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(QUICK_KEY));
+    if(Array.isArray(raw)) return raw.filter(k => QUICK.some(q => q[0] === k));
+  }catch(e){}
+  return QUICK_DEF;
+}
+function quickTap(k){ (QUICK_RUN[k] || (() => go(k)))(); }
+
+function quickHTML(){
+  const picked = quickPicked();
+  if(!picked.length) return '<p class="hint" style="margin:0">ยังไม่ได้เลือกทางลัดไว้ — กด "ปรับแต่ง" เพื่อเลือก</p>';
+  const locked = hasPin() && !isAdmin();
+  return picked.map(k => {
+    const q = QUICK.find(x => x[0] === k);
+    if(!q) return '';
+    const lk = locked && ADMIN_TABS.includes(k);
+    return `<button type="button" class="quick-b" onclick="quickTap('${k}')">
+      <span class="quick-ic">${icon(q[2],23)}${lk ? `<span class="lk">${icon('lock',11)}</span>` : ''}</span>
+      <span class="quick-n">${q[1]}</span>
+    </button>`;
+  }).join('');
+}
+
+function quickCustomize(){
+  const picked = new Set(quickPicked());
+  openDialog({
+    title:'ทางลัดบนหน้าแรก',
+    sub:'ติ๊กอันที่อยากให้โผล่ เรียงตามลำดับในรายการนี้',
+    html:`<div class="tops">${QUICK.map(([k,label,ic]) => `
+      <button type="button" class="top${picked.has(k) ? ' on' : ''}" data-q="${k}"
+              onclick="this.classList.toggle('on')">${icon(ic,15)} ${label}</button>`).join('')}</div>
+      <p class="hint" style="margin:14px 0 0">อันที่มีรูปกุญแจต้องใส่รหัสคนดูแลก่อนถึงจะเข้าได้</p>`,
+    foot:[{label:'ยกเลิก', cls:'ghost', fn:'dlg.close()'},
+          {label:'บันทึก', cls:'primary', fn:'saveQuick()'}]
+  });
+}
+function saveQuick(){
+  const on = [...document.querySelectorAll('#dlgBody [data-q].on')].map(el => el.dataset.q);
+  localStorage.setItem(QUICK_KEY, JSON.stringify(on));
+  dlg.close(); renderHome(); toast('บันทึกทางลัดแล้ว');
+}
+
+/* ---------- เดือน + แถบวันในสัปดาห์ ---------- */
+function wkHTML(){
+  const today = dayKey();
+  const days = weekOf(dashDay);
+  const nextOk = addDays(days[0], 7) <= today;
+  return `
+    <div class="wk-head">
+      <button type="button" class="wk-m" onclick="monthPick()">
+        ${thaiMonth(monthKey(dashDay))}${icon('down',16)}
+      </button>
+      <span class="wk-nav">
+        <button type="button" onclick="shiftWeek(-1)" aria-label="สัปดาห์ก่อนหน้า">${icon('back',15)}</button>
+        <button type="button" onclick="shiftWeek(1)" ${nextOk ? '' : 'disabled'} aria-label="สัปดาห์ถัดไป">${icon('chev',15)}</button>
+      </span>
+    </div>
+    <div class="wk-row">${days.map((k,i) => `
+      <button type="button" onclick="pickDay('${k}')" ${k > today ? 'disabled' : ''}
+              aria-label="${thaiDate(k, true)}"
+              class="wk-d${k === dashDay ? ' on' : ''}${k === today ? ' today' : ''}${i === 6 ? ' sun' : ''}">
+        <span class="dow">${DOW_TH[i]}</span>
+        <span class="num">${Number(k.slice(8))}</span>
+        <span class="dot${hasRecord(k) ? '' : ' off'}"></span>
+      </button>`).join('')}</div>`;
+}
+function pickDay(k){
+  if(k > dayKey()) return;
+  dashDay = k; render();
+}
+function shiftWeek(step){
+  const next = addDays(dashDay, step * 7);
+  pickDay(next > dayKey() ? dayKey() : next);
+}
+function monthPick(){
+  const months = [...new Set([monthKey(dayKey()), ...allMonths()])].sort().reverse();
+  const cur = monthKey(dashDay);
+  openDialog({
+    title:'เลือกเดือน',
+    sub:'แตะเดือนเพื่อกระโดดไปดูวันในเดือนนั้น',
+    html:`<div class="tops">${months.map(mk => {
+      const m = sumMonth(mk);
+      return `<button type="button" class="top${mk === cur ? ' on' : ''}" onclick="jumpMonth('${mk}')">
+        ${thaiMonth(mk)} <b>${m.days ? baht(m.sale) : 'ยังไม่มี'}</b></button>`;
+    }).join('')}</div>`,
+    foot:[{label:'ปิด', cls:'ghost', fn:'dlg.close()'}]
+  });
+}
+function jumpMonth(mk){
+  const today = dayKey();
+  const inMonth = allDays().filter(k => monthKey(k) === mk);   // เรียงใหม่→เก่า
+  let k = monthKey(today) === mk ? today : (inMonth[0] || mk + '-01');
+  if(k > today) k = today;
+  dlg.close(); pickDay(k);
+}
+
+/* ---------- การ์ดสถานะของวันที่เลือก ---------- */
+function srow(cls, ic, title, sub, act, fn){
+  return `<div class="srow ${cls}">
+    <span class="srow-ic">${icon(ic,22)}</span>
+    <div class="srow-t"><b>${title}</b><span>${sub}</span></div>
+    ${act ? `<button type="button" class="srow-a" onclick="${fn}">${act}</button>` : ''}
+  </div>`;
+}
+function statusHTML(){
+  const key = dashDay, today = dayKey();
+  const d = sumDay(key), bills = billsOf(key);
+  if(key !== today){
+    return srow('flat','hist', thaiDate(key, true),
+      bills ? `${bills} บิล · ขายได้ ${baht(d.sale)} บาท` : 'วันนั้นไม่มีบันทึกการขาย',
+      'กลับมาวันนี้', `pickDay('${today}')`);
+  }
+  if(!db.shopOpen)
+    return srow('warn','store','ตอนนี้ร้านปิดอยู่','เปิดร้านก่อนแล้วค่อยเริ่มเปิดบิล','เปิดร้าน','toggleShopOpen()');
+  if(!bills)
+    return srow('flat','cart','ยังไม่ได้ขายอะไรวันนี้','ร้านเปิดอยู่ · กดเปิดบิลได้เลย','เปิดบิล',"go('sale')");
+  return srow('','check', `วันนี้ขายแล้ว ${bills} บิล`,
+    `ขายได้ ${baht(d.sale)} · ${d.net >= 0 ? 'เหลือ' : 'ขาดทุน'} ${baht(Math.abs(d.net))} บาท`,
+    'ดู', `dayMoneyDialog('${key}')`);
+}
+
+/* ---------- แถวเมนูขายดี ---------- */
+function hiliteHTML(){
+  const top = topMenus(dashDay).slice(0,8);
+  // วันที่ยังไม่ได้ขาย ให้โชว์เมนูของร้านแทน จะได้กดเปิดบิลจากตรงนี้ได้เลย
+  const list = top.length
+    ? top.map(m => ({ name:m.name, qty:m.qty, id:(db.menus.find(x => x.name === m.name) || {}).id }))
+    : db.menus.slice(0,8).map(m => ({ name:m.name, qty:0, id:m.id }));
+  if(!list.length) return '';
+  return `
+    <div class="home-sec">
+      <h2>${top.length ? 'ขายดี · ' + dayLabel(dashDay) : 'เมนูของร้าน'}</h2>
+      <button type="button" onclick="go('sale')">เปิดบิล</button>
+    </div>
+    <div class="hil">${list.map(m => `
+      <button type="button" class="hil-b" ${m.id ? `onclick="hilTap('${m.id}')"` : 'disabled'}>
+        <span class="hil-av">${esc(initial(m.name))}${m.qty ? `<b>${m.qty}</b>` : ''}</span>
+        <span class="hil-n">${esc(m.name || '(ไม่มีชื่อ)')}</span>
+      </button>`).join('')}</div>`;
+}
+function hilTap(id){ go('sale'); tapMenu(id); }
+
+/* ---------- ค้นหา ---------- */
+function runSearch(v){
+  homeQ = String(v || '').trim();
+  const box = document.getElementById('searchRes');
+  box.innerHTML = homeQ ? searchHTML() : '';
+  box.hidden = !homeQ;
+  document.getElementById('homeBody').hidden = !!homeQ;
+  document.getElementById('hsearch').classList.toggle('has', !!homeQ);
+}
+function clearSearch(){
+  const i = document.getElementById('searchQ');
+  if(i) i.value = '';
+  runSearch('');
+}
+function searchHTML(){
+  const q = homeQ.toLowerCase();
+  const hit = s => String(s || '').toLowerCase().includes(q);
+  const menus = db.menus.filter(m => hit(m.name)).slice(0,6);
+  const ings  = db.ingredients.filter(x => hit(x.name)).slice(0,6);
+  const exps  = (db.expenses||[]).filter(x => hit(x.note))
+                  .sort((a,b) => (b.d + (b.t||'')).localeCompare(a.d + (a.t||''))).slice(0,6);
+
+  if(!menus.length && !ings.length && !exps.length){
+    return `<div class="card"><div class="empty" style="padding:26px 10px">
+      <p style="margin:0">ไม่เจอ "${esc(homeQ)}" ในเมนู ของที่ซื้อมา หรือรายจ่าย</p></div></div>`;
+  }
+  const grp = (title, rows) => rows ? `<div class="sec">${title}</div><div class="list">${rows}</div>` : '';
+  return `<div class="card">
+    ${grp(`เมนู · ${menus.length}`, menus.map(m => `
+      <div class="li" role="button" tabindex="0" onclick="searchMenu('${m.id}')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();searchMenu('${m.id}')}">
+        <span class="av">${esc(initial(m.name))}</span>
+        <div class="li-main">
+          <div class="li-title">${esc(m.name || '(ไม่มีชื่อ)')}</div>
+          <div class="li-sub">แตะเพื่อใส่ลงบิล</div>
+        </div>
+        <div class="li-end"><span class="chip">${baht(m.price)}</span>
+          <span class="li-chev">${icon('chev',16)}</span></div>
+      </div>`).join(''))}
+    ${grp(`ของที่ซื้อมา · ${ings.length}`, ings.map(x => `
+      <div class="li" role="button" tabindex="0" onclick="clearSearch(); go('ing')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();clearSearch();go('ing')}">
+        <span class="av">${esc(initial(x.name))}</span>
+        <div class="li-main">
+          <div class="li-title">${esc(x.name || '(ไม่มีชื่อ)')}</div>
+          <div class="li-sub">${n(x.packQty).toLocaleString('th-TH')} ${esc(x.unit || '')} · ${baht(x.packPrice)} บาท</div>
+        </div>
+        <span class="li-chev">${icon('chev',16)}</span>
+      </div>`).join(''))}
+    ${grp(`รายจ่าย · ${exps.length}`, exps.map(e => `
+      <div class="li" role="button" tabindex="0" onclick="editEntry('exp','${e.id}')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editEntry('exp','${e.id}')}">
+        <div class="li-main">
+          <div class="li-title">${esc(e.note || 'ซื้อของ')}</div>
+          <div class="li-sub">${thaiDate(e.d)} ${esc(e.t || '')}</div>
+        </div>
+        <div class="li-end"><span class="amt out">−${money(e.amount)}</span>
+          <span class="li-chev">${icon('chev',16)}</span></div>
+      </div>`).join(''))}
+  </div>`;
+}
+function searchMenu(id){ clearSearch(); go('sale'); tapMenu(id); }
+
+/* ---------- วาดส่วนบนของหน้าแรกใหม่ ---------- */
+function renderHome(){
+  document.getElementById('quickRow').innerHTML   = quickHTML();
+  document.getElementById('wkStrip').innerHTML    = wkHTML();
+  document.getElementById('statusRow').innerHTML  = statusHTML();
+  document.getElementById('hiliteWrap').innerHTML = hiliteHTML();
+  runSearch(homeQ);
+}
+
+/* ---------- แท็บย่อยบนแดชบอร์ด ---------- */
+const DSEGS = [['sale','ขาย','cart'], ['money','เงิน','sum'], ['menu','เมนู','menu'], ['time','ช่วงเวลา','today']];
+function setSeg(s){
+  dashSeg = s;
+  document.querySelectorAll('.dseg-b').forEach(b => b.classList.toggle('on', b.dataset.seg === s));
+  document.querySelectorAll('.dpane').forEach(p => p.classList.toggle('on', p.dataset.seg === s));
+}
+
 function viewToday(){
-  const key = dayKey();
+  const key = dashDay;
   const d = sumDay(key);
   const week = lastNDays(key, 7);
   const bills = billsOf(key);
@@ -3564,102 +4039,127 @@ function viewToday(){
   const billSeries = week.map(w => billsOf(w.key));
   const netSeries = week.map(w => w.net);
 
+  const L = dayLabel(key), OD = ofDay(key);     // "วันนี้" / "วันที่ 28 ต.ค."
+  const isToday = key === dayKey();
+  const pane = s => `dash dpane${dashSeg === s ? ' on' : ''}" data-seg="${s}`;
+
   return `
-  <div class="dash">
+  <div class="dash-wrap">
 
     ${shopHintCard()}
 
-    <div class="hero-card dash-a">
-      <div class="hero-main">
-        <div class="hero-row">
-          <span class="hero-ic">${icon('cart',20)}</span>
-          <div>
-            <div class="hero-k">วันนี้ ${thaiDate(key)}</div>
-            <div class="hero-sub">${bills ? bills + ' บิล · ' + week.filter(w=>w.sale>0).length + ' วันที่ขายใน 7 วัน' : 'ยังไม่ได้ขายอะไรวันนี้'}</div>
+    <div class="dseg">${DSEGS.map(([k,label,ic]) => `
+      <button type="button" class="dseg-b${dashSeg === k ? ' on' : ''}" data-seg="${k}"
+              onclick="setSeg('${k}')">${icon(ic,15)}${label}</button>`).join('')}</div>
+
+    <div class="${pane('sale')}">
+
+      <div class="hero-card dash-a">
+        <div class="hero-main">
+          <div class="hero-row">
+            <span class="hero-ic">${icon('cart',20)}</span>
+            <div>
+              <div class="hero-k">${L}${isToday ? ' ' + thaiDate(key) : ''}</div>
+              <div class="hero-sub">${bills ? bills + ' บิล · ' + week.filter(w=>w.sale>0).length + ' วันที่ขายใน 7 วัน' : 'ยังไม่มีบันทึกการขายของ' + L}</div>
+            </div>
+          </div>
+          <div class="hero-nums">
+            <div><span>ขายได้</span><b>${baht(d.sale)}</b></div>
+            <div><span>เหลือ</span><b>${baht(d.net)}</b></div>
           </div>
         </div>
-        <div class="hero-nums">
-          <div><span>ขายได้</span><b>${baht(d.sale)}</b></div>
-          <div><span>เหลือ</span><b>${baht(d.net)}</b></div>
+        ${d.sale > 0 && avg7 > 0 ? `<div class="hero-note">
+          ${diff >= 5 ? `ดีกว่าปกติ ${Math.round(diff)}%` : diff <= -5 ? `น้อยกว่าปกติ ${Math.round(-diff)}%` : 'พอ ๆ กับปกติ'}
+          · ปกติวันละ ${baht(avg7)} บาท</div>` : ''}
+      </div>
+
+      <div class="stat-card tint-o dash-b">
+        <div class="stat-k">บิล${OD}</div>
+        <div class="stat-v">${bills}<small> บิล</small></div>
+        <div class="stat-chart">${sparkLine(billSeries, 'var(--brand)', 140, 46)}</div>
+      </div>
+
+      <div class="stat-card tint-g dash-c">
+        <div class="stat-k">เฉลี่ยต่อบิล</div>
+        <div class="stat-v">${baht(perBill)}<small> บาท</small></div>
+        <div class="stat-chart">${miniBars(week.map(w => billsOf(w.key) ? w.sale/billsOf(w.key) : 0), 'var(--ink-2)', 140, 46)}</div>
+      </div>
+
+      <div class="card dash-d">
+        ${cardHead('hist', isToday ? 'ยอดขาย 7 วันล่าสุด' : `ยอดขาย 7 วันจนถึง${OD}`, `เฉลี่ย ${baht(week.filter(w=>w.sale>0).reduce((s,w)=>s+w.sale,0) / Math.max(1,week.filter(w=>w.sale>0).length))} บาท/วัน`)}
+        ${chartBody(key, week)}
+      </div>
+
+    </div>
+
+    <div class="${pane('money')}">
+
+      <div class="card dash-f">
+        ${cardHead('fixed', mk === monthKey(dayKey()) ? 'เดือนนี้' : 'ทั้งเดือน', thaiMonth(mk))}
+        <div class="mon-nums">
+          <div><span>ขายได้</span><b>${baht(mm.sale)}</b></div>
+          <div><span>ซื้อของ</span><b>${baht(mm.exp)}</b></div>
+          <div><span>เหลือ</span><b class="${mm.net>=0?'good':'bad'}">${baht(mm.net)}</b></div>
         </div>
+        <div class="stat-chart" style="margin-top:10px">${sparkLine(netSeries, 'var(--brand)', 240, 52)}</div>
+        <p class="hint" style="margin-top:6px">เส้นคือกำไรที่เหลือแต่ละวันใน 7 วันล่าสุด</p>
       </div>
-      ${d.sale > 0 && avg7 > 0 ? `<div class="hero-note">
-        ${diff >= 5 ? `ดีกว่าปกติ ${Math.round(diff)}%` : diff <= -5 ? `น้อยกว่าปกติ ${Math.round(-diff)}%` : 'พอ ๆ กับปกติ'}
-        · ปกติวันละ ${baht(avg7)} บาท</div>` : ''}
-    </div>
 
-    <div class="stat-card tint-o dash-b">
-      <div class="stat-k">บิลวันนี้</div>
-      <div class="stat-v">${bills}<small> บิล</small></div>
-      <div class="stat-chart">${sparkLine(billSeries, 'var(--brand)', 140, 46)}</div>
-    </div>
-
-    <div class="stat-card tint-g dash-c">
-      <div class="stat-k">เฉลี่ยต่อบิล</div>
-      <div class="stat-v">${baht(perBill)}<small> บาท</small></div>
-      <div class="stat-chart">${miniBars(week.map(w => billsOf(w.key) ? w.sale/billsOf(w.key) : 0), 'var(--ink-2)', 140, 46)}</div>
-    </div>
-
-    <div class="card dash-d">
-      ${cardHead('hist','ยอดขาย 7 วันล่าสุด', `เฉลี่ย ${baht(week.filter(w=>w.sale>0).reduce((s,w)=>s+w.sale,0) / Math.max(1,week.filter(w=>w.sale>0).length))} บาท/วัน`)}
-      ${chartBody(key, week)}
-    </div>
-
-    <div class="card dash-e">
-      ${cardHead('menu','เมนูขายดีวันนี้', menus.length ? `${menus.reduce((a,m)=>a+m.qty,0)} จาน` : 'ยังไม่มีการขาย')}
-      ${menus.length ? `<div class="rankx">${menus.map((m,i) => `
-        <div class="rankx-row">
-          <span class="rankx-no${i===0?' top':''}">${i+1}</span>
-          <div class="rankx-main">
-            <div class="rankx-n">${esc(m.name)}</div>
-            <div class="meter"><i style="width:${clamp(m.baht/topBaht*100,4,100)}%"></i></div>
-          </div>
-          <div class="rankx-v">${baht(m.baht)}<span>${m.qty} จาน</span></div>
-        </div>`).join('')}</div>`
-        : `<div class="empty" style="padding:24px"><p style="margin:0">พอขายแล้วตรงนี้จะเรียงให้ว่าเมนูไหนทำเงินสุด</p></div>`}
-    </div>
-
-    <div class="card dash-f">
-      ${cardHead('fixed','เดือนนี้', thaiMonth(mk))}
-      <div class="mon-nums">
-        <div><span>ขายได้</span><b>${baht(mm.sale)}</b></div>
-        <div><span>ซื้อของ</span><b>${baht(mm.exp)}</b></div>
-        <div><span>เหลือ</span><b class="${mm.net>=0?'good':'bad'}">${baht(mm.net)}</b></div>
+      <div class="card dash-i">
+        ${cardHead('down', `รายรับ-รายจ่าย${OD}`, 'เงินออกถูกหักจากยอดขายเป็น "เหลือ" ให้แล้ว',
+          `<button type="button" class="btn sm primary" onclick="expenseDialog(null)">${icon('plus',14)} เพิ่ม</button>`)}
+        ${moneyBox(d.sale, d.exp)}
+        ${todayExp.length ? `<div class="sec" style="margin:16px 0 8px">เงินออก${OD}</div>
+          ${expRows(todayExp.slice(0,4), false)}` : ''}
+        <button type="button" class="seeall" onclick="dayMoneyDialog('${key}')">
+          ดูรายละเอียดของ${OD}${todayExp.length > 4 ? ` (รายจ่าย ${todayExp.length} รายการ)` : ''}</button>
       </div>
-      <div class="stat-chart" style="margin-top:10px">${sparkLine(netSeries, 'var(--brand)', 240, 52)}</div>
-      <p class="hint" style="margin-top:6px">เส้นคือกำไรที่เหลือแต่ละวันใน 7 วันล่าสุด</p>
+
     </div>
 
-    ${adds.length ? `<div class="card dash-g">
-      ${cardHead('ing','ไส้ที่ลูกค้าเพิ่มบ่อย','ไว้ดูว่าควรเตรียมอะไรเผื่อ')}
-      <div class="list">${adds.map(a => `
-        <div class="li-read">
-          <div class="li-main"><div class="li-title">${esc(a.name)}</div></div>
-          <span class="chip">${a.qty} ครั้ง</span>
-        </div>`).join('')}</div>
-    </div>` : ''}
+    <div class="${pane('menu')}">
 
-    ${slots.length > 1 ? `<div class="card dash-h">
-      ${cardHead('today','ช่วงไหนขายดี','ไว้วางแผนเตรียมของ')}
-      <div class="rankx">${slots.map(s => `
-        <div class="rankx-row">
-          <span class="rankx-no">${esc(s.name.slice(0,2))}</span>
-          <div class="rankx-main">
-            <div class="rankx-n">${esc(s.name)} <small style="color:var(--muted);font-weight:600">${esc(s.when)}</small></div>
-            <div class="meter"><i style="width:${clamp(s.baht/slotTop*100,4,100)}%"></i></div>
-          </div>
-          <div class="rankx-v">${baht(s.baht)}<span>${s.qty} จาน</span></div>
-        </div>`).join('')}</div>
-    </div>` : ''}
+      <div class="card dash-e">
+        ${cardHead('menu', `เมนูขายดี${OD}`, menus.length ? `${menus.reduce((a,m)=>a+m.qty,0)} จาน` : 'ยังไม่มีการขาย')}
+        ${menus.length ? `<div class="rankx">${menus.map((m,i) => `
+          <div class="rankx-row">
+            <span class="rankx-no${i===0?' top':''}">${i+1}</span>
+            <div class="rankx-main">
+              <div class="rankx-n">${esc(m.name)}</div>
+              <div class="meter"><i style="width:${clamp(m.baht/topBaht*100,4,100)}%"></i></div>
+            </div>
+            <div class="rankx-v">${baht(m.baht)}<span>${m.qty} จาน</span></div>
+          </div>`).join('')}</div>`
+          : `<div class="empty" style="padding:24px"><p style="margin:0">พอขายแล้วตรงนี้จะเรียงให้ว่าเมนูไหนทำเงินสุด</p></div>`}
+      </div>
 
-    <div class="card dash-i">
-      ${cardHead('down','รายรับ-รายจ่ายวันนี้','เงินออกถูกหักจากยอดขายเป็น "เหลือ" ให้แล้ว',
-        `<button type="button" class="btn sm primary" onclick="expenseDialog(null)">${icon('plus',14)} เพิ่ม</button>`)}
-      ${moneyBox(d.sale, d.exp)}
-      ${todayExp.length ? `<div class="sec" style="margin:16px 0 8px">เงินออกวันนี้</div>
-        ${expRows(todayExp.slice(0,4), false)}` : ''}
-      <button type="button" class="seeall" onclick="dayMoneyDialog('${key}')">
-        ดูรายละเอียดของวันนี้${todayExp.length > 4 ? ` (รายจ่าย ${todayExp.length} รายการ)` : ''}</button>
+      ${adds.length ? `<div class="card dash-g">
+        ${cardHead('ing','ไส้ที่ลูกค้าเพิ่มบ่อย','ไว้ดูว่าควรเตรียมอะไรเผื่อ')}
+        <div class="list">${adds.map(a => `
+          <div class="li-read">
+            <div class="li-main"><div class="li-title">${esc(a.name)}</div></div>
+            <span class="chip">${a.qty} ครั้ง</span>
+          </div>`).join('')}</div>
+      </div>` : ''}
+
+    </div>
+
+    <div class="${pane('time')}">
+
+      <div class="card dash-h">
+        ${cardHead('today','ช่วงไหนขายดี','ไว้วางแผนเตรียมของ')}
+        ${slots.length ? `<div class="rankx">${slots.map(s => `
+          <div class="rankx-row">
+            <span class="rankx-no">${esc(s.name.slice(0,2))}</span>
+            <div class="rankx-main">
+              <div class="rankx-n">${esc(s.name)} <small style="color:var(--muted);font-weight:600">${esc(s.when)}</small></div>
+              <div class="meter"><i style="width:${clamp(s.baht/slotTop*100,4,100)}%"></i></div>
+            </div>
+            <div class="rankx-v">${baht(s.baht)}<span>${s.qty} จาน</span></div>
+          </div>`).join('')}</div>`
+          : `<div class="empty" style="padding:24px"><p style="margin:0">ยังไม่มีการขายใน${L} เลยยังบอกไม่ได้ว่าช่วงไหนคนเยอะ</p></div>`}
+      </div>
+
     </div>
 
   </div>`;
