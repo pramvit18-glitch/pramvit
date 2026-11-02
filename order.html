@@ -37,6 +37,8 @@
     --bad:#b91c1c;   --bad-ink:#b91c1c;   --bad-bg:#fdeeee;
 
     --ease:cubic-bezier(.2,.9,.3,1);
+    /* โค้งสปริง: วิ่งเลยจุดหมายไปนิดแล้วถอยมานิ่ง ทำให้รู้สึกมีชีวิต (ชุดเดียวกับแอปร้าน) */
+    --spring:cubic-bezier(.34,1.56,.64,1);
     --tap-in:.06s;
     --tap-out:.34s;
     color-scheme: light;
@@ -262,6 +264,57 @@
   .step.on{color:var(--brand)}
   .step.on i{background:var(--brand)}
 
+  /* ---------- ภาพเคลื่อนไหวตอนรอคิว ----------
+     ลูกค้ายืนจ้องหน้านี้อยู่ ถ้านิ่งสนิทจะไม่แน่ใจว่าแอปยังทำงานอยู่ไหม
+     ขยับเฉพาะจุดที่บอกสถานะ ไม่ขยับทั้งหน้าจนลายตา */
+
+  /* รอร้านกดรับ: จุดสามจุดเด้งไล่กัน แบบเดียวกับตอนอีกฝ่ายพิมพ์อยู่ในแชต */
+  /* ต้องเจาะจงกว่า .qbig b ไม่งั้นโดน display:block ของเลขคิวทับ แล้วจุดหายไปเลย
+     (i เป็น inline โดยปริยาย ถ้าไม่ได้อยู่ใน flex มันจะไม่กินความกว้าง-สูงที่ตั้งไว้) */
+  .qbig b.dots{display:flex; gap:11px; justify-content:center; padding:14px 0 10px; font-size:0}
+  .qbig b.dots i{
+    display:block; width:14px; height:14px; border-radius:50%; background:var(--brand-l);
+    animation:dot 1.25s var(--ease) infinite;
+  }
+  .qbig b.dots i:nth-child(2){animation-delay:.16s}
+  .qbig b.dots i:nth-child(3){animation-delay:.32s}
+  @keyframes dot{
+    0%,70%,100%{transform:translateY(0);      background:var(--brand-l)}
+    35%        {transform:translateY(-9px);   background:var(--brand)}
+  }
+
+  /* กำลังทำ: แถบขั้นตอนที่ทำอยู่มีแสงวิ่งผ่าน บอกว่ายังเดินหน้าอยู่ */
+  .step.cur i{
+    background:linear-gradient(90deg, var(--brand) 0%, var(--brand) 35%,
+               var(--brand-l) 50%, var(--brand) 65%, var(--brand) 100%);
+    background-size:260% 100%;
+    animation:flow 1.6s linear infinite;
+  }
+  @keyframes flow{from{background-position:140% 0} to{background-position:-140% 0}}
+
+  /* เลขคิวหายใจเบา ๆ ตอนร้านกำลังทำของเรา */
+  .qbig b.live{animation:breathe 2.1s var(--ease) infinite}
+  @keyframes breathe{
+    0%,100%{transform:scale(1)}
+    50%    {transform:scale(1.07)}
+  }
+
+  /* ของเสร็จ: ไอคอนเด้งเข้ามาทีเดียว ไม่วนซ้ำ จะได้ไม่กวนตอนอ่าน */
+  .empty.thanks .empty-ic{animation:pop .5s var(--spring) both}
+  @keyframes pop{
+    from{transform:scale(.6); opacity:0}
+    to  {transform:scale(1);  opacity:1}
+  }
+
+  /* การ์ดออเดอร์ค่อย ๆ ลอยขึ้นมาตอนเปิดหน้า ไม่ใช่โผล่ตึงเดียว */
+  .card.rise{animation:rise .34s var(--ease) both}
+  .card.rise:nth-of-type(2){animation-delay:.05s}
+  .card.rise:nth-of-type(3){animation-delay:.1s}
+  @keyframes rise{
+    from{transform:translateY(10px); opacity:0}
+    to  {transform:translateY(0);    opacity:1}
+  }
+
   .sumrow{display:flex; align-items:center; gap:12px; padding:13px 0; border-top:1px solid var(--line)}
   .sumrow b{flex:0 0 auto; font-size:17px; font-weight:800; font-variant-numeric:tabular-nums}
   .sumrow span{flex:1; font-weight:800}
@@ -304,6 +357,8 @@
   .li, .tops .top{transition:transform var(--tap-out) var(--ease), background .14s, border-color .16s}
 
   @media(prefers-reduced-motion:reduce){
+    .qbig b.dots i, .step.cur i, .qbig b.live, .empty.thanks .empty-ic, .card.rise{animation:none}
+    .step.cur i{background:var(--brand)}
     dialog[open], dialog[open]::backdrop{animation:none}
     dialog::backdrop{-webkit-backdrop-filter:none; backdrop-filter:none}
   }
@@ -802,7 +857,7 @@ function drawMine(){
                  : ['ขอบคุณที่แวะมานะครับ',   ''];
 
   el('view').innerHTML = `
-    <div class="card">
+    <div class="card rise">
       <div class="empty thanks">
         <div class="empty-ic">${icon(done ? 'check' : 'cart', 46)}</div>
         <h3>${t[0]}</h3>
@@ -829,7 +884,7 @@ function queueCard(o){
   const at = STEPS.findIndex(x => x[0] === st);
   const items = (o && Array.isArray(o.items)) ? o.items : [];
 
-  return `<div class="card">
+  return `<div class="card rise">
     ${cardHead('today',
       st === 'done' ? 'ของเสร็จแล้ว' : st === 'cook' ? 'ร้านกำลังทำอยู่' : 'รอร้านกดรับออเดอร์',
       st === 'done' ? 'มารับที่ร้านได้เลยครับ'
@@ -837,11 +892,12 @@ function queueCard(o){
       : 'ส่งให้ร้านแล้ว รอสักครู่',
       o ? `<span class="head-tag">฿${baht(o.total)}</span>` : '')}
     <div class="qbig">
-      ${o && o.no ? `<b>${esc(String(o.no))}</b><span>เลขคิวของคุณ</span>`
-                  : `<b>…</b><span>ยังไม่ได้เลขคิว</span>`}
+      ${o && o.no ? `<b class="${st === 'cook' ? 'live' : ''}">${esc(String(o.no))}</b><span>เลขคิวของคุณ</span>`
+                  : `<b class="dots"><i></i><i></i><i></i></b><span>ยังไม่ได้เลขคิว</span>`}
     </div>
     <div class="steps">
-      ${STEPS.map((x, i) => `<div class="step ${i <= at ? 'on' : ''}"><i></i>${x[1]}</div>`).join('')}
+      ${STEPS.map((x, i) => `<div class="step ${i <= at ? 'on' : ''}${
+        i === at && st !== 'done' ? ' cur' : ''}"><i></i>${x[1]}</div>`).join('')}
     </div>
     ${items.length ? `<div class="list">
       ${items.map(it => `

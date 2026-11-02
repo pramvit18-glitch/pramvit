@@ -93,6 +93,16 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('ส่งออเดอร์แล้วเข้าหน้ารอคิว', (await cust.locator('.qbig').count()) === 1);
   push('ส่งแล้วมีคำขอบคุณให้ลูกค้า',
     (await cust.textContent('#view')).includes('ขอบคุณที่สั่ง'));
+  // ลูกค้ายืนจ้องหน้านี้อยู่ ถ้านิ่งสนิทจะไม่แน่ใจว่าแอปยังทำงานไหม
+  push('รอร้านกดรับ มีจุดสามจุดเด้งอยู่',
+    await cust.locator('.qbig .dots i').count() === 3);
+  push('แถบขั้นตอนที่ทำอยู่มีแสงวิ่ง',
+    await cust.locator('.steps .step.cur').count() === 1);
+  push('จุดเด้งจริง ไม่ใช่แค่มีคลาส',
+    await cust.evaluate(() => {
+      const el = document.querySelector('.qbig .dots i');
+      return !!el && getComputedStyle(el).animationName === 'dot';
+    }));
 
   /* ---------- ออเดอร์เด้งถึงแม่ค้าไหม ---------- */
   await seller.evaluate(() => pollOrders());
@@ -119,6 +129,13 @@ const push = (name, v) => { ok.push([name, !!v]); };
   const qtxt = await cust.textContent('.qbig');
   push('ลูกค้าเห็นเลขคิวของตัวเอง', qtxt.includes('1'));
   push('ลูกค้าเห็นว่ากำลังทำอยู่', (await cust.textContent('.steps')).includes('กำลังทำ'));
+  push('ได้เลขคิวแล้ว จุดเด้งหายไป เหลือเลขจริง',
+    await cust.locator('.qbig .dots').count() === 0 && await cust.locator('.qbig b.live').count() === 1);
+  push('เลขคิวหายใจอยู่ตอนร้านกำลังทำ',
+    await cust.evaluate(() => {
+      const el = document.querySelector('.qbig b.live');
+      return !!el && getComputedStyle(el).animationName === 'breathe';
+    }));
 
   await cust.screenshot({ path: SHOT + '/cust-queue.png' });
 
