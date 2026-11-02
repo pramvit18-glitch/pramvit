@@ -203,7 +203,9 @@
   .appbar.big{grid-template-columns:1fr auto; padding:12px 20px 4px}
   .appbar.big .appbar-ic{display:none}
   .appbar.big .titles{text-align:left}
-  .appbar.big .titles h1{font-size:30px; letter-spacing:-.025em; line-height:1.2}
+  /* 30px ใหญ่ไปบนจอมือถือ ชื่อหน้ายาว ๆ กินที่จนเนื้อหาถูกดันลง ลดเหลือ 25px
+     ยังใหญ่กว่าหัวปกติ (17px) ชัดเจน แต่ไม่ข่มเนื้อหาข้างล่าง */
+  .appbar.big .titles h1{font-size:25px; letter-spacing:-.025em; line-height:1.2}
 
   #homeTop[hidden], #homeBody[hidden], #searchRes[hidden]{display:none}
   #searchRes{margin-top:12px}
@@ -320,6 +322,10 @@
     flex:0 0 auto; border:none; background:none; cursor:pointer; font:inherit; padding:6px 2px;
     color:var(--brand); font-weight:800; font-size:13.5px;
   }
+  /* .srow มีแต่ระยะห่างด้านบน ไม่มีด้านล่าง การ์ดถัดไปเลยมาชนติดกันจนดูเป็นก้อนเดียว
+     (เห็นชัดในหน้าของที่ซื้อมา: การ์ดสรุปชนหัวข้อ "วัตถุดิบที่ซื้อมา" พอดี)
+     ไม่ใส่ margin-bottom ที่ .srow ตรง ๆ เพราะหน้าแรกมีบางจุดที่ไม่ต้องการช่องว่างเพิ่ม */
+  .srow + .card, .srow + .block{margin-top:14px}
 
   /* ---------- แถวเมนูขายดี เลื่อนข้างได้ ---------- */
   .hil{display:flex; gap:14px; overflow-x:auto; scrollbar-width:none; margin:0 -20px; padding:6px 20px 10px}
