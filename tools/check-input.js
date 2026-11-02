@@ -157,9 +157,9 @@ const probe = `
   db.expenses = []; histMonth = '2026-01';
   const ms = allMonths();
   t('เรียงเดือนใหม่ไปเก่าถูก แม้ข้ามปี', ms.join(',') === '2026-01,2025-12', 'ได้ ' + ms.join(','));
-  shiftMonth(1);
+  jumpMonth('2025-12');          // เส้นทางจริง: แตะชื่อเดือน แล้วเลือกจากรายการ
   t('ย้อนไปเดือนก่อนข้ามปีได้', curMonth() === '2025-12', 'ได้ ' + curMonth());
-  shiftMonth(-1);
+  jumpMonth('2026-01');
   t('ไปเดือนถัดไปข้ามปีได้', curMonth() === '2026-01', 'ได้ ' + curMonth());
   histMonth = null;
 

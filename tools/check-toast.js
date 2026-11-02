@@ -85,8 +85,9 @@ const probe = `
   act('เพิ่มไส้ในชุด', () => { const g = db.groups[db.groups.length-1];
     groupItemDialog(g.id, -1); return pressSave({name:'ไส้ใหม่', price:5}); }, 'เพิ่ม');
   act('บันทึกรายจ่าย', () => { expenseDialog(null); return pressSave({note:'ซื้อไข่', amount:250}); }, 'เพิ่ม');
-  act('เพิ่มของที่ใช้ในสูตร', () => { itemDialog(db.menus[0].id, -1);
-    return pressSave({ingId: db.ingredients[0].id, qty: 50}); }, 'เพิ่ม');
+  // เส้นทางจริง: เปิดหน้าแก้สูตร → ติ๊กของที่ใช้ → ใส่จำนวน → บันทึก
+  act('ใส่ของที่ใช้ในสูตร', () => { const m = db.menus[0], i = db.ingredients[0];
+    openRecipe(m.id); toggleIng(i.id); setDraftQty(i.id, 50); saveRecipe(); }, 'บันทึก');
 
   // ---------- แก้ไข ----------
   act('แก้ราคาเมนู', () => { menuDialog(db.menus[0]);
@@ -118,7 +119,8 @@ const probe = `
   act('ลบรายจ่าย', () => { delEntry('exp', db.expenses[0].id); }, 'ลบ');
   act('ลบไส้ในชุด', () => { delGroupItem(db.groups[0].id, 0); }, 'ลบ');
   act('ลบชุดไส้', () => { delGroup(db.groups[db.groups.length-1].id); }, 'ลบ');
-  act('ลบของที่ใช้ในสูตร', () => { delItem(db.menus[0].id, 0); }, 'ลบ');
+  act('เอาของออกจากสูตร', () => { const m = db.menus.find(x => (x.items||[]).length);
+    openRecipe(m.id); toggleIng(m.items[0].ingId); saveRecipe(); }, 'บันทึก');
   act('ลบของที่ซื้อมา', () => { delIng(db.ingredients[0].id); }, 'ลบ');
   act('ลบเมนู', () => { delMenu(db.menus[db.menus.length-1].id); }, 'ลบ');
   act('ล้างบิลที่เปิดค้างไว้', () => { order = { lines: [] }; orderOpen = false;

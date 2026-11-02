@@ -59,7 +59,7 @@ const probe = `
   const m0 = db.menus[0], m1 = db.menus[1] || db.menus[0];
 
   /* ---- POS ---- */
-  openPOS();
+  openOrderDialog();            // เส้นทางจริงที่ปุ่ม "เปิดบิลใหม่" เรียก
   logic.push(['เปิดบิลได้', !!order]);
   views['ขาย (POS)'] = viewPOS();
 

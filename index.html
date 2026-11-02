@@ -1768,12 +1768,6 @@ function sumMonth(mk){
   const days = new Set([...(db.sales||[]), ...(db.expenses||[])].filter(x => monthKey(x.d) === mk).map(x => x.d));
   return { sale, exp, net: sale - exp, days: days.size };
 }
-// รายการทั้งหมดของวันนั้น เรียงเวลาใหม่สุดขึ้นก่อน
-function entriesOf(key){
-  const a = (db.sales||[]).filter(x => x.d === key).map(x => ({...x, kind:'sale'}));
-  const b = (db.expenses||[]).filter(x => x.d === key).map(x => ({...x, kind:'exp'}));
-  return [...a,...b].sort((x,y) => String(y.t||'').localeCompare(String(x.t||'')));
-}
 function allDays(){
   const set = new Set([...(db.sales||[]), ...(db.expenses||[])].map(x => x.d));
   return [...set].sort().reverse();
@@ -2241,7 +2235,21 @@ const PAGES = {
   more:  ['','อื่น ๆ','more']
 };
 
+/* เก็บกวาดสถานะที่เป็น "ของหน้าใดหน้าหนึ่ง" ตอนเปลี่ยนหน้า
+   อยู่ใน render() ไม่ใช่ go() เพราะมีอีกหลายที่ในแอป (ปิดบิล สลับร้าน ลบร้าน ใส่เมนูชุด
+   ล้างข้อมูล ใส่ข้อมูลตัวอย่าง) ที่เซ็ต tab เองแล้วเรียก render() ตรง ๆ
+   ถ้าวางไว้ใน go() เส้นทางพวกนั้นจะข้ามการเก็บกวาดทั้งหมด แล้วสถานะเก่าจะตามไปโผล่หน้าอื่น */
+function syncPageState(from, to){
+  if(to !== 'today') homeQ = '';                       // คำค้นเป็นของหน้าแรก
+  if(to !== 'menu'){ recipeDraft = null; openMenuId = null; }   // สูตร/เมนูที่เปิดค้าง เป็นของหน้าเมนู
+  if(to === 'sale'){ if(!order) order = { lines: [] }; }        // เข้าหน้าขายมีบิลเปล่ารอเลย
+  else if(order && !orderCount()) order = null;                 // บิลเปล่าไม่ตามไปหน้าอื่น
+  // กลับเข้าหน้าแรกจากที่อื่น ให้เด้งมาที่วันนี้เสมอ ไม่ค้างอยู่วันที่เคยกดดูย้อนหลัง
+  if(to === 'today' && from !== 'today') dashDay = dayKey();
+}
+
 function render(){
+  if(tab !== shownTab) syncPageState(shownTab, tab);   // ต้องทำก่อนวาด ไม่งั้นหน้าใช้ค่าเก่า
   const t = TABS.find(x => x[0] === tab) || PAGES[tab] || ['','ภาพรวม','dash'];
   document.getElementById('pageTitle').textContent = t[3] || t[1];
   document.getElementById('appbarIc').innerHTML = icon(t[2] || 'dash', 19);
@@ -2332,15 +2340,24 @@ function render(){
 }
 let shownTab = null;        // หน้าที่วาดไว้ล่าสุด ใช้ดูว่าเปลี่ยนหน้าหรือแค่วาดซ้ำ
 const ADMIN_TABS = ['ing','fixed','dash','menu'];   // เครื่องมือของคนดูแล ไม่ใช่ของหน้าร้าน
+// เปลี่ยนหน้า — การเก็บกวาดสถานะอยู่ใน syncPageState() ที่ render() เรียกให้เอง
 function go(t){
   if(ADMIN_TABS.includes(t) && !adminOk(() => go(t))) return;
-  if(t === 'setup') openMenuId = null;
-  // กลับเข้าหน้าแรกจากแท็บอื่น ให้เด้งกลับมาที่วันนี้เสมอ จะได้ไม่ค้างอยู่วันเก่า
-  if(t === 'today'){ if(tab !== 'today') dashDay = dayKey(); } else homeQ = '';
-  if(t === 'sale' && !order) order = { lines: [] };   // เข้าแท็บขายแล้วมีบิลเปล่ารอเลย
-  // ออกจากแท็บขายโดยยังไม่ได้กดอะไร ให้ทิ้งบิลเปล่าไปเลย จะได้ไม่ค้างเป็น "บิลค้าง" ในหน้าอื่น
-  if(t !== 'sale' && order && !orderCount()) order = null;
   tab = t; render(); window.scrollTo({top:0});
+}
+
+/* ข้อมูลเปลี่ยนยกชุด — สลับร้าน เพิ่ม/ลบร้าน ล้างข้อมูล ใส่ข้อมูลตัวอย่าง ใส่เมนูทั้งชุด
+   กรณีพวกนี้ไม่ใช่แค่ย้ายแท็บ แต่ของเดิมทั้งหมดใช้ไม่ได้แล้ว
+   ถ้าแค่เซ็ต tab แล้ว render() คำค้น วันที่ที่เลือกไว้ และตัวกรองของร้านเก่าจะตามมาโผล่
+   (shownTab = null บังคับให้ syncPageState ทำงานเสมอ แม้แท็บปลายทางจะเป็นแท็บเดิม) */
+function resetView(t){
+  homeQ = ''; recipeDraft = null; openMenuId = null;
+  order = null; orderOpen = false;
+  dashDay = dayKey();
+  histMonth = null; histSort = 'date'; histOnlyBig = false;
+  posCat = null; posQ = ''; quickPick = false;
+  tab = t; shownTab = null;
+  render(); window.scrollTo({top:0});
 }
 
 // เส้นใต้แถบบนจะโผล่เฉพาะตอนเลื่อนหน้าลง
@@ -2363,7 +2380,7 @@ function renderBanner(){
 }
 function startFresh(){
   if(!adminOk(() => startFresh())) return;
-  setShopData(blank()); tab='today'; render(); toast('เริ่มกรอกของร้านเราแล้ว');
+  setShopData(blank()); resetView('today'); toast('เริ่มกรอกของร้านเราแล้ว');
 }
 function keepDemo(){ delete db.isDemo; save(); render(); toast('ใช้ข้อมูลชุดนี้ต่อแล้ว'); }
 
@@ -2372,7 +2389,7 @@ function resetAll(){
   askConfirm('ล้างข้อมูลของร้านนี้',
     `ยอดขาย รายจ่าย และเมนูของ "${db.shopName}" จะหายหมด กู้คืนไม่ได้ — ร้านอื่นไม่กระทบ`,
     'ล้างทิ้ง', () => {
-      setShopData(blank()); tab = 'today'; openMenuId = null; order = null; render();
+      setShopData(blank()); resetView('today');
       toast('ล้างข้อมูลของร้านนี้แล้ว');
     });
 }
@@ -2975,44 +2992,6 @@ function delMenu(id){
       toast(delMsg('เมนู', m ? m.name : ''));
     });
 }
-// หน้าต่างเดียวใช้ได้ทั้งเพิ่มและแก้ไขรายการในสูตร (idx = -1 คือเพิ่มใหม่)
-function itemDialog(mid, idx){
-  const m = findMenu(mid); if(!m) return;
-  const cur = idx >= 0 ? m.items[idx] : null;
-  openDialog({ icon:'box',
-    title: cur ? 'แก้ไขวัตถุดิบในสูตร' : 'เพิ่มวัตถุดิบในสูตร',
-    sub:`เมนู: ${m.name || '(ยังไม่มีชื่อ)'}`,
-    fields:[
-      {k:'ingId', label:'วัตถุดิบ', type:'select', value: cur ? cur.ingId : db.ingredients[0].id, wide:true,
-       options: db.ingredients.map(i => ({value:i.id, label:i.name || '(ไม่มีชื่อ)'}))},
-      {k:'qty', label:'ใช้เท่าไหร่ต่อ 1 จาน', type:'number', value: cur ? cur.qty : '', wide:true}
-    ],
-    live: v => {
-      const ing = findIng(v.ingId);
-      if(!ing) return 'เลือกวัตถุดิบก่อน';
-      if(!(v.qty > 0)) return `ใส่จำนวนเป็น "${esc(ing.unit)}" — ของนี้${perUnit(ing)}`;
-      return `${v.qty} ${esc(ing.unit)} = ${baht(unitCost(ing) * v.qty)} บาท ต่อจาน`;
-    },
-    check: v => !findIng(v.ingId) ? 'ยังไม่ได้เลือกวัตถุดิบ'
-              : !(v.qty > 0) ? 'ปริมาณที่ใช้ต้องมากกว่า 0' : null,
-    save: v => {
-      if(cur) Object.assign(cur, {ingId:v.ingId, qty:v.qty});
-      else (m.items = m.items||[]).push({ingId:v.ingId, qty:v.qty});
-      save(); render();
-      const ingName = (findIng(v.ingId)||{}).name;
-      toast(savedMsg('ของที่ใช้', ingName, !cur));
-    }
-  });
-}
-function addItem(mid){ itemDialog(mid, -1); }
-function editItem(mid, idx){ itemDialog(mid, idx); }
-function delItem(mid,idx){
-  const m = findMenu(mid); if(!m) return;
-  const gone = m.items[idx];
-  m.items.splice(idx,1); save(); render();
-  toast(delMsg('ของที่ใช้', gone ? (findIng(gone.ingId)||{}).name : ''));
-}
-
 /* --------- แท็บ 3: ต้นทุนคงที่ --------- */
 function viewFixed(){
   const back = subHead('fixed','ค่าใช้จ่ายประจำ', breakEven() ? 'ต้องขายวันละ ' + Math.ceil(breakEven()) + ' จานถึงไม่ขาดทุน' : 'ยังคำนวณไม่ได้ — ต้องมีเมนูที่ตั้งราคาก่อน');
@@ -3184,7 +3163,7 @@ function loadShopMenu(){
     db.groups = [];
     migrateGroups(db);            // แตกไส้ในใบเมนูออกเป็นชุดไส้ที่ใช้ร่วมกัน
     delete db.isDemo; delete db.hideShopHint;
-    save(); tab = 'sale'; openMenuId = null; posCat = null; render();
+    save(); resetView('sale');
     toast('ใส่ให้แล้ว ' + db.menus.length + ' เมนู · ชุดไส้ ' + db.groups.length + ' ชุด');
   };
   if(db.menus.length) askConfirm('ใส่เมนูจากใบเมนูร้าน',
@@ -3251,23 +3230,12 @@ function repaintPosList(){
   plainButtons();
 }
 
-function openPOS(){
-  if(!db.menus.length){
-    openDialog({ icon:'menu', title:'ยังไม่มีเมนู', sub:'ตั้งเมนูกับราคาไว้ก่อน แล้วค่อยมาเปิดบิล',
-      html:'<p style="margin:0;color:var(--ink-2)">ไปที่แท็บ <b>เมนู</b> กดปุ่ม <b>เพิ่ม</b> ใส่ชื่อกับราคาขาย แล้วกลับมาที่นี่ครับ</p>' });
-    return;
-  }
-  order = { lines: [] }; posCat = null;
-  render(); window.scrollTo({top:0});
-}
 function clearBill(){
   const had = order ? order.lines.length : 0;
   if(order) order.lines = [];
   repaintOrder();
   if(had) toast('ล้างบิลแล้ว');
 }
-function closePOS(){ order = null; tab = 'today'; render(); window.scrollTo({top:0}); }
-
 const lineTotal = l => (n(l.price) + (l.addons||[]).reduce((s,a) => s + n(a.price), 0)) * n(l.qty);
 const orderTotal = () => (order ? order.lines : []).reduce((s,l) => s + lineTotal(l), 0);
 const orderCount = () => (order ? order.lines : []).reduce((s,l) => s + n(l.qty), 0);
@@ -3530,9 +3498,7 @@ function switchShop(id){
   if(id === store.active) return dlg.close();
   const x = store.shops.find(v => v.id === id); if(!x) return;
   store.active = id; db = x; save();
-  order = null; orderOpen = false; openMenuId = null;
-  histMonth = null; posCat = null; posQ = ''; quickPick = false;
-  dlg.close(); tab = 'today'; render(); window.scrollTo({top:0});
+  dlg.close(); resetView('today');
   toast('สลับมาที่ ' + db.shopName);
 }
 
@@ -3586,8 +3552,7 @@ function addShop(){
       x.shopBranch = String(v.branch||'').trim();
       store.shops.push(x);
       store.active = x.id; db = x; save();
-      order = null; orderOpen = false; histMonth = null;
-      tab = 'setup'; render(); window.scrollTo({top:0});
+      resetView('setup');
       toast('สร้าง ' + x.shopName + ' แล้ว — ใส่เมนูได้เลย');
     }
   });
@@ -3603,8 +3568,7 @@ function delShop(id){
     'ลบร้าน', () => {
       store.shops = store.shops.filter(v => v.id !== id);
       if(store.active === id){ store.active = store.shops[0].id; db = store.shops[0]; }
-      save(); order = null; orderOpen = false; histMonth = null;
-      tab = 'setup'; render(); toast('ลบร้านแล้ว');
+      save(); resetView('setup'); toast('ลบร้านแล้ว');
     });
 }
 function shopDialog(id){
@@ -3817,27 +3781,6 @@ function toast(msg){
 }
 
 /* ===================== หน้า "วันนี้" — หัวใจของแอป ===================== */
-function entryRow(e, showDay){
-  const isSale = e.kind === 'sale';
-  const sub = isSale
-    ? [ n(e.qty) > 1 ? n(e.qty) + ' จาน' : '',
-        (e.addons||[]).map(a => a.name).join(' ') ].filter(Boolean).join(' · ')
-    : '';
-  return `<div class="li" role="button" tabindex="0" onclick="editEntry('${e.kind}','${e.id}')"
-       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editEntry('${e.kind}','${e.id}')}">
-    <div class="li-main">
-      <div class="li-title">${esc(isSale ? (e.name || 'ขายได้') : (e.note || 'ซื้อของ'))}</div>
-      <div class="li-sub">${showDay ? thaiDate(e.d) + ' · ' : ''}${e.t || ''}${sub ? ' · ' + esc(sub) : ''}</div>
-    </div>
-    <div class="li-end">
-      <span class="amt ${isSale ? 'in' : 'out'}">${isSale ? '+' : '−'}${baht(isSale ? e.total : e.amount)}</span>
-      <span class="li-chev">${icon('chev',16)}</span>
-    </div>
-  </div>`;
-}
-
-
-
 /* ===================== กราฟยอดขาย 7 วันล่าสุด =====================
    แท่งเดียวชุดเดียว (ยอดขายรายวัน) จึงไม่ต้องมีคำอธิบายสี
    วันนี้เน้นสีเข้ม วันอื่นสีอ่อน · ป้ายตัวเลขใส่เฉพาะวันนี้กับวันที่ขายดีสุด */
@@ -3858,8 +3801,6 @@ function niceTop(v){
   const mag = Math.pow(10, Math.floor(Math.log10(v)));
   return Math.ceil(v / (mag/2)) * (mag/2);
 }
-
-function salesChart(key){ return ''; }   // ย้ายไปอยู่ในการ์ดของ Dashboard แล้ว
 
 function chartBody(key, days){
   const maxSale = Math.max(...days.map(d => d.sale));
@@ -3987,75 +3928,6 @@ function avgSaleBefore(key, days){
   if(!list.length) return 0;
   return list.reduce((a,b) => a + b, 0) / list.length;
 }
-
-/* ---------- ส่วนที่เอาไปวางในหน้า Dashboard ---------- */
-function dashStats(key){
-  const d = sumDay(key);
-  const menus = topMenus(key);
-  if(!menus.length) return '';
-
-  const bills = billsOf(key);
-  const avg7 = avgSaleBefore(key, 7);
-  const diff = avg7 ? (d.sale - avg7) / avg7 * 100 : 0;
-  const top = menus[0].baht || 1;
-  const adds = topAddons(key).slice(0, 5);
-  const slots = byTimeSlot(key).filter(s => s.baht > 0);
-  const slotTop = Math.max(...slots.map(s => s.baht), 1);
-
-  return `
-  <div class="card">
-    <h2>วันนี้ขายอะไรดี</h2>
-    <p class="sub">เรียงจากทำเงินมากสุด · ${menus.reduce((a,m)=>a+m.qty,0)} จาน จาก ${bills} บิล</p>
-    <div class="rank">${menus.map((m,i) => `
-      <div class="rank-row">
-        <div class="rank-name">${i===0 ? '🏆 ' : ''}${esc(m.name)}</div>
-        <div class="rank-val">${baht(m.baht)}</div>
-        <div class="meter"><i style="width:${clamp(m.baht/top*100,3,100)}%"></i></div>
-        <div class="rank-sub">${m.qty} จาน · เฉลี่ยจานละ ${baht(m.baht/m.qty)} บาท</div>
-      </div>`).join('')}</div>
-  </div>
-
-  ${adds.length ? `<div class="card">
-    <h2>ไส้ที่ลูกค้าเพิ่มบ่อย</h2>
-    <p class="sub">เอาไว้ดูว่าควรเตรียมอะไรเผื่อไว้เยอะ ๆ</p>
-    <div class="list">${adds.map(a => `
-      <div class="li-read">
-        <div class="li-main"><div class="li-title">${esc(a.name)}</div></div>
-        <span class="chip">${a.qty} ครั้ง</span>
-      </div>`).join('')}</div>
-  </div>` : ''}
-
-  ${slots.length > 1 ? `<div class="card">
-    <h2>ช่วงไหนขายดี</h2>
-    <p class="sub">ไว้วางแผนว่าควรเตรียมของตอนไหน</p>
-    <div class="rank">${slots.map(s => `
-      <div class="rank-row">
-        <div class="rank-name">${s.name}</div>
-        <div class="rank-val">${baht(s.baht)}</div>
-        <div class="meter"><i style="width:${clamp(s.baht/slotTop*100,3,100)}%"></i></div>
-        <div class="rank-sub">${s.when} · ${s.qty} จาน</div>
-      </div>`).join('')}</div>
-  </div>` : ''}`;
-}
-
-// บรรทัดเทียบกับค่าเฉลี่ย ใช้วางใต้ตัวเลขวันนี้
-function compareLine(key){
-  const d = sumDay(key);
-  const avg7 = avgSaleBefore(key, 7);
-  const bills = billsOf(key);
-  if(!d.sale) return '';
-  const parts = [];
-  if(bills) parts.push(`${bills} บิล · เฉลี่ยบิลละ ${baht(d.sale / bills)} บาท`);
-  if(avg7 > 0){
-    const diff = (d.sale - avg7) / avg7 * 100;
-    const word = diff >= 5 ? `ดีกว่าปกติ ${Math.round(diff)}%`
-               : diff <= -5 ? `น้อยกว่าปกติ ${Math.round(-diff)}%`
-               : 'พอ ๆ กับปกติ';
-    parts.push(`${word} (ปกติวันละ ${baht(avg7)})`);
-  }
-  return parts.length ? `<p class="hint" style="margin-top:14px">${parts.join(' · ')}</p>` : '';
-}
-
 
 /* ===================== กราฟเล็กในการ์ดสถิติ ===================== */
 // เส้นบาง ๆ พร้อมพื้นจาง ๆ จุดท้ายเน้นค่าปัจจุบัน
@@ -4746,14 +4618,6 @@ function curMonth(){
   if(histMonth) return histMonth;
   return allMonths()[0] || monthKey(dayKey());
 }
-// เลื่อนไปเดือนที่มีข้อมูลถัดไป (รายการเรียงใหม่→เก่า)
-function shiftMonth(step){
-  const all = allMonths();
-  const i = all.indexOf(curMonth());
-  const next = all[i + step];
-  if(!next) return;
-  histMonth = next; render(); window.scrollTo({top:0});
-}
 function setHistSort(v){ histSort = v; render(); }
 function toggleHistBig(){ histOnlyBig = !histOnlyBig; render(); }
 
@@ -4904,16 +4768,6 @@ function viewHist(){
     }).join('')}</div>` : `<div class="empty" style="padding:26px 10px">
       <p style="margin:0">ไม่มีวันไหนขายเกิน ฿${baht(cut)} ในเดือนนี้</p></div>`}
   </div>`;
-}
-
-function openDay(key){
-  const d = sumDay(key);
-  const rows = entriesOf(key);
-  openDialog({ icon:'today',
-    title: thaiDate(key, true),
-    sub: `ขายได้ ${baht(d.sale)} · ซื้อของ ${baht(d.exp)} · เหลือ ${baht(d.net)} บาท`,
-    html: `<div class="list">${rows.map(e => entryRow(e,false)).join('') || '<div class="empty">ไม่มีรายการ</div>'}</div>`
-  });
 }
 
 /* ===================== รายรับ-รายจ่าย =====================
@@ -5502,7 +5356,7 @@ function delGroup(gid){
       const nm = g.name;
       db.groups = (db.groups||[]).filter(x => x.id !== gid);
       db.menus.forEach(m => m.groupIds = (m.groupIds||[]).filter(x => x !== gid));
-      save(); tab = 'setup'; render();
+      save(); go('setup');
       toast(delMsg('ชุดไส้', nm));
     });
 }
@@ -5628,7 +5482,7 @@ function importJSON(input){
 /* ===================== ข้อมูลตัวอย่าง ===================== */
 function loadDemo(){
   if(!adminOk(() => loadDemo())) return;
-  const go = () => { setShopData(seedHistory(buildDemo())); tab='today'; render(); toast('ใส่ข้อมูลตัวอย่างให้แล้ว'); };
+  const go = () => { setShopData(seedHistory(buildDemo())); resetView('today'); toast('ใส่ข้อมูลตัวอย่างให้แล้ว'); };
   if(db.ingredients.length && !db.isDemo)
     askConfirm('ใส่ข้อมูลตัวอย่าง', 'จะทับข้อมูลเดิมทั้งหมด รวมถึงยอดขายที่บันทึกไว้', 'ทับเลย', go);
   else go();
