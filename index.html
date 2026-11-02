@@ -906,7 +906,8 @@
   .bill{display:flex; flex-direction:column}
   .billhead{
     display:flex; align-items:center; justify-content:space-between;
-    margin:16px 0 8px; font-size:13px; font-weight:800; color:var(--ink);
+    margin:16px 0 4px; padding-top:14px; border-top:1px solid var(--line);
+    font-size:13px; font-weight:800; color:var(--ink);
   }
   .billclear{
     display:inline-flex; align-items:center; gap:5px; cursor:pointer; font:inherit;
@@ -915,7 +916,9 @@
   }
   .billclear:hover{color:var(--bad); background:var(--bad-bg)}
   .billclear svg{width:13px; height:13px}
-  .dlg-bill{background:var(--soft); border-radius:var(--r); padding:8px}
+  /* บิลไม่ต้องมีพื้นของตัวเอง — หน้าต่างเป็นกล่องอยู่แล้ว ใส่อีกชั้นจะเห็นเป็นการ์ดซ้อนการ์ด
+     ใช้หัวข้อ "บิลนี้" กับเส้นคั่นด้านบนบอกขอบเขตแทน แล้วให้แถวเรียงเป็นลิสต์ธรรมดา */
+  .dlg-bill{max-height:min(30vh, 250px); overflow-y:auto; margin:0 -2px; padding:0 2px}
   .bill{display:flex; flex-direction:column; gap:8px}
   .bill-line{
     display:flex; flex-direction:column; gap:8px;
@@ -1341,12 +1344,14 @@
   .mnav-b:disabled{opacity:.32; cursor:default}
   .mnav-t{flex:1; min-width:0; text-align:center; font-size:17px; font-weight:800; letter-spacing:-.02em}
 
-  .mbox{display:flex; flex-direction:column; gap:2px; background:var(--soft);
-        border-radius:var(--r); padding:6px}
+  /* เดิมเป็น ขาว(การ์ด) → เทา(.mbox) → ขาว(.mbox-row) สามชั้นสลับสี เห็นเป็นการ์ดซ้อนการ์ด
+     เอาพื้นของ .mbox ออก แล้วให้สามบรรทัดเรียงกันโดยคั่นด้วยเส้นแทน เหลือชั้นเดียว */
+  .mbox{display:flex; flex-direction:column; background:var(--soft);
+        border-radius:var(--r); padding:2px 14px}
   .mbox-row{
-    display:flex; align-items:center; gap:10px; padding:11px 12px;
-    background:var(--bg); border-radius:var(--r);
+    display:flex; align-items:center; gap:10px; padding:12px 0;
   }
+  .mbox-row + .mbox-row{border-top:1px solid var(--line)}
   .mbox-ic{
     width:28px; height:28px; flex:0 0 auto; border-radius:50%;
     display:grid; place-items:center;
@@ -1584,7 +1589,6 @@
      ในหน้าต่างมีกล่องซ้อนกันอยู่แล้ว 2 ชั้น (หน้าต่าง → กล่องเทา)
      ถ้าแต่ละแถวเป็นการ์ดขาวมีเงาอีก จะกลายเป็น 3 ชั้นและดูอัดแน่น
      ในหน้าต่างจึงให้แถวเป็นแบบแบน คั่นด้วยเส้นบาง ๆ แทน */
-  .dlg-bill{max-height:min(30vh, 250px); overflow-y:auto; padding:2px 12px}
   .dlg-body .bill{gap:0}
   .dlg-body .bill-line{
     background:none; box-shadow:none; border-radius:0;
