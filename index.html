@@ -345,16 +345,31 @@
   }
 
   /* ---------- แท็บซอยเนื้อหาแดชบอร์ด ---------- */
-  .dseg{display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; margin:14px -20px 14px; padding:0 20px}
+  /* แท็บย่อยทรงแฟ้มเอกสาร — ตัวที่เลือกเป็นสีขาวต่อเนื่องลงไปเป็นการ์ดข้างล่าง
+     ตัวที่ไม่ได้เลือกเป็นเทาและจมต่ำลงไปเล็กน้อย เหมือนแผ่นที่อยู่ข้างหลัง
+     align-items:flex-end ทำให้ทุกแท็บวางอยู่บนเส้นฐานเดียวกันแม้สูงไม่เท่ากัน */
+  .dseg{
+    display:flex; gap:4px; align-items:flex-end; overflow-x:auto; scrollbar-width:none;
+    margin:14px -20px 0; padding:0 20px; position:relative;
+  }
   .dseg::-webkit-scrollbar{display:none}
   .dseg-b{
-    flex:0 0 auto; border:none; cursor:pointer; font:inherit; padding:9px 15px;
-    border-radius:var(--r-pill); background:var(--bg); box-shadow:var(--sh-card);
-    color:var(--ink-2); font-size:13.5px; font-weight:700; transition:.16s;
+    flex:0 0 auto; border:none; cursor:pointer; font:inherit;
+    padding:9px 14px 10px; margin-top:6px;
+    border-radius:var(--r) var(--r) 0 0; background:var(--soft);
+    color:var(--ink-2); font-size:13.5px; font-weight:700;
     display:inline-flex; align-items:center; gap:6px;
   }
   .dseg-b svg{width:15px; height:15px}
-  .dseg-b.on{background:var(--brand); color:#fff; box-shadow:0 7px 18px rgba(211,43,43,.28)}
+  /* แท็บที่เลือก: สูงขึ้นมา เป็นสีเดียวกับการ์ด และมีเงาเฉพาะด้านบน-ข้าง
+     เงาลบ (inset ของ spread) ทำให้ด้านล่างไม่มีเส้นคั่น จึงดูต่อเนื่องกับการ์ด */
+  .dseg-b.on{
+    background:var(--bg); color:var(--brand); margin-top:0; padding:12px 16px 12px;
+    box-shadow:0 -3px 10px rgba(22,24,28,.07);
+  }
+  /* ต่อแท็บที่เลือกเข้ากับการ์ดใบแรกให้เป็นผืนเดียว โดยลบมุมบนของการ์ดนั้นออก
+     ใช้ ~ ไม่ใช่ + เพราะแผงที่เปิดอยู่อาจไม่ใช่แผงแรกที่ต่อจากแถบแท็บ */
+  .dseg ~ .dpane.on > :first-child{border-top-left-radius:0; border-top-right-radius:0}
   .dpane:not(.on){display:none}
 
   /* ===================== ปุ่ม ===================== */
@@ -771,6 +786,10 @@
 
   /* ===================== จอใหญ่: แท็บข้อความใต้หัวข้อ ===================== */
   @media(min-width:760px){
+    /* จอกว้างกริดแตกเป็นหลายคอลัมน์ การ์ดใบแรกไม่ได้เต็มแถวแล้ว
+       ตัดมุมบนทิ้งจะดูเหมือนวางผิด คืนมุมให้ตามปกติ */
+    .dseg ~ .dpane.on > :first-child{border-radius:var(--r)}
+    .dseg{margin-bottom:14px}
     .shell{max-width:780px; min-height:100dvh}
     .appbar{padding:26px 28px 10px}
     .appbar::after{display:none}

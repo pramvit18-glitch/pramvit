@@ -53,9 +53,12 @@ const bodyOf = sel => rules.filter(r => r.sels.includes(sel)).map(r => r.body).j
 const miss = circleMust.filter(([sel]) => !/border-radius:\s*50%/.test(bodyOf(sel)));
 push(`วงกลมยังเป็นวงกลม${miss.length ? ' — พัง: ' + miss.map(m => m[1]).join(', ') : ''}`, !miss.length);
 
-const pillMust = [['.btn', 'ปุ่มทั่วไป'], ['.dseg-b', 'ชิปแท็บย่อย'], ['.cat', 'ชิปกรอง'],
+// .dseg-b ย้ายไปเป็นแท็บทรงแฟ้มแล้ว (มนเฉพาะมุมบน) ไม่ใช่แคปซูลอีกต่อไป
+const pillMust = [['.btn', 'ปุ่มทั่วไป'], ['.cat', 'ชิปกรอง'],
                   ['.meter', 'แถบวัดสัดส่วน'], ['.head-tag', 'ป้ายตัวเลขบนหัวการ์ด']];
 const pillBad = pillMust.filter(([sel]) => !/border-radius:\s*var\(--r-pill\)/.test(bodyOf(sel)));
+push('แท็บหน้ามนเฉพาะมุมบน ใช้ token เดียวกับพื้นผิว',
+  /border-radius:var\(--r\) var\(--r\) 0 0/.test(bodyOf('.dseg-b')));
 push(`แคปซูลยังเป็นแคปซูล${pillBad.length ? ' — พัง: ' + pillBad.map(m => m[1]).join(', ') : ''}`, !pillBad.length);
 
 /* ---------- การ์ดกับของข้างในต้องไม่มนเท่ากันเป๊ะจนดูแปลก ----------

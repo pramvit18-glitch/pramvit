@@ -21,13 +21,22 @@ const push = (name, v) => out.push([name, !!v]);
 
 /* ---------- ระดับ CSS ---------- */
 push('มีหัวใหญ่สำหรับหน้าทั่วไป', /\.appbar\.big[\s\S]{0,200}font-size:30px/.test(css));
-// ชิปสองชุดต้องหน้าตาเหมือนกัน ไม่ใช่อันมีขอบอันมีเงา
+/* .cat = ชิปกรอง (เลือกได้หลายแบบ ไม่เปลี่ยนหน้า) → ทรงแคปซูล
+   .dseg-b = แท็บหน้า (เปลี่ยนเนื้อหาทั้งแผง) → ทรงแฟ้ม ต่อกับการ์ดข้างล่าง
+   สองอันนี้ทำคนละหน้าที่ จึงตั้งใจให้หน้าตาต่างกัน แต่ละอันต้องสม่ำเสมอในตัวเอง */
 const cat  = (css.match(/\n  \.cat\{[^}]*\}/) || [''])[0];
 const dseg = (css.match(/\n  \.dseg-b\{[^}]*\}/) || [''])[0];
-push('ชิป .cat เลิกใช้เส้นขอบแล้ว', cat && !/border:1px/.test(cat));
-push('ชิป .cat กับ .dseg-b ใช้เงาชุดเดียวกัน',
-  /box-shadow:var\(--sh-card\)/.test(cat) && /box-shadow:var\(--sh-card\)/.test(dseg));
-push('ชิปที่เลือกอยู่ใช้สีแดงเหมือนกันทั้งสองชุด',
+push('ชิปกรองเลิกใช้เส้นขอบแล้ว', cat && !/border:1px/.test(cat));
+push('ชิปกรองเป็นทรงแคปซูล', /border-radius:var\(--r-pill\)/.test(cat));
+push('แท็บหน้าเป็นทรงแฟ้ม มนเฉพาะมุมบน',
+  /border-radius:var\(--r\) var\(--r\) 0 0/.test(dseg));
+push('แท็บที่เลือกเป็นสีเดียวกับการ์ด จะได้ดูต่อเนื่องกัน',
+  /\.dseg-b\.on\{[^}]*background:var\(--bg\)/.test(css));
+push('แท็บที่เลือกต่อกับการ์ดใบแรกโดยลบมุมบนของการ์ด',
+  /\.dseg ~ \.dpane\.on > :first-child\{border-top-left-radius:0/.test(css));
+push('จอกว้างที่กริดแตกหลายคอลัมน์ คืนมุมการ์ดให้ปกติ',
+  /\.dseg ~ \.dpane\.on > :first-child\{border-radius:var\(--r\)\}/.test(css));
+push('ทั้งชิปกรองและแท็บหน้า ใช้สีแบรนด์บอกตัวที่เลือก',
   /\.cat\.on\{[^}]*var\(--brand\)/.test(css) && /\.dseg-b\.on\{[^}]*var\(--brand\)/.test(css));
 push('แผงแท็บย่อยซ่อนได้ทั้งแบบกริดและแบบธรรมดา', css.includes('.dpane:not(.on){display:none}'));
 
