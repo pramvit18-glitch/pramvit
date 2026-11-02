@@ -65,14 +65,14 @@ const push = (name, v) => { ok.push([name, !!v]); };
   await cust.waitForTimeout(600);
 
   push('ลูกค้าเห็นชื่อร้าน', (await cust.textContent('#shopName')).includes('ร้านเครปทดสอบ'));
-  push('ลูกค้าเห็นเมนูครบ', (await cust.locator('.m').count()) === 2);
+  push('ลูกค้าเห็นเมนูครบ', (await cust.locator('#view .li').count()) === 2);
 
   // เลือกเมนูแรก ติ๊กไส้ที่มีเครื่องหมาย ' ในชื่อ (จุดที่เคยทำปุ่มตายเงียบ ๆ)
-  await cust.locator('.m').first().click();
+  await cust.locator('#view .li').first().click();
   await cust.waitForTimeout(300);
-  await cust.locator('.tops button', { hasText: "ไข่ไก่ด'ล" }).click();
+  await cust.locator('.tops .top', { hasText: "ไข่ไก่ด'ล" }).click();
   await cust.waitForTimeout(150);
-  push("ติ๊กไส้ที่ชื่อมี ' ได้", await cust.locator('.tops button.on').count() === 1);
+  push("ติ๊กไส้ที่ชื่อมี ' ได้", await cust.locator('.tops .top.on').count() === 1);
 
   await cust.locator('.qbtn', { hasText:'+' }).click();        // 2 ชิ้น
   await cust.locator('button', { hasText:'ใส่ตะกร้า' }).click();
