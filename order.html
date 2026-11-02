@@ -479,10 +479,13 @@ function head(title, sub){
 
 /* ===================== หน้าเลือกของ ===================== */
 function draw(){
-  if(!menu.open){
-    el('view').innerHTML = `<div class="card">
-      <div class="note warn">${icon('store',17)}<span>ตอนนี้ร้านปิดอยู่ ยังสั่งไม่ได้ครับ กลับมาใหม่ตอนร้านเปิดนะ</span></div>
-    </div>`;
+  // ร้านปิด หรือแม่ค้ากดหยุดรับออเดอร์ทางนี้ = สั่งไม่ได้
+  // taking ไม่มีค่า (ใบเมนูเก่าก่อนมีฟีเจอร์นี้) ให้ถือว่ารับอยู่
+  const taking = menu.taking !== false;
+  if(!menu.open || !taking){
+    el('view').innerHTML = closedView(
+      !menu.open ? 'ตอนนี้ร้านปิดอยู่'            : 'ตอนนี้สั่งผ่านหน้านี้ไม่ได้',
+      !menu.open ? 'กลับมาใหม่ตอนร้านเปิดนะครับ'  : 'ทางร้านรับออเดอร์ที่หน้าร้านอย่างเดียว');
     bar();
     return;
   }
@@ -507,6 +510,28 @@ function draw(){
     </div>
     ${cartCard()}`;
   bar();
+}
+
+/* สั่งไม่ได้ แต่ยังโชว์ราคาให้ดู — ลูกค้าที่ยืนต่อคิวอยู่จะได้เลือกไว้ก่อนได้
+   ถ้าตัดเมนูทิ้งไปเลย หน้านี้จะกลายเป็นทางตัน เปิดมาแล้วไม่ได้อะไรกลับไป */
+function closedView(title, sub){
+  return `<div class="card">
+    <div class="note warn">${icon('store',17)}<span><b>${esc(title)}</b><br>${esc(sub)}</span></div>
+  </div>
+  <div class="card">
+    ${cardHead('menu', 'เมนูกับราคา', 'ดูไว้ก่อนได้ ยังกดสั่งไม่ได้')}
+    <div class="list">
+      ${menu.menus.map(m => `
+        <div class="li" style="cursor:default">
+          <span class="av">${esc(initial(m.name))}</span>
+          <div class="li-main">
+            <div class="li-title">${esc(m.name)}</div>
+            <div class="li-sub">${addonText(m)}</div>
+          </div>
+          <span class="li-p">฿${baht(m.price)}</span>
+        </div>`).join('')}
+    </div>
+  </div>`;
 }
 
 function addonText(m){

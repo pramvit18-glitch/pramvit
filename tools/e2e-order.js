@@ -142,6 +142,34 @@ const push = (name, v) => { ok.push([name, !!v]); };
   await cust2.waitForTimeout(600);
   push('ร้านปิดอยู่ ลูกค้าสั่งไม่ได้', (await cust2.textContent('#view')).includes('ร้านปิดอยู่'));
   push('ร้านปิดอยู่ ไม่มีแถบสั่งโผล่', await cust2.locator('#bar[hidden]').count() === 1);
+  push('ร้านปิดอยู่ แต่ยังดูราคาได้ ไม่ใช่ทางตัน',
+    (await cust2.textContent('#view')).includes('เครปกรอบ'));
+  push('ร้านปิดอยู่ กดเมนูสั่งไม่ได้', await cust2.locator('#view button.li').count() === 0);
+
+  /* ---------- แม่ค้ากดหยุดรับออเดอร์ = ลูกค้าต้องสั่งไม่ได้ ---------- */
+  // เคยพลาด: ปิดแล้วไม่ได้บอกคลาวด์เลย ลูกค้ายังสั่งเข้ามาได้แต่ไม่มีใครเห็น
+  await seller.evaluate(async () => {
+    db.shopOpen = 1; db.orderOn = 1; save(); await publishMenu();   // เปิดกลับก่อน
+  });
+  const beforeOff = await (await fetch(`${CLOUD}/s/${key}/menu.json`)).json();
+  push('เปิดรับอยู่ ใบเมนูบอกว่ารับออเดอร์', beforeOff.taking === true);
+
+  await seller.evaluate(async () => { await toggleOrders(); });     // กดหยุดรับ
+  await seller.waitForTimeout(600);
+  const afterOff = await (await fetch(`${CLOUD}/s/${key}/menu.json`)).json();
+  push('กดหยุดรับแล้ว ใบเมนูบอกว่าไม่รับแล้ว', afterOff.taking === false);
+
+  const cust5 = await b.newPage({ viewport:{width:390,height:844} });
+  await cust5.goto(`${APP}/order.html?s=${key}&c=${encodeURIComponent(CLOUD)}`);
+  await cust5.waitForTimeout(600);
+  const t5 = await cust5.textContent('#view');
+  push('หยุดรับแล้ว ลูกค้าเปิดลิงก์ได้แต่สั่งไม่ได้', t5.includes('สั่งผ่านหน้านี้ไม่ได้'));
+  push('หยุดรับแล้ว ไม่มีแถบสั่งโผล่', await cust5.locator('#bar[hidden]').count() === 1);
+  push('หยุดรับแล้ว กดเมนูสั่งไม่ได้', await cust5.locator('#view button.li').count() === 0);
+  push('หยุดรับแล้ว ยังดูราคาได้', t5.includes('เครปกรอบ'));
+
+  // เปิดกลับไว้ให้ข้อถัด ๆ ไปใช้ต่อ
+  await seller.evaluate(async () => { db.orderOn = 1; save(); await publishMenu(); });
 
   /* ---------- หา URL ของที่เก็บจากชื่อโปรเจกต์ ---------- */
   // เจ้าของร้านไม่ควรต้องรู้ว่า URL จริงมีชื่อโซนปนอยู่

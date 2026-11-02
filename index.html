@@ -2219,7 +2219,8 @@ function menuForCustomers(){
   return {
     name:   String(db.shopName || 'ร้านของฉัน'),
     branch: String(db.shopBranch || ''),
-    open:   !!db.shopOpen,
+    open:   !!db.shopOpen,     // ร้านเปิดขายอยู่ไหม
+    taking: !!db.orderOn,      // รับออเดอร์ผ่านหน้าลูกค้าอยู่ไหม (คนละเรื่องกับร้านเปิด)
     at:     Date.now(),
     menus:  db.menus.map(m => ({
       id: m.id, name: String(m.name || ''), price: n(m.price),
@@ -2521,7 +2522,11 @@ async function toggleOrders(){
   }
 
   if(db.orderOn){
-    db.orderOn = false; save(); stopOrderWatch(); dlg.close(); render();
+    db.orderOn = false; save(); stopOrderWatch();
+    // ต้องบอกหน้าลูกค้าด้วย ไม่งั้นลูกค้ายังสั่งเข้ามาได้เรื่อย ๆ แต่ไม่มีใครเห็น
+    // (publishMenuSoon ไม่ทำงานแล้วเพราะ orderOn เป็น 0 จึงต้องสั่งเองตรงนี้)
+    try{ await publishMenu(); }catch(e){}
+    dlg.close(); render();
     toast('หยุดรับออเดอร์จากลูกค้าแล้ว');
     return;
   }
