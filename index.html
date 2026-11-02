@@ -176,7 +176,7 @@
   #searchRes{margin-top:12px}
 
   /* หัวข้อประจำแถว + ลิงก์ด้านขวา */
-  .home-sec{display:flex; align-items:baseline; gap:10px; margin:22px 0 10px}
+  .home-sec{display:flex; align-items:baseline; gap:10px; margin:24px 0 10px}
   .home-sec h2{flex:1; margin:0; font-size:15px; font-weight:800; letter-spacing:-.01em}
   .home-sec button{
     border:none; background:none; cursor:pointer; font:inherit; padding:0;
@@ -205,7 +205,7 @@
   /* ---------- แถวทางลัด เลื่อนข้างได้ ---------- */
   .quick{
     display:flex; gap:14px; overflow-x:auto; scrollbar-width:none;
-    margin:0 -20px; padding:4px 20px 6px;
+    margin:0 -20px; padding:6px 20px 10px;
   }
   .quick::-webkit-scrollbar{display:none}
   .quick-b{
@@ -231,7 +231,7 @@
   }
 
   /* ---------- เดือน + แถบวันในสัปดาห์ ---------- */
-  .wk{margin-top:20px}
+  .wk{margin-top:24px}
   .wk-head{display:flex; align-items:center; gap:4px; margin-bottom:8px}
   .wk-m{
     border:none; background:none; cursor:pointer; font:inherit; padding:0; color:var(--ink);
@@ -267,7 +267,7 @@
 
   /* ---------- การ์ดสถานะของวันที่เลือก ---------- */
   .srow{
-    display:flex; align-items:center; gap:14px; margin-top:16px; padding:14px 16px;
+    display:flex; align-items:center; gap:14px; margin-top:14px; padding:14px 16px;
     background:var(--bg); border-radius:var(--r-card); box-shadow:var(--sh-card);
   }
   .srow-ic{
@@ -289,7 +289,7 @@
   }
 
   /* ---------- แถวเมนูขายดี เลื่อนข้างได้ ---------- */
-  .hil{display:flex; gap:14px; overflow-x:auto; scrollbar-width:none; margin:0 -20px; padding:4px 20px 6px}
+  .hil{display:flex; gap:14px; overflow-x:auto; scrollbar-width:none; margin:0 -20px; padding:6px 20px 10px}
   .hil::-webkit-scrollbar{display:none}
   .hil-b{
     flex:0 0 auto; width:76px; padding:0; border:none; background:none; cursor:pointer; font:inherit;
@@ -1010,6 +1010,48 @@
   .chart text{font-family:inherit}
 
 
+  /* ===================== หน้าขาย =====================
+     หน้านี้ใช้ยืนขายหน้าร้าน เลยเอาของที่ต้องกดขึ้นก่อน สรุปตัวเลขย่อให้เหลือแถบเดียว */
+  .possum{
+    background:var(--bg); border-radius:var(--r-card); box-shadow:var(--sh-card);
+    padding:16px 18px; margin-bottom:14px;
+  }
+  .possum-top{display:flex; align-items:center; gap:12px; margin-bottom:12px}
+  .possum-top > div{flex:1; min-width:0}
+  .possum-k{font-size:15px; font-weight:800; letter-spacing:-.02em}
+  .possum-d{font-size:12px; color:var(--muted); font-weight:600}
+  /* ยอดใหญ่กับตัวเลขย่อยอยู่บรรทัดเดียวกัน ฐานตัวอักษรตรงกัน ไม่เว้นช่องโหว่กลางการ์ด */
+  .possum-n{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap}
+  .possum-v{
+    flex:1 1 auto; font-size:38px; font-weight:800; letter-spacing:-.04em; line-height:1.05;
+    font-variant-numeric:tabular-nums;
+  }
+  .possum-v small{font-size:12px; font-weight:700; color:var(--muted); letter-spacing:.05em;
+                  text-transform:uppercase; display:block; margin-bottom:2px}
+  .possum-x{flex:0 0 auto; display:flex; gap:18px}
+  .possum-x span{display:block; font-size:11px; color:var(--muted); font-weight:700}
+  .possum-x b{display:block; font-size:16px; font-weight:800; font-variant-numeric:tabular-nums}
+
+  /* ปุ่มเมนู กดแล้วเปิดบิลพร้อมใส่เมนูนั้นให้เลย ลดจำนวนครั้งที่ต้องกด */
+  .qmenu{display:grid; grid-template-columns:repeat(auto-fill, minmax(148px,1fr)); gap:10px}
+  .qmenu-b{
+    display:flex; align-items:center; gap:10px; text-align:left; cursor:pointer; font:inherit;
+    border:none; background:var(--bg); box-shadow:var(--sh-card); border-radius:16px;
+    padding:12px 13px; color:var(--ink); transition:.14s;
+  }
+  .qmenu-b:hover{box-shadow:var(--sh-lift)}
+  .qmenu-b:active{transform:scale(.97)}
+  .qmenu-av{
+    width:36px; height:36px; flex:0 0 auto; border-radius:12px; display:grid; place-items:center;
+    background:var(--tint); color:var(--brand-d); font-size:15px; font-weight:800;
+  }
+  .qmenu-m{flex:1; min-width:0}
+  .qmenu-n{
+    font-size:13.5px; font-weight:800; line-height:1.3;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .qmenu-p{font-size:12.5px; color:var(--brand-d); font-weight:800; font-variant-numeric:tabular-nums}
+
   /* ===================== ปุ่มสั่งสินค้าหน้าขาย ===================== */
   .orderbtn{
     display:flex; align-items:center; justify-content:center; gap:12px;
@@ -1031,9 +1073,18 @@
   .dash{display:grid; grid-template-columns:1fr; gap:14px}
   .dash .card{padding:18px; border:none; border-radius:var(--r-card); box-shadow:var(--sh-card)}
 
-  .card-head{display:flex; align-items:flex-start; gap:12px; margin-bottom:16px}
+  /* ไอคอน + ข้อความอยู่แถวบนเสมอ ส่วนป้ายกับปุ่มตกลงแถวล่างเมื่อที่ไม่พอ
+     ไม่งั้นคำอธิบายจะถูกบีบจนเหลือคอลัมน์แคบ ๆ แล้วตัดคำมั่ว */
+  .card-head{
+    display:flex; flex-wrap:wrap; align-items:flex-start; gap:10px 12px; margin-bottom:16px;
+  }
+  .card-head > .ic-tile{order:1}
+  .card-head-t{order:2; flex:1 1 60%; min-width:150px}
+  .card-head > .head-tag, .card-head > .btn{order:3}
   .card-head > .head-tag ~ .btn{margin-left:0}
   .card-head .btn{flex:0 0 auto; align-self:center}
+  /* ป้ายกับปุ่มที่ตกลงมาแถวล่าง ให้ชิดซ้ายเป็นกลุ่มเดียวกัน */
+  .card-head > .head-tag{align-self:center}
   .ic-tile{
     width:38px; height:38px; flex:0 0 auto; border-radius:13px;
     background:var(--tint); color:var(--brand); display:grid; place-items:center;
@@ -2008,8 +2059,11 @@ function headStat(){
   if(tab === 'sale') return null;      // หน้าขายใช้พื้นที่ทั้งหมดกับเมนูและบิล
   if(recipeDraft) return {k:'กำลังเลือกของที่ใช้', v:'', s:'ติ๊กของที่ใช้ แล้วใส่จำนวนต่อ 1 จาน'};
 
-  if(order) return {k:'กำลังเปิดบิล', v: baht(orderTotal()), u:'บาท',
-                    s: orderCount() ? `${orderCount()} จานในบิลนี้` : 'กดเมนูที่ลูกค้าสั่ง'};
+  // เตือนเรื่องบิลค้างเฉพาะตอนที่มีของอยู่ในบิลจริง ๆ
+  // บิลเปล่าที่สร้างรอไว้ตอนเข้าแท็บขายไม่ใช่เรื่องที่ต้องขึ้นเตือนทุกหน้า
+  if(order && orderCount() > 0)
+    return {k:'มีบิลค้างอยู่', v: baht(orderTotal()), u:'บาท',
+            s: `${orderCount()} จานในบิลนี้ · ยังไม่ได้รับเงิน`};
   if(tab === 'today') return null;    // การ์ดหลักบน Dashboard บอกอยู่แล้ว ไม่ต้องซ้ำ
 
   if(tab === 'hist') return null;     // การ์ดเดือนบอกครบแล้ว
@@ -2120,6 +2174,8 @@ function go(t){
   // กลับเข้าหน้าแรกจากแท็บอื่น ให้เด้งกลับมาที่วันนี้เสมอ จะได้ไม่ค้างอยู่วันเก่า
   if(t === 'today'){ if(tab !== 'today') dashDay = dayKey(); } else homeQ = '';
   if(t === 'sale' && !order) order = { lines: [] };   // เข้าแท็บขายแล้วมีบิลเปล่ารอเลย
+  // ออกจากแท็บขายโดยยังไม่ได้กดอะไร ให้ทิ้งบิลเปล่าไปเลย จะได้ไม่ค้างเป็น "บิลค้าง" ในหน้าอื่น
+  if(t !== 'sale' && order && !orderCount()) order = null;
   tab = t; render(); window.scrollTo({top:0});
 }
 
@@ -3420,60 +3476,63 @@ function viewPOS(){
   const key = dayKey();
   const bills = billsToday(key);
   const d = sumDay(key);
-  const menus = topMenus(key).slice(0,3);
-  const topBaht = menus.length ? menus[0].baht : 1;
   const avgBill = bills.length ? d.sale / bills.length : 0;
 
   const rows = bills.slice(0, BILLS_SHOWN).map(billRowHTML).join('');
+
+  // เมนูที่เอามาวางให้กดด่วน: เรียงตามที่ขายดีใน 7 วันล่าสุด ที่เหลือต่อท้าย
+  const hot = hotMenuIds();
+  const quick = [...db.menus].sort((a,b) => {
+    const ia = hot.indexOf(a.id), ib = hot.indexOf(b.id);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  }).slice(0, 6);
 
   return `
   <div class="salewrap">
 
     <div class="sale-side">
-      <div class="hero-card">
-        <div class="hero-main">
-          <div class="hero-row">
-            <div>
-              <div class="hero-k">สรุปยอดวันนี้</div>
-              <div class="hero-sub">${thaiDate(key)}</div>
-            </div>
-            <button type="button" class="shoppill${db.shopOpen ? ' on' : ''}" onclick="toggleShopOpen()">
-              <i></i>${db.shopOpen ? 'ร้านเปิดอยู่' : 'ร้านปิดแล้ว'}
-            </button>
+
+      <div class="possum">
+        <div class="possum-top">
+          <div>
+            <div class="possum-k">ยอดวันนี้</div>
+            <div class="possum-d">${thaiDate(key)}</div>
           </div>
-          <div class="hero-grid">
-            <div class="hero-big">
-              <span>ยอดขายรวม</span>
-              <b>฿${baht(d.sale)}</b>
-            </div>
-            <div class="hero-side">
-              <div><span>จำนวนบิล</span><b>${bills.length} บิล</b></div>
-              <div><span>เฉลี่ย/บิล</span><b>฿${baht(avgBill)}</b></div>
-            </div>
+          <button type="button" class="shoppill${db.shopOpen ? ' on' : ''}" onclick="toggleShopOpen()">
+            <i></i>${db.shopOpen ? 'ร้านเปิดอยู่' : 'ร้านปิดแล้ว'}
+          </button>
+        </div>
+        <div class="possum-n">
+          <div class="possum-v"><small>ขายได้</small>฿${baht(d.sale)}</div>
+          <div class="possum-x">
+            <div><span>บิล</span><b>${bills.length}</b></div>
+            <div><span>เฉลี่ย/บิล</span><b>฿${baht(avgBill)}</b></div>
           </div>
         </div>
-        <button type="button" class="orderbtn" onclick="openOrderDialog()">
-          ${icon('plus',20)}<span>เปิดบิลใหม่ / สั่งสินค้า</span>
-        </button>
       </div>
+
+      <button type="button" class="orderbtn" onclick="openOrderDialog()">
+        ${icon('plus',20)}<span>เปิดบิลใหม่ / สั่งสินค้า</span>
+      </button>
 
       ${shopHintCard()}
 
-      ${menus.length ? `<div class="card">
-        ${cardHead('menu','เมนูขายดีวันนี้', '', `<span class="head-tag">เฉลี่ยบิลละ ฿${baht(avgBill)}</span>`)}
-        <div class="rankx">${menus.map((m,i) => `
-          <div class="rankx-row">
-            <span class="rankx-no${i===0?' top':''}">${i+1}</span>
-            <div class="rankx-main">
-              <div class="rankx-n">${esc(m.name)}</div>
-              <div class="meter"><i style="width:${clamp(m.baht/topBaht*100,4,100)}%"></i></div>
-            </div>
-            <div class="rankx-v">฿${baht(m.baht)}<span>${m.qty} จาน</span></div>
-          </div>`).join('')}</div>
-      </div>` : ''}
+      ${quick.length ? `<div class="home-sec">
+        <h2>แตะเมนูเพื่อเปิดบิลเลย</h2>
+        ${db.menus.length > quick.length
+          ? `<button type="button" onclick="openOrderDialog()">ดูครบ ${db.menus.length} เมนู</button>` : ''}
+      </div>
+      <div class="qmenu">${quick.map(m => `
+        <button type="button" class="qmenu-b" onclick="posQuick('${m.id}')">
+          <span class="qmenu-av">${esc(initial(m.name))}</span>
+          <span class="qmenu-m">
+            <span class="qmenu-n">${esc(m.name || '(ไม่มีชื่อ)')}</span>
+            <span class="qmenu-p">฿${baht(m.price)}</span>
+          </span>
+        </button>`).join('')}</div>` : ''}
     </div>
 
-    <div class="card sale-list">
+    <div class="card sale-list" style="margin-top:14px">
       ${cardHead('today','บิลวันนี้',
         bills.length ? `ทั้งหมด ${bills.length} บิล · แตะเพื่อดู${hasPin() && !isAdmin() ? '' : 'หรือแก้ไข'}` : 'ยังไม่มีบิล',
         bills.length > 1 ? '<span class="head-tag">ล่าสุดก่อน</span>' : '')}
@@ -3482,12 +3541,18 @@ function viewPOS(){
           ดูบิลทั้งหมดของวันนี้ (${bills.length} บิล)</button>` : ''}` : `<div class="empty">
         <div class="empty-ic">${icon('cart',30)}</div>
         <h3>ยังไม่ได้ขายอะไรวันนี้</h3>
-        <p>กดปุ่ม <b>เปิดบิลใหม่</b> เมื่อลูกค้าสั่ง แล้วบิลจะมาอยู่ตรงนี้</p>
+        <p>แตะเมนูด้านบน หรือกด <b>เปิดบิลใหม่</b> เมื่อลูกค้าสั่ง แล้วบิลจะมาอยู่ตรงนี้</p>
         <button type="button" class="btn primary" onclick="openOrderDialog()">${icon('plus',16)} เปิดบิลแรก</button>
       </div>`}
     </div>
 
   </div>`;
+}
+
+// กดเมนูจากหน้าขาย = เปิดบิลใหม่พร้อมใส่เมนูนั้นให้เลย ไม่ต้องเปิดหน้าต่างแล้วค่อยหาเมนูอีกรอบ
+function posQuick(id){
+  openOrderDialog();
+  if(orderOpen) tapMenu(id);
 }
 
 function billDetail(billId){
