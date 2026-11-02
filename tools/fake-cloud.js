@@ -88,7 +88,10 @@ http.createServer((req, res) => {
 
     if(req.method === 'PATCH'){
       if(typeof at.obj[at.key] !== 'object' || at.obj[at.key] === null) at.obj[at.key] = {};
-      Object.assign(at.obj[at.key], val);
+      // null = สั่งลบ เหมือนที่ Firebase ทำ ไม่ใช่เก็บค่า null ไว้
+      Object.entries(val || {}).forEach(([k, v]) => {
+        if(v === null) delete at.obj[at.key][k]; else at.obj[at.key][k] = v;
+      });
       send(200, val);
       return;
     }

@@ -2237,6 +2237,50 @@ async function pollOrders(){
   const changed = JSON.stringify(list) !== JSON.stringify(cloudOrders);
   cloudOrders = list;
   if(changed) render();
+
+  sweepOldOrders(data);
+}
+
+/* ---------- เก็บกวาดออเดอร์เก่าทิ้งเอง ----------
+   ถ้าไม่ลบ ออเดอร์จะกองสะสมในที่เก็บไปเรื่อย ๆ ไม่มีวันหมด
+   ลบให้เองจะได้ไม่ต้องมานั่งลบมือ และไม่มีวันเต็มโควตาฟรี
+
+   ทิ้งช่วงไว้ก่อนลบ เพราะหน้าลูกค้ายังเปิดค้างดูสถานะของตัวเองอยู่
+   (หน้าลูกค้าจำออเดอร์ไว้ 6 ชม. จึงรอให้พ้นช่วงนั้นก่อน) */
+const DONE_KEEP = 12 * 3600 * 1000;   // จบแล้ว เก็บไว้ 12 ชม.
+const ANY_KEEP  = 24 * 3600 * 1000;   // ค้างไม่จบสักที เกิน 1 วันก็ทิ้ง
+let lastSweep = 0;
+
+async function sweepOldOrders(data, force){
+  const now = Date.now();
+  if(!force && now - lastSweep < 30 * 60 * 1000) return 0;   // กวาดทุกครึ่งชั่วโมงพอ
+  lastSweep = now;
+
+  const dead = Object.entries(data || {}).filter(([, o]) => {
+    if(!o) return true;
+    const age  = now - n(o.at);
+    const over = o.status === 'done' || o.status === 'rej';
+    return over ? age > DONE_KEEP : age > ANY_KEEP;
+  }).map(([id]) => id);
+
+  if(!dead.length) return 0;
+  // ส่ง null = สั่งลบ ยิงทีเดียวหมดทุกอันแทนที่จะยิงทีละอัน
+  const patch = {};
+  dead.forEach(id => { patch[id] = null; });
+  try{ await cloudReq('PATCH', `s/${db.orderKey}/orders`, patch); }
+  catch(e){ return 0; }
+  return dead.length;
+}
+
+// ปุ่มล้างเองจากหน้าตั้งค่า เผื่ออยากเคลียร์เดี๋ยวนั้น
+async function clearOldOrders(){
+  if(!cloudReady() || !db.orderKey) return;
+  let data;
+  try{ data = await cloudReq('GET', `s/${db.orderKey}/orders`); }
+  catch(e){ toast('ต่อที่เก็บออเดอร์ไม่ติด'); return; }
+  const gone = await sweepOldOrders(data, true);
+  await pollOrders();
+  toast(gone ? `ล้างออเดอร์เก่าไป ${gone} รายการ` : 'ไม่มีออเดอร์เก่าให้ล้าง');
 }
 
 // เสียงเตือนสั้น ๆ ไม่ต้องมีไฟล์เสียงให้แอปอ้วนขึ้น
@@ -2379,6 +2423,9 @@ function orderSetupDialog(){
           style="width:100%; border:none; border-radius:12px; background:var(--soft);
                  padding:11px 13px; font:inherit; font-size:12.5px; color:var(--ink-2); resize:none">${esc(link)}</textarea>
       </div>` : ''}
+      ${on ? `<p class="hint" style="margin:12px 0 0">ออเดอร์ที่จบแล้วถูกลบทิ้งให้เองหลังผ่านไป 12 ชั่วโมง
+        ที่เก็บจึงไม่มีวันเต็ม · <button type="button" class="seeall" style="margin-top:8px"
+        onclick="clearOldOrders()">ล้างออเดอร์เก่าเดี๋ยวนี้</button></p>` : ''}
       <p class="hint" style="margin:12px 0 0">ยังไม่มีที่เก็บ? สร้างฟรีที่ console.firebase.google.com →
         Realtime Database → Create Database แล้วเอา URL ที่ได้มาวางช่องบน</p>`,
     foot: [

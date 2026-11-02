@@ -143,6 +143,32 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('ร้านปิดอยู่ ลูกค้าสั่งไม่ได้', (await cust2.textContent('#view')).includes('ร้านปิดอยู่'));
   push('ร้านปิดอยู่ ไม่มีแถบสั่งโผล่', await cust2.locator('#bar[hidden]').count() === 1);
 
+  /* ---------- เก็บกวาดออเดอร์เก่าทิ้งเอง ---------- */
+  const DAY = 24*3600*1000, HR = 3600*1000;
+  const put = async (id, o) => fetch(`${CLOUD}/s/${key}/orders/${id}.json`, {
+    method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(o) });
+
+  await put('oldDone', { at: Date.now() - 2*DAY,   status:'done', total:10, items:[] });  // จบนานแล้ว → ลบ
+  await put('oldStuck',{ at: Date.now() - 2*DAY,   status:'new',  total:10, items:[] });  // ค้างข้ามวัน → ลบ
+  await put('newDone', { at: Date.now() - 1*HR,    status:'done', total:10, items:[] });  // เพิ่งจบ → เก็บไว้
+  await put('newOrder',{ at: Date.now() - 1*60000, status:'new',  total:10,
+                         items:[{id:'m1', name:'ของใหม่', qty:1, price:10, addons:[], total:10}] });
+
+  await seller.evaluate(async () => { await clearOldOrders(); });
+  await seller.waitForTimeout(600);
+
+  const left = await (await fetch(`${CLOUD}/s/${key}/orders.json`)).json();
+  const ids = Object.keys(left || {});
+  push('ออเดอร์ที่จบไปนานแล้วถูกลบทิ้ง', !ids.includes('oldDone'));
+  push('ออเดอร์ที่ค้างข้ามวันถูกลบทิ้ง', !ids.includes('oldStuck'));
+  push('ออเดอร์ที่เพิ่งจบยังอยู่ (ลูกค้าอาจยังเปิดดูสถานะค้าง)', ids.includes('newDone'));
+  push('ออเดอร์ใหม่ที่ยังไม่ได้รับ ไม่โดนลบไปด้วย', ids.includes('newOrder'));
+  push('ลบแล้วหายจริง ไม่ใช่เหลือค่าว่างค้างไว้', left.oldDone === undefined);
+
+  // เคลียร์ของที่เหลือ ไม่ให้ไปกวนเทสต์ข้อถัดไป
+  await fetch(`${CLOUD}/s/${key}/orders.json`, { method:'PUT', body:'null' });
+  await seller.evaluate(() => pollOrders());
+
   /* ---------- สองร้านต้องไม่เห็นออเดอร์ของกัน ---------- */
   // ร้าน B มีช่องของตัวเอง ลูกค้าที่สแกน QR ของ B ต้องไม่โผล่ไปที่เครื่องของ A
   await fetch(`${CLOUD}/s/otherkey999/orders.json`, {
