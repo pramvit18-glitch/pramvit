@@ -5,7 +5,7 @@
   "description": "เว็บคำนวณต้นทุนร้านเครป — ใช้เป็นเว็บ ติดตั้งเป็น PWA หรือ build เป็นแอป iOS ก็ได้",
   "scripts": {
     "serve": "node serve.js",
-    "check": "node tools/check-app.js && node tools/check-setup.js index.html && node tools/check-pos.js && node tools/check-chart.js && node tools/check-dash.js && node tools/check-addons.js && node tools/check-shops.js && node tools/check-pin.js && node tools/check-edit.js && node tools/check-toast.js && node tools/check-input.js && node tools/check-home.js && node tools/check-look.js && node tools/check-dialog.js && node tools/check-space.js && node tools/check-nav.js && node tools/check-motion.js && node tools/check-radius.js && node tools/check-nav-state.js && node tools/check-overflow.js && node tools/check-nesting.js && node tools/check-scroll.js",
+    "check": "node tools/check-app.js && node tools/check-setup.js index.html && node tools/check-pos.js && node tools/check-chart.js && node tools/check-dash.js && node tools/check-addons.js && node tools/check-shops.js && node tools/check-pin.js && node tools/check-edit.js && node tools/check-toast.js && node tools/check-input.js && node tools/check-home.js && node tools/check-look.js && node tools/check-dialog.js && node tools/check-space.js && node tools/check-nav.js && node tools/check-motion.js && node tools/check-radius.js && node tools/check-nav-state.js && node tools/check-overflow.js && node tools/check-nesting.js && node tools/check-scroll.js && node tools/check-build.js",
     "check:order": "node tools/run-e2e.js",
     "icons": "node tools/make-icons.js icons assets",
     "build": "node tools/build-www.js",
