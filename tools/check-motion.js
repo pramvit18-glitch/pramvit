@@ -77,6 +77,29 @@ push('ปิดแอนิเมชันเปลี่ยนหน้าด�
 push('มีบล็อก prefers-reduced-motion หลายจุดครอบคลุมทั้งแอป',
   (css.match(/prefers-reduced-motion/g) || []).length >= 4);
 
+/* ---------- แถบเมนูล่างต้องไม่ถูกวาดใหม่ทุกรอบ ----------
+   เคยเป็นบั๊ก: render() สร้างปุ่มใหม่ทั้งแถบ ปุ่มที่นิ้วกดอยู่เลยถูกทำลายทันที
+   :active ไม่มีโอกาสแสดง และปุ่มใหม่เกิดมาพร้อมคลาส on วงกลมจึงไม่ค่อย ๆ โต
+   (CSS transition ไม่ทำงานกับสถานะเริ่มต้นของ element ที่เพิ่งเกิด) */
+push('แถบเมนูล่างสร้างครั้งเดียว มีตัวกันสร้างซ้ำ',
+  /navEl\.dataset\.built/.test(script) && /if\(!navEl\.dataset\.built\)/.test(script));
+push('เปลี่ยนหน้าแล้วแค่สลับคลาส ไม่ได้วาดปุ่มใหม่',
+  /navEl\.querySelectorAll\('button'\)[\s\S]{0,160}classList\.toggle\('on'/.test(script));
+// ถ้ามีใครเขียน innerHTML ใส่แถบนอกบล็อกที่กันไว้ แปลว่ากลับไปวาดใหม่ทุกรอบอีกแล้ว
+const navWrites = (script.match(/tabsBottom'\)\.innerHTML\s*=/g) || []).length;
+push(`ไม่มีที่ไหนยัด innerHTML ใส่แถบเมนูตรง ๆ (เจอ ${navWrites} จุด)`, navWrites === 0);
+push('ปุ่มเมนูมี data-tab ไว้ให้สลับคลาส', /data-tab="\$\{k\}"/.test(script));
+push('บอกโปรแกรมอ่านหน้าจอว่าตอนนี้อยู่หน้าไหน', /aria-current/.test(script));
+
+// แถบวันในสัปดาห์เป็นปัญหาแบบเดียวกัน — วงแดงต้องไหลไปวันใหม่ ไม่ใช่กระโดด
+push('แถบวันวาดใหม่เฉพาะตอนเปลี่ยนสัปดาห์',
+  /box\.dataset\.week !== week/.test(script) && /box\.dataset\.week = week/.test(script));
+push('อยู่สัปดาห์เดิมแค่สลับคลาส',
+  /querySelectorAll\('\.wk-d'\)[\s\S]{0,200}classList\.toggle\('on'/.test(script));
+push('ปุ่มวันมี data-day ไว้ให้สลับคลาส', /data-day="\$\{k\}"/.test(script));
+const weekWrites = (script.match(/wkStrip'\)\.innerHTML\s*=/g) || []).length;
+push(`เขียน innerHTML ใส่แถบวันที่เดียวคือในตัวที่กันไว้ (เจอ ${weekWrites} จุด)`, weekWrites <= 1);
+
 /* ---------- กันพลาดที่เจอบ่อย ---------- */
 // ปุ่มที่ถูกปิดอยู่ไม่ควรยุบตอนกด จะหลอกว่ากดได้
 push('ปุ่มที่ปิดอยู่ไม่ยุบตอนกด', /:active:not\(:disabled\)/.test(css));

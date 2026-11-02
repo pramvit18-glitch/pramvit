@@ -2218,9 +2218,21 @@ function render(){
   const neg = tab === 'dash' && db.menus.length && hasSales() && daily().net < 0;
   document.getElementById('headStat').classList.toggle('is-bad', !!neg);
 
-  document.getElementById('tabsBottom').innerHTML = TABS.map(([k,l,ic]) =>
-    `<button class="${tab===k?'on':''}" onclick="go('${k}')" aria-label="${l}">
-       ${icon(ic,22)}<span>${l}</span></button>`).join('');
+  // แถบเมนูสร้างครั้งเดียว แล้วแค่สลับคลาส ห้ามวาดใหม่ทุกรอบ
+  // ถ้าวาดใหม่ ปุ่มที่นิ้วกดอยู่จะถูกทำลายทิ้งทันที :active เลยไม่มีโอกาสแสดง
+  // และปุ่มใหม่เกิดมาพร้อมคลาส on อยู่แล้ว วงกลมจึงไม่มีอะไรให้ค่อย ๆ โตจาก
+  const navEl = document.getElementById('tabsBottom');
+  if(!navEl.dataset.built){
+    navEl.innerHTML = TABS.map(([k,l,ic]) =>
+      `<button type="button" data-tab="${k}" onclick="go('${k}')" aria-label="${l}">
+         ${icon(ic,22)}<span>${l}</span></button>`).join('');
+    navEl.dataset.built = '1';
+  }
+  navEl.querySelectorAll('button').forEach(b => {
+    const on = b.dataset.tab === tab;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-current', on ? 'page' : 'false');
+  });
 
   renderBanner();
 
@@ -4128,13 +4140,34 @@ function wkHTML(){
     </div>
     <div class="wk-row">${days.map((k,i) => `
       <button type="button" onclick="pickDay('${k}')" ${k > today ? 'disabled' : ''}
-              aria-label="${thaiDate(k, true)}"
+              data-day="${k}" aria-label="${thaiDate(k, true)}"
               class="wk-d${k === dashDay ? ' on' : ''}${k === today ? ' today' : ''}${i === 6 ? ' sun' : ''}">
         <span class="dow">${DOW_TH[i]}</span>
         <span class="num">${Number(k.slice(8))}</span>
         <span class="dot${hasRecord(k) ? '' : ' off'}"></span>
       </button>`).join('')}</div>`;
 }
+/* วาดแถบวันใหม่เฉพาะตอนเปลี่ยนสัปดาห์ อยู่สัปดาห์เดิมก็แค่สลับคลาส
+   เหตุผลเดียวกับแถบเมนูล่าง — ถ้าสร้าง element ใหม่ วงแดงจะกระโดดทันที
+   ไม่มีสถานะเดิมให้ CSS ไหลออกมา และ :active ก็ไม่มีโอกาสแสดง */
+function paintWeek(){
+  const box = document.getElementById('wkStrip');
+  if(!box) return;
+  const week = weekOf(dashDay).join();
+  if(box.dataset.week !== week){
+    box.innerHTML = wkHTML();
+    box.dataset.week = week;
+    return;
+  }
+  // สัปดาห์เดิม: ย้ายวงแดงกับจุดบอกว่ามีบันทึก โดยไม่แตะโครง
+  box.querySelectorAll('.wk-d').forEach(el => {
+    const k = el.dataset.day;
+    el.classList.toggle('on', k === dashDay);
+    const dot = el.querySelector('.dot');
+    if(dot) dot.classList.toggle('off', !hasRecord(k));
+  });
+}
+
 function pickDay(k){
   if(k > dayKey()) return;
   dashDay = k;
@@ -4279,7 +4312,7 @@ function searchMenu(id){ clearSearch(); go('sale'); tapMenu(id); }
 /* ---------- วาดส่วนบนของหน้าแรกใหม่ ---------- */
 function renderHome(){
   document.getElementById('quickRow').innerHTML   = quickHTML();
-  document.getElementById('wkStrip').innerHTML    = wkHTML();
+  paintWeek();
   document.getElementById('statusRow').innerHTML  = statusHTML();
   document.getElementById('hiliteWrap').innerHTML = hiliteHTML();
   runSearch(homeQ);
