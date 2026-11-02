@@ -344,7 +344,8 @@
   .btn.block{width:100%}
   .btn svg{width:16px; height:16px}
   .btnrow{display:flex; flex-wrap:wrap; gap:9px}
-  .btn.back{border:none; background:none; color:var(--brand); padding:0 0 14px; font-weight:700}
+  .btn.back{border:none; background:none; box-shadow:none; color:var(--brand);
+            padding:2px 0; margin-bottom:12px; font-weight:700}
 
   /* ===================== ฟอร์ม ===================== */
   .f{display:flex; flex-direction:column; gap:6px; min-width:0}
@@ -383,7 +384,7 @@
   .list{display:flex; flex-direction:column}
   .li, .li-read{
     display:flex; align-items:center; gap:12px; width:100%; text-align:left;
-    padding:14px 0; border:none; background:none; border-bottom:1px solid var(--line-2);
+    padding:13px 0; border:none; background:none; border-bottom:1px solid var(--line-2);
     font:inherit; color:inherit;
   }
   .li{cursor:pointer; transition:background .14s; padding-left:10px; padding-right:10px;
@@ -394,6 +395,9 @@
   .li-main{flex:1; min-width:0}
   .li-title{font-weight:700; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .li-sub{font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums}
+  /* บรรทัดคำอธิบาย + ชิปหน่วย อยู่บรรทัดเดียวกัน ตกบรรทัดใหม่ได้ถ้าที่ไม่พอ */
+  .li-subrow{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:3px}
+  .li-subrow .li-sub{margin:0}
   .li-end{display:flex; align-items:center; gap:9px; flex:0 0 auto}
   .li-del{
     width:30px; height:30px; border-radius:9px; border:1px solid var(--line);
@@ -2071,11 +2075,9 @@ function headStat(){
   if(tab === 'more'){
     return {k:'อื่น ๆ', v:'', s:'ของที่นาน ๆ ใช้ที'};
   }
-  if(tab === 'ing'){
-    const c = db.ingredients.length;
-    return {k:'ของที่ซื้อมา', v:String(c), u:'อย่าง',
-            s: c ? 'แตะที่รายการเพื่อแก้ราคาหรือปริมาณ' : 'ยังไม่ได้ใส่ของที่ซื้อมา'};
-  }
+  // ing / fixed / dash มีการ์ดสรุปจาก subHead() อยู่หัวหน้าแล้ว
+  // ใส่ตัวเลขใหญ่ซ้ำอีกชั้นคือบอกเรื่องเดียวกันสามรอบ กินที่เปล่า ๆ
+  if(tab === 'ing' || tab === 'fixed') return null;
   if(tab === 'menu'){
     const ms = db.menus.filter(m => (m.items||[]).length);
     const avg = ms.length ? ms.reduce((a,m)=>a+marginPct(m),0)/ms.length : 0;
@@ -2086,11 +2088,6 @@ function headStat(){
     }
     return {k:'เมนูที่ขาย', v:String(db.menus.length), u:'เมนู',
             s: ms.length ? `กำไรเฉลี่ย ${avg.toFixed(0)}% ต่อจาน` : 'ยังไม่ได้ใส่ว่าแต่ละเมนูใช้ของอะไร'};
-  }
-  if(tab === 'fixed'){
-    const be = breakEven();
-    return {k:'รายจ่ายประจำเดือน', v: baht(fixedPerMonth()), u:'บาท',
-            s: be ? `ต้องขายวันละ ${Math.ceil(be)} จาน ถึงจะไม่ขาดทุน` : 'ใส่ค่าเช่า ค่าไฟ ค่าแก๊ส ให้ครบ'};
   }
   if(!db.menus.length) return {k:'ยินดีต้อนรับ', v:'', s:'เริ่มจากใส่ของที่ซื้อมา แล้วแอปจะคิดกำไรให้เอง'};
   if(!hasSales()) return {k:'ภาพรวมร้าน', v:'', s:'ใส่ยอดขายต่อวัน แล้วจะรู้ว่าเดือนนี้เหลือเท่าไหร่'};
@@ -2392,10 +2389,12 @@ function viewIng(){
       <span class="av">${esc(initial(i.name))}</span>
       <div class="li-main">
         <div class="li-title">${esc(i.name || '(ยังไม่มีชื่อ)')}</div>
-        <div class="li-sub">${n(i.packQty).toLocaleString('th-TH')} ${esc(i.unit)} · ${baht(i.packPrice)} บาท</div>
+        <div class="li-subrow">
+          <span class="li-sub">${n(i.packQty).toLocaleString('th-TH')} ${esc(i.unit)} · ${baht(i.packPrice)} บาท</span>
+          <span class="chip">${perUnit(i)}</span>
+        </div>
       </div>
       <div class="li-end">
-        <span class="chip">${perUnit(i)}</span>
         <span class="li-del" role="button" tabindex="0" title="ลบ"
               onclick="event.stopPropagation(); delIng('${i.id}')"
               onkeydown="if(event.key==='Enter'){event.stopPropagation();delIng('${i.id}')}">${icon('trash',15)}</span>

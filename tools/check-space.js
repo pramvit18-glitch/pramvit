@@ -66,6 +66,16 @@ const pad = sel => (new RegExp('\\.' + sel + '\\{[^}]*padding:(?:\\d+px )?(\\d+)
 push(`ขอบในซ้าย-ขวาของการ์ดสถานะเท่าการ์ดอื่น (${pad('srow')}px / ${pad('card, \\.block')}px)`,
   pad('srow') === pad('card, \\.block'));
 
+/* ---------- ปุ่มย้อนกลับ ----------
+   .btn ตั้ง box-shadow ไว้ ถ้า .btn.back ไม่เคลียร์ จะได้กล่องใสที่มีเงาลอยคร่อมเส้นคั่น */
+const backRule = (/\.btn\.back\{([^}]*)\}/.exec(css) || [])[1] || '';
+push('ปุ่มย้อนกลับไม่มีเงาการ์ดค้าง', /box-shadow:\s*none/.test(backRule));
+push('ปุ่มย้อนกลับมีระยะบน-ล่างสมมาตร', !/padding:0 0 \d+px/.test(backRule));
+
+/* ---------- แถวรายการ ----------
+   ชิปหน่วยเคยอยู่รวมกับถังขยะ+ลูกศรทางขวา ทำให้ข้อความทางซ้ายถูกบีบจนตัดบรรทัด */
+push('มีบรรทัดคำอธิบายที่รับชิปได้', /\.li-subrow\{[^}]*flex-wrap:wrap/.test(css));
+
 /* ---------- หน้าขาย (CSS) ---------- */
 push('แถบสรุปหน้าขายวางเลขบนฐานเดียวกัน', /\.possum-n\{[^}]*align-items:baseline/.test(css));
 push('มีปุ่มเมนูกดด่วน', /\.qmenu\{[^}]*grid-template-columns/.test(css));
@@ -103,6 +113,23 @@ const probe = `
   go('today');
   r.push(['บิลที่มีของอยู่ไม่ถูกล้างทิ้ง', !!order && orderCount() === 1]);
   order = null; tab = 'sale';
+
+  /* ---- ไม่บอกเรื่องเดียวกันซ้ำซ้อน ----
+     หน้าที่มีการ์ดสรุปจาก subHead() อยู่แล้ว ต้องไม่มีตัวเลขใหญ่ซ้ำอีกชั้นข้างบน */
+  ['ing','fixed'].forEach(t => {
+    tab = t;
+    r.push(['หน้า ' + t + ': ไม่มีหัวตัวเลขซ้ำกับการ์ดสรุป', headStat() === null]);
+  });
+  tab = 'today';
+
+  // ชิปหน่วยต้องอยู่ในบรรทัดคำอธิบาย ไม่ใช่ไปเบียดกับถังขยะทางขวา
+  const ing = viewIng();
+  r.push(['ของที่ซื้อมา: ชิปหน่วยอยู่บรรทัดคำอธิบาย',
+    ing.indexOf('li-subrow') >= 0 && ing.indexOf('<div class="li-end">\\n        <span class="chip"') < 0]);
+  r.push(['ของที่ซื้อมา: ทางขวาเหลือแค่ลบกับลูกศร',
+    (ing.match(/li-end/g)||[]).length > 0
+    && ing.split('li-end')[1].slice(0, 400).indexOf('class="chip"') < 0]);
+  r.push(['ของที่ซื้อมา: แท็กปิดครบ', bal(ing)]);
 
   /* ---- หน้าขายแบบใหม่ ---- */
   const pos = viewPOS();
