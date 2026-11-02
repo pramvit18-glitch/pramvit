@@ -154,17 +154,25 @@
   .bottomnav button svg{width:21px; height:21px; position:relative; z-index:1}
   /* 5 เมนูแล้ว เหลือราว 70px ต่ออัน ป้ายต้องไม่ตัดบรรทัด */
   .bottomnav button span{max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  /* วงกลมจาง ๆ หลังไอคอนของเมนูที่เลือกอยู่ */
+  /* เมนูที่เลือกอยู่: ไอคอนขึ้นไปอยู่ในวงกลมทึบที่ลอยพ้นขอบแถบขึ้นมา
+     วงกลม 48 วางที่ -22 จากขอบบนปุ่ม + แถบมี padding 6 → โผล่พ้นแถบ 16px
+     ไอคอนขยับขึ้น 16 ให้จุดกลางตรงกับวง (คลาดกัน 0.5px) ส่วนป้ายอยู่กับที่
+     ป้ายทุกอันเลยอยู่ระดับเดียวกัน และไม่ไปทับวงกลม (วงจบที่ 26 ป้ายเริ่ม 32)
+     ใช้ transform ล้วน ไม่กินที่ใน flow ความสูงแถบจึงไม่ขยับตอนสลับเมนู */
   .bottomnav button::before{
-    content:''; position:absolute; top:4px; left:50%; transform:translateX(-50%);
-    width:40px; height:30px; border-radius:var(--r-pill); background:var(--tint);
-    opacity:0; transition:opacity .16s;
+    content:''; position:absolute; top:-22px; left:50%;
+    width:48px; height:48px; border-radius:50%; background:var(--brand);
+    transform:translateX(-50%) scale(.3); opacity:0;
+    box-shadow:0 10px 22px rgba(211,43,43,.4), 0 0 0 4px var(--bg);
+    transition:opacity .18s, transform .24s cubic-bezier(.2,.9,.3,1);
   }
-  .bottomnav button.on::before{opacity:1}
+  .bottomnav button.on::before{opacity:1; transform:translateX(-50%) scale(1)}
   .bottomnav button.on{color:var(--brand)}
-  /* จุดเล็ก ๆ ใต้ชื่อเมนูที่เลือกอยู่ */
-  .bottomnav button.on::after{
-    content:''; width:5px; height:5px; border-radius:50%; background:var(--brand);
+  .bottomnav button svg{transition:transform .24s cubic-bezier(.2,.9,.3,1), color .18s}
+  /* svg ใช้ stroke="currentColor" ตั้ง color ที่ตัว svg เลยเปลี่ยนแค่ไอคอน ป้ายยังเป็นสีแบรนด์ */
+  .bottomnav button.on svg{color:#fff; transform:translateY(-16px)}
+  @media(prefers-reduced-motion:reduce){
+    .bottomnav button::before, .bottomnav button svg{transition:none}
   }
 
   /* ===================== หน้าแรก: หัวใหญ่ ค้นหา ทางลัด แถบวัน =====================
@@ -660,9 +668,9 @@
     .bottomnav button svg{width:17px; height:17px}
     .bottomnav button:hover{color:var(--ink-2)}
     .bottomnav button.on{color:var(--brand); background:var(--tint)}
-    /* วงกลมกับจุดเป็นของแถบแนวตั้งบนมือถือ จอใหญ่ไม่ต้องใช้ */
-    .bottomnav button::before,
-    .bottomnav button.on::after{display:none}
+    /* วงกลมลอยเป็นของแถบลอยบนมือถือ จอใหญ่แถบอยู่กับที่ ใช้พื้นอ่อนพอ */
+    .bottomnav button::before{display:none}
+    .bottomnav button.on svg{color:var(--brand); transform:none}
 
     .tiles{grid-template-columns:repeat(4,1fr)}
     .pick{grid-template-columns:26px 1fr auto}

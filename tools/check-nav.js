@@ -23,6 +23,58 @@ push('ป้ายเมนูล่างไม่ตัดบรรทัด',
 push('ป้ายเมนูล่างยาวเกินแล้วตัดด้วย …', /\.bottomnav button span\{[^}]*text-overflow:ellipsis/.test(css));
 push('ปุ่มเมนูล่างแบ่งพื้นที่เท่ากัน', /\.bottomnav button\{[^}]*flex:1/.test(css));
 
+/* ---------- เมนูที่เลือกอยู่: ไอคอนในวงกลมทึบที่ลอยพ้นขอบแถบ ---------- */
+const block = sel => (new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{([^}]*)\\}')
+  .exec(css) || [])[1] || '';
+const num = (b, prop) => {
+  const m = new RegExp(prop + ':\\s*(-?\\d+(?:\\.\\d+)?)px').exec(b);
+  return m ? Number(m[1]) : null;
+};
+
+const ring = block('.bottomnav button::before');
+const onSvg = block('.bottomnav button.on svg');
+const btn = block('.bottomnav button');
+const svgB = block('.bottomnav button svg');
+
+push('เมนูที่เลือกมีวงกลมทึบ', /border-radius:50%/.test(ring) && /background:var\(--brand\)/.test(ring));
+push('วงกลมลอยพ้นขอบแถบขึ้นไป', (num(ring, 'top') || 0) < 0);
+push('ไอคอนในวงกลมเป็นสีขาว', /color:#fff/.test(onSvg));
+push('ไอคอนขยับขึ้นไปอยู่ในวง', /translateY\(-\d+px\)/.test(onSvg));
+push('วงกลมค่อย ๆ โตขึ้นตอนสลับเมนู', /scale\(\.?\d/.test(ring) && /transition:[^;]*transform/.test(ring));
+push('ปิดแอนิเมชันให้คนที่ตั้งค่าลดการเคลื่อนไหว',
+  /prefers-reduced-motion[\s\S]{0,160}\.bottomnav button::before/.test(css));
+
+// เรขาคณิต: ไอคอนต้องอยู่กลางวง และวงต้องไม่ลงไปทับป้าย
+// (ค่าทั้งหมดอ่านจาก CSS จริง ถ้ามีใครขยับตัวเลขแล้วชนกัน ข้อนี้จะฟ้อง)
+const cTop = num(ring, 'top'), cSize = num(ring, 'width');
+const lift = Number((/translateY\((-?\d+(?:\.\d+)?)px\)/.exec(onSvg) || [])[1]);
+const padTop = Number((/padding:(\d+)px/.exec(btn) || [])[1]);
+const svgH = num(svgB, 'height');
+const gap = num(btn, 'gap');
+const LABEL_H = 18;   // ป้าย 11px line-height 1.65
+
+if ([cTop, cSize, lift, padTop, svgH, gap].some(v => v === null || Number.isNaN(v))) {
+  push('อ่านค่าเรขาคณิตของแถบล่างได้', false);
+} else {
+  const circleMid = cTop + cSize / 2;
+  const iconMid = padTop + svgH / 2 + lift;
+  const off = Math.abs(circleMid - iconMid);
+  push(`ไอคอนอยู่กลางวงพอดี (เยื้อง ${off.toFixed(1)}px)`, off <= 2);
+
+  const circleBottom = cTop + cSize;
+  const labelTop = padTop + svgH + gap;          // ป้ายไม่ได้ขยับ อยู่ที่เดิม
+  push(`วงกลมไม่ทับป้าย (วงจบ ${circleBottom} · ป้ายเริ่ม ${labelTop})`, circleBottom <= labelTop);
+  push(`ป้ายยังอยู่ในแถบ (ล่างสุด ${labelTop + LABEL_H}px)`, labelTop + LABEL_H <= 60);
+
+  // วงกลมโผล่พ้นแถบแล้วต้องยังอยู่ในพื้นที่ที่ main เว้นไว้ให้ ไม่ไปบังเนื้อหา
+  const navPad = num(block('.bottomnav'), 'padding') || 6;
+  const popUp = -(cTop) - navPad;
+  const navH = Number((/--nav-h:(\d+)px/.exec(css) || [])[1]);
+  const reserved = navH + 40;
+  const used = 10 + navPad * 2 + padTop + svgH + gap + LABEL_H + 7 + popUp;
+  push(`วงกลมที่โผล่ขึ้นมา ${popUp}px ยังไม่บังเนื้อหา (ใช้ ${used} / เว้นไว้ ${reserved}px)`, used <= reserved);
+}
+
 // ตัวเลือกหน้าใน render() ต้องรู้จักทุกแท็บ ไม่งั้นแท็บนั้นจะเงียบ ๆ ไปโผล่หน้าสำรอง
 const dispatch = (/getElementById\('view'\)\.innerHTML =([\s\S]{0,600}?);/.exec(script) || [])[1] || '';
 const tabsBlock = (/const TABS = \[([\s\S]*?)\];/.exec(script) || [])[1] || '';
