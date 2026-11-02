@@ -2205,8 +2205,15 @@ function startOrderWatch(){
 }
 function stopOrderWatch(){ clearInterval(orderTimer); orderTimer = null; cloudOrders = []; }
 
+// จอดับหรือสลับไปแอปอื่น = ไม่ได้ยืนขายอยู่ หยุดถามไปก่อน
+// ประหยัดทั้งโควตาฟรีของที่เก็บออเดอร์และแบตมือถือ
+// (เบราว์เซอร์หน่วงตัวนับเวลาในแท็บที่ไม่ได้ดูอยู่แล้ว ถามไปก็ไม่ตรงเวลา)
+// พอกลับมาดูจอ ถามทันทีหนึ่งครั้ง จะได้ไม่ต้องรอครบรอบ
+document.addEventListener('visibilitychange', () => { if(!document.hidden) pollOrders(); });
+
 async function pollOrders(){
   if(!db.orderOn || !cloudReady() || !db.orderKey) return;
+  if(document.hidden) return;
   let data;
   try{ data = await cloudReq('GET', `s/${db.orderKey}/orders`); }
   catch(e){ return; }                      // เน็ตหลุดชั่วคราว รอบหน้าค่อยลองใหม่
