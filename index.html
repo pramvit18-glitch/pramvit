@@ -327,6 +327,23 @@
      ไม่ใส่ margin-bottom ที่ .srow ตรง ๆ เพราะหน้าแรกมีบางจุดที่ไม่ต้องการช่องว่างเพิ่ม */
   .srow + .card, .srow + .block{margin-top:14px}
 
+  /* ---------- ออเดอร์ที่ลูกค้าสั่งเข้ามา ---------- */
+  .ord{padding:14px 0}
+  .ord + .ord{border-top:1px solid var(--line)}
+  .ord-top{display:flex; align-items:flex-start; gap:12px}
+  .ord-no{
+    width:38px; height:38px; flex:0 0 auto; border-radius:50%; display:grid; place-items:center;
+    background:var(--tint); color:var(--brand); font-weight:800; font-size:16px;
+  }
+  .ord.cook .ord-no{background:var(--brand); color:#fff}
+  .ord-m{flex:1; min-width:0}
+  .ord-n{font-size:15px; font-weight:800; letter-spacing:-.01em; line-height:1.35}
+  .ord-s{font-size:12.5px; color:var(--muted); font-weight:600; margin-top:2px; line-height:1.45}
+  .ord-p{flex:0 0 auto; font-size:17px; font-weight:800; font-variant-numeric:tabular-nums}
+  .ord-act{display:flex; gap:9px; margin-top:12px}
+  .ord-act .btn{flex:0 0 auto}
+  .ord-act .btn.primary, .ord-act .btn.wide{flex:1}
+
   /* ---------- แถวเมนูขายดี เลื่อนข้างได้ ---------- */
   .hil{display:flex; gap:14px; overflow-x:auto; scrollbar-width:none; margin:0 -20px; padding:6px 20px 10px}
   .hil::-webkit-scrollbar{display:none}
@@ -1680,6 +1697,9 @@
   <nav id="tabsBottom" class="bottomnav"></nav>
 
 <main>
+  <!-- ออเดอร์ที่ลูกค้าสั่งเข้ามา อยู่บนสุดและอยู่นอก #view จะได้เห็นทุกแท็บ
+       แม่ค้ากำลังทอดอยู่หน้าไหนก็เห็น ไม่ต้องเลื่อนหา -->
+  <div id="orderInbox"></div>
   <div class="headline" id="headStat"></div>
   <noscript>
     <div class="card" style="border-color:var(--bad)">
@@ -1791,7 +1811,11 @@ const blank = () => ({
   targetMargin: 65,
   shopName: 'ร้านเครป',      // โชว์ใต้หัวข้อหน้าขาย แก้ได้ที่ตั้งค่า
   shopBranch: '',
-  shopOpen: 1                // ป้ายบอกว่าตอนนี้เปิดร้านอยู่ไหม
+  shopOpen: 1,               // ป้ายบอกว่าตอนนี้เปิดร้านอยู่ไหม
+  orderOn: 0,                // เปิดให้ลูกค้าสั่งเองผ่าน QR อยู่ไหม
+  orderKey: '',              // รหัสช่องรับออเดอร์ของร้านนี้ (อยู่ในลิงก์ที่ให้ลูกค้า)
+  queueNo: 0,                // เลขคิวล่าสุดของวันนี้
+  queueDay: ''               // คิวนับใหม่ทุกวัน เก็บไว้ว่านับของวันไหนอยู่
 });
 
 /* ---------- วันที่ ---------- */
@@ -1908,6 +1932,8 @@ function save(){
   try{
     localStorage.setItem(HUB, JSON.stringify(store));
     saveWarned = false;
+    // แก้เมนู ราคา หรือเปิด-ปิดร้าน ต้องให้หน้าลูกค้าเห็นตาม
+    if(typeof publishMenuSoon === 'function') publishMenuSoon();
   }catch(e){
     // ที่เก็บเต็ม หรือเบราว์เซอร์ปิดการเก็บข้อมูลไว้ — ของที่กรอกจะหายตอนปิดแอป
     // ต้องบอกให้รู้ ไม่ใช่เงียบ แต่บอกครั้งเดียวพอ ไม่ให้เด้งรัวทุกการกระทำ
@@ -1919,7 +1945,9 @@ function save(){
 }
 // เปลี่ยนข้อมูลของร้านที่กำลังใช้อยู่ทั้งก้อน (ชื่อร้านกับ id ยังเป็นของเดิม)
 function setShopData(data){
-  const keep = { id: db.id, shopName: db.shopName, shopBranch: db.shopBranch, shopOpen: db.shopOpen };
+  // รหัสช่องรับออเดอร์ผูกกับตัวร้าน ไม่ใช่ข้อมูลในร้าน ถ้าหลุดไป QR ที่ติดหน้าร้านไว้จะตายทันที
+  const keep = { id: db.id, shopName: db.shopName, shopBranch: db.shopBranch, shopOpen: db.shopOpen,
+                 orderOn: db.orderOn, orderKey: db.orderKey };
   const next = Object.assign(blank(), data, keep);
   const i = store.shops.findIndex(x => x.id === keep.id);
   if(i >= 0) store.shops[i] = next; else store.shops.push(next);
@@ -2086,6 +2114,302 @@ async function copyShopLink(){
   }catch(e){
     ta.select(); toast('กดค้างที่ลิงก์แล้วเลือก "คัดลอก" เองนะครับ');
   }
+}
+
+/* ===================== รับออเดอร์จากลูกค้า =====================
+   ลูกค้าสแกน QR ที่หน้าร้าน เปิดหน้า order.html (คนละลิงก์กับแอปนี้) กดสั่งเอง
+   แล้วออเดอร์เด้งมาโผล่ที่เครื่องแม่ค้า
+
+   ออเดอร์ต้องเดินทางข้ามเครื่อง จึงต้องมีที่เก็บกลาง ใช้ Firebase Realtime Database
+   คุยกันด้วย REST ธรรมดา ไม่ต้องโหลด SDK — แอปนี้ยังไม่มี dependency เหมือนเดิม
+
+   สิ่งที่ขึ้นไปบนนั้นมีแค่: ชื่อร้าน สาขา ร้านเปิดอยู่ไหม เมนู ราคา ไส้ และออเดอร์ที่ลูกค้าสั่ง
+   สิ่งที่ไม่ขึ้นเด็ดขาด: ต้นทุน วัตถุดิบ ค่าใช้จ่าย ยอดขายย้อนหลัง กำไร รหัสคนดูแล */
+
+const CLOUD_BASE = '';              // ที่เก็บออเดอร์กลาง — ต้องตรงกับใน order.html
+const CLOUD_KEY  = 'crepe-cloud';   // ที่เก็บที่แม่ค้าตั้งเองจากหน้าตั้งค่า (ของเครื่องนี้)
+
+function cloudBase(){
+  let own = '';
+  try{ own = localStorage.getItem(CLOUD_KEY) || ''; }catch(e){}
+  return String(own || CLOUD_BASE || '').trim().replace(/\/+$/, '');
+}
+const cloudReady = () => !!cloudBase();
+
+async function cloudReq(method, path, body){
+  const base = cloudBase();
+  if(!base) throw new Error('ยังไม่ได้ตั้งที่เก็บออเดอร์');
+  const res = await fetch(`${base}/${path}.json`, {
+    method,
+    headers: body === undefined ? undefined : {'Content-Type':'application/json'},
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  if(!res.ok) throw new Error('ต่อไม่ติด (' + res.status + ')');
+  return res.json();
+}
+
+// ลิงก์ที่เอาไปทำ QR ติดหน้าร้าน — เดาไม่ได้ เพราะมีรหัสช่องของร้านอยู่ในนั้น
+function orderLink(){
+  if(!db.orderKey) return '';
+  return location.origin + location.pathname.replace(/[^/]*$/, '') + 'order.html?s=' + db.orderKey;
+}
+
+// ใบเมนูที่ลูกค้าจะเห็น — หยิบเฉพาะที่ต้องโชว์ ไม่ลากต้นทุนหรือสูตรไปด้วย
+function menuForCustomers(){
+  return {
+    name:   String(db.shopName || 'ร้านของฉัน'),
+    branch: String(db.shopBranch || ''),
+    open:   !!db.shopOpen,
+    at:     Date.now(),
+    menus:  db.menus.map(m => ({
+      id: m.id, name: String(m.name || ''), price: n(m.price),
+      groups: (m.groupIds || []).map(id => findGroup(id)).filter(Boolean).map(g => ({
+        name: String(g.name || ''),
+        items: (g.items || []).map(it => ({ name: String(it.name || ''), price: n(it.price) }))
+      })).filter(g => g.items.length)
+    })).filter(m => m.name)
+  };
+}
+
+// แก้เมนู แก้ราคา เปิด-ปิดร้าน ต้องสะท้อนไปที่หน้าลูกค้าด้วย
+// รวบหลาย ๆ การแก้ที่ติด ๆ กันให้ส่งทีเดียว จะได้ไม่ยิงรัว ๆ ตอนพิมพ์
+let pubTimer = null;
+function publishMenuSoon(){
+  if(typeof db !== 'object' || !db || !db.orderOn || !cloudReady()) return;
+  clearTimeout(pubTimer);
+  pubTimer = setTimeout(() => { publishMenu().catch(() => {}); }, 1500);
+}
+async function publishMenu(){
+  if(!db.orderKey) return;
+  await cloudReq('PUT', `s/${db.orderKey}/menu`, menuForCustomers());
+}
+
+/* ---------- คอยดูว่ามีออเดอร์เข้ามาไหม ---------- */
+let cloudOrders = [];       // ออเดอร์ที่ยังค้างอยู่ (ยังไม่รับ / กำลังทำ)
+let orderTimer  = null;
+let seenOrders  = null;     // รหัสออเดอร์ที่เคยเห็นแล้ว ใช้ดูว่ามีอันใหม่เข้ามาไหม
+
+function startOrderWatch(){
+  clearInterval(orderTimer);
+  if(!db.orderOn || !cloudReady() || !db.orderKey) return;
+  pollOrders();
+  orderTimer = setInterval(pollOrders, 5000);
+}
+function stopOrderWatch(){ clearInterval(orderTimer); orderTimer = null; cloudOrders = []; }
+
+async function pollOrders(){
+  if(!db.orderOn || !cloudReady() || !db.orderKey) return;
+  let data;
+  try{ data = await cloudReq('GET', `s/${db.orderKey}/orders`); }
+  catch(e){ return; }                      // เน็ตหลุดชั่วคราว รอบหน้าค่อยลองใหม่
+
+  const list = Object.entries(data || {})
+    .map(([id, o]) => Object.assign({ id }, o))
+    .filter(o => o && (o.status === 'new' || o.status === 'cook'))
+    .sort((a, b) => n(a.at) - n(b.at));
+
+  const ids = new Set(list.map(o => o.id));
+  // รอบแรกหลังเปิดแอป ถือว่าทุกอันคือของเก่า ไม่ต้องตีระฆังรัว
+  if(seenOrders){
+    const fresh = list.filter(o => o.status === 'new' && !seenOrders.has(o.id));
+    if(fresh.length){
+      beep();
+      toast(fresh.length === 1 ? 'มีออเดอร์ใหม่จากลูกค้า' : `มีออเดอร์ใหม่ ${fresh.length} รายการ`);
+    }
+  }
+  seenOrders = ids;
+
+  const changed = JSON.stringify(list) !== JSON.stringify(cloudOrders);
+  cloudOrders = list;
+  if(changed) render();
+}
+
+// เสียงเตือนสั้น ๆ ไม่ต้องมีไฟล์เสียงให้แอปอ้วนขึ้น
+function beep(){
+  try{
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if(!Ctx) return;
+    const ac = new Ctx(), o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'sine'; o.frequency.value = 880;
+    g.gain.setValueAtTime(.001, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(.25, ac.currentTime + .02);
+    g.gain.exponentialRampToValueAtTime(.001, ac.currentTime + .45);
+    o.connect(g); g.connect(ac.destination);
+    o.start(); o.stop(ac.currentTime + .5);
+  }catch(e){}
+}
+
+/* ---------- เลขคิว เริ่มนับ 1 ใหม่ทุกวัน ---------- */
+function nextQueueNo(){
+  const today = dayKey();
+  if(db.queueDay !== today){ db.queueDay = today; db.queueNo = 0; }
+  db.queueNo = n(db.queueNo) + 1;
+  return db.queueNo;
+}
+
+/* ---------- ปุ่มที่แม่ค้ากด ---------- */
+async function takeOrder(id){
+  const o = cloudOrders.find(x => x.id === id); if(!o) return;
+  const no = nextQueueNo();
+  save();
+  try{ await cloudReq('PATCH', `s/${db.orderKey}/orders/${id}`, { status:'cook', no }); }
+  catch(e){ toast('ส่งไม่ถึงลูกค้า เน็ตอาจหลุด'); return; }
+  o.status = 'cook'; o.no = no;
+  render();
+  toast(`รับออเดอร์แล้ว คิวที่ ${no}`);
+}
+
+function rejectOrder(id){
+  const o = cloudOrders.find(x => x.id === id); if(!o) return;
+  askConfirm('ปฏิเสธออเดอร์นี้',
+    'ลูกค้าจะเห็นว่าร้านรับไม่ไหว ออเดอร์นี้จะไม่ถูกบันทึกเป็นยอดขาย',
+    'ปฏิเสธ', async () => {
+      try{ await cloudReq('PATCH', `s/${db.orderKey}/orders/${id}`, { status:'rej' }); }
+      catch(e){ toast('ส่งไม่ถึงลูกค้า เน็ตอาจหลุด'); return; }
+      cloudOrders = cloudOrders.filter(x => x.id !== id);
+      render();
+      toast('ปฏิเสธออเดอร์แล้ว');
+    }, true);
+}
+
+// ลูกค้ามารับของแล้วจ่ายเงิน — ตรงนี้คือจุดที่ออเดอร์กลายเป็นยอดขายจริง
+async function finishOrder(id){
+  const o = cloudOrders.find(x => x.id === id); if(!o) return;
+  const d = dayKey(), t = nowTime(), bill = uid();
+  (Array.isArray(o.items) ? o.items : []).forEach(it => {
+    const m = findMenu(it.id);
+    (db.sales = db.sales || []).push({
+      id: uid(), bill, d, t,
+      menuId: m ? m.id : '', name: String(it.name || ''), qty: n(it.qty),
+      addons: (it.addons || []).map(a => ({ name:String(a.name||''), price:n(a.price) })),
+      total: n(it.total)
+    });
+  });
+  save();
+  try{ await cloudReq('PATCH', `s/${db.orderKey}/orders/${id}`, { status:'done' }); }catch(e){}
+  cloudOrders = cloudOrders.filter(x => x.id !== id);
+  render();
+  toast(`รับเงินแล้ว ${baht(n(o.total))} บาท`);
+}
+
+/* ---------- การ์ดออเดอร์บนหน้าแรก ---------- */
+function ordersCard(){
+  if(!db.orderOn || !cloudOrders.length) return '';
+  return `<div class="card">
+    ${cardHead('cart','ออเดอร์จากลูกค้า','กดรับแล้วลูกค้าเห็นเลขคิว',
+      `<span class="head-tag">${cloudOrders.length} รายการ</span>`)}
+    <div class="ords">${cloudOrders.map(orderRowHTML).join('')}</div>
+  </div>`;
+}
+
+/* ปุ่มสองปุ่มกับราคาเบียดกันไม่ลงในแถว .li ปกติ (ราคาถูกบีบจนหาย)
+   ออเดอร์เลยใช้ทรงของตัวเอง: บรรทัดบนคือของกับราคา ปุ่มลงไปอยู่บรรทัดล่างเต็มความกว้าง
+   แม่ค้ามือเปื้อนแป้งกดตอนยืนทอด ปุ่มใหญ่ไว้ดีกว่า */
+function orderRowHTML(o){
+  const items = Array.isArray(o.items) ? o.items : [];
+  const what = items.map(it => `${esc(it.name)} ×${esc(String(it.qty))}`).join(' · ');
+  const tops = [...new Set(items.flatMap(it => (it.addons || []).map(a => a.name)))];
+  const cook = o.status === 'cook';
+  const bits = [
+    cook ? `คิวที่ ${esc(String(o.no || '?'))} · กำลังทำ` : 'ออเดอร์ใหม่ · รอรับ',
+    o.who  ? esc(o.who) : '',
+    tops.length ? esc(tops.join(', ')) : '',
+    o.note ? esc(o.note) : ''
+  ].filter(Boolean);
+
+  return `<div class="ord${cook ? ' cook' : ''}">
+    <div class="ord-top">
+      <span class="ord-no">${cook ? esc(String(o.no || '?')) : '฿'}</span>
+      <div class="ord-m">
+        <div class="ord-n">${what || '(ไม่มีรายการ)'}</div>
+        <div class="ord-s">${bits.join(' · ')}</div>
+      </div>
+      <b class="ord-p">${money(n(o.total))}</b>
+    </div>
+    <div class="ord-act">
+      ${cook
+        ? `<button type="button" class="btn primary wide" onclick="finishOrder('${jsq(o.id)}')">เสร็จแล้ว · รับเงิน</button>`
+        : `<button type="button" class="btn ghost" onclick="rejectOrder('${jsq(o.id)}')">ไม่รับ</button>
+           <button type="button" class="btn primary" onclick="takeOrder('${jsq(o.id)}')">รับออเดอร์</button>`}
+    </div>
+  </div>`;
+}
+
+/* ---------- หน้าตั้งค่า: เปิด/ปิดรับออเดอร์ ---------- */
+function orderSetupDialog(){
+  if(!adminOk(() => orderSetupDialog())) return;
+  const on   = !!db.orderOn;
+  const base = cloudBase();
+  const link = orderLink();
+  openDialog({ icon:'cart',
+    title:'ให้ลูกค้าสั่งเองได้',
+    sub: on ? 'เปิดอยู่ · ลูกค้าสแกน QR แล้วสั่งได้เลย' : 'ยังไม่ได้เปิด',
+    html:`
+      <p style="margin:0 0 14px; color:var(--ink-2); font-size:13.5px; line-height:1.65">
+        เปิดแล้วลูกค้าจะกดสั่งจากมือถือตัวเองได้ ออเดอร์จะเด้งมาที่เครื่องนี้ มีเสียงเตือน
+        แม่ค้ากดรับแล้วลูกค้าจะเห็นเลขคิว <b>จ่ายเงินตอนมารับของ</b>
+      </p>
+      <p style="margin:0 0 14px; color:var(--ink-2); font-size:13px; line-height:1.65;
+                background:var(--soft); border-radius:12px; padding:12px 14px">
+        สิ่งที่ส่งออกจากเครื่องมีแค่ <b>ชื่อร้าน เมนู ราคา ไส้ และออเดอร์ที่ลูกค้าสั่ง</b><br>
+        ต้นทุน วัตถุดิบ ค่าใช้จ่าย ยอดขายย้อนหลัง และกำไร <b>ไม่ถูกส่งออกไปไหนทั้งนั้น</b>
+      </p>
+      <div class="f">
+        <label for="cloudBox">ที่เก็บออเดอร์ (ได้จาก Firebase)</label>
+        <input type="text" id="cloudBox" value="${esc(base)}" placeholder="https://ชื่อโปรเจกต์.firebasedatabase.app">
+      </div>
+      ${on && link ? `<div class="f" style="margin-top:14px">
+        <label for="orderLinkBox">ลิงก์สำหรับลูกค้า (เอาไปทำ QR ติดหน้าร้าน)</label>
+        <textarea id="orderLinkBox" readonly rows="3"
+          style="width:100%; border:none; border-radius:12px; background:var(--soft);
+                 padding:11px 13px; font:inherit; font-size:12.5px; color:var(--ink-2); resize:none">${esc(link)}</textarea>
+      </div>` : ''}
+      <p class="hint" style="margin:12px 0 0">ยังไม่มีที่เก็บ? สร้างฟรีที่ console.firebase.google.com →
+        Realtime Database → Create Database แล้วเอา URL ที่ได้มาวางช่องบน</p>`,
+    foot: [
+      {label:'ปิด', cls:'ghost', fn:'dlg.close()'},
+      on ? {label:'คัดลอกลิงก์ลูกค้า', cls:'ghost', fn:'copyOrderLink()'} : null,
+      {label: on ? 'หยุดรับออเดอร์' : 'เปิดรับออเดอร์',
+       cls: on ? 'ghost wide' : 'primary wide', fn:'toggleOrders()'}
+    ].filter(Boolean)
+  });
+}
+
+async function copyOrderLink(){
+  const ta = document.getElementById('orderLinkBox'); if(!ta) return;
+  try{
+    await navigator.clipboard.writeText(ta.value);
+    toast('คัดลอกลิงก์แล้ว — เอาไปทำ QR ติดหน้าร้านได้เลย');
+  }catch(e){
+    ta.select(); toast('กดค้างที่ลิงก์แล้วเลือก "คัดลอก" เองนะครับ');
+  }
+}
+
+async function toggleOrders(){
+  const box = document.getElementById('cloudBox');
+  if(box){
+    const v = String(box.value || '').trim().replace(/\/+$/, '');
+    if(v && !/^https:\/\/[\w.-]+/.test(v)){ toast('ที่เก็บต้องขึ้นต้นด้วย https://'); return; }
+    try{ v ? localStorage.setItem(CLOUD_KEY, v) : localStorage.removeItem(CLOUD_KEY); }catch(e){}
+  }
+
+  if(db.orderOn){
+    db.orderOn = false; save(); stopOrderWatch(); dlg.close(); render();
+    toast('หยุดรับออเดอร์จากลูกค้าแล้ว');
+    return;
+  }
+
+  if(!cloudReady()){ toast('ใส่ที่เก็บออเดอร์ก่อนนะครับ'); return; }
+  if(!db.menus.length){ toast('ตั้งเมนูกับราคาไว้ก่อน ลูกค้าถึงจะสั่งได้'); return; }
+
+  if(!db.orderKey) db.orderKey = uid() + uid();   // รหัสช่องของร้าน เดายาก
+  db.orderOn = true; save();
+  try{ await publishMenu(); }
+  catch(e){ db.orderOn = false; save(); toast('ต่อที่เก็บออเดอร์ไม่ติด ลองเช็ก URL อีกที'); return; }
+  seenOrders = null;
+  startOrderWatch();
+  dlg.close(); render();
+  toast('เปิดรับออเดอร์แล้ว — คัดลอกลิงก์ไปทำ QR ติดหน้าร้านได้เลย');
 }
 
 function unlockDevice(){
@@ -2348,6 +2672,7 @@ function render(){
   });
 
   renderBanner();
+  document.getElementById('orderInbox').innerHTML = ordersCard();
 
   // หัวใหญ่ใช้ทุกหน้า ยกเว้นหน้าขายที่ต้องการพื้นที่เต็มจอ
   const home = tab === 'today';
@@ -3606,6 +3931,7 @@ function switchShop(id){
   const x = store.shops.find(v => v.id === id); if(!x) return;
   store.active = id; db = x; save();
   dlg.close(); resetView('today');
+  seenOrders = null; cloudOrders = []; startOrderWatch();
   toast('สลับมาที่ ' + db.shopName);
 }
 
@@ -5356,6 +5682,8 @@ function viewSetup(){
   <div class="card">
     ${cardHead('box','ข้อมูลของฉัน','เก็บอยู่ในเครื่องนี้เครื่องเดียว ควรคัดลอกเก็บไว้เป็นระยะ')}
     <div class="navlist">
+      ${navRow('cart','g','ให้ลูกค้าสั่งเองผ่าน QR',
+        db.orderOn ? 'เปิดอยู่ · ออเดอร์เด้งมาที่เครื่องนี้' : 'ยังไม่ได้เปิด', 'orderSetupDialog()')}
       ${navRow('box','o','สำรอง / กู้คืนข้อมูล','คัดลอกเก็บไว้ กันข้อมูลหาย','openBackup()')}
       ${navRow('menu','w','คำในแอปแปลว่าอะไร','อ่านครั้งเดียวก็พอ','openHelp()')}
       ${navRow('today','g','ใส่ข้อมูลตัวอย่าง','ลองเล่นด้วยข้อมูลร้านสมมติ','loadDemo()')}
@@ -5703,6 +6031,8 @@ if('serviceWorker' in navigator && !window.claude
 }
 
 render();
+// เปิดแอปมาแล้วถ้าร้านนี้เปิดรับออเดอร์อยู่ ให้เริ่มคอยดูเลย
+startOrderWatch();
 </script>
 </body>
 </html>

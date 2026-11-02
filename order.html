@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#eef0f3">
+<title>สั่งเครป</title>
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  /* ธีมเดียวกับแอปแม่ค้า: พื้นเทาอ่อน การ์ดขาวมนไม่มีเส้นขอบ สีหลักแดง ไม่มีโหมดมืด */
+  :root{
+    --page:#eef0f3; --bg:#ffffff; --soft:#f4f5f7; --tint:#fdecec;
+    --line:#e5e7ea;
+    --ink:#16181c; --ink-2:#4b5059; --muted:#8d939c;
+    --brand:#d32b2b; --brand-d:#a81f1f; --brand-mid:#e8605f;
+    --good:#15803d; --good-bg:#edf7f0; --warn-bg:#fdf6e3; --warn-ink:#8a5a06;
+    --bad:#b91c1c;
+    --r:12px; --r-pill:999px;
+    --sh-card:0 6px 22px rgba(22,24,28,.07), 0 1px 3px rgba(22,24,28,.05);
+    --sh-lift:0 10px 30px rgba(22,24,28,.12);
+    --ease:cubic-bezier(.2,.9,.3,1);
+    color-scheme: light;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; padding:0}
+  body{
+    background:var(--page); color:var(--ink);
+    font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans Thai', 'Sarabun', sans-serif;
+    font-size:15px; line-height:1.5;
+    padding-bottom:calc(120px + env(safe-area-inset-bottom, 0px));
+  }
+  .wrap{max-width:560px; margin:0 auto; padding:0 16px}
+
+  header{padding:18px 0 8px}
+  header h1{margin:0; font-size:25px; font-weight:800; letter-spacing:-.025em; line-height:1.2}
+  header p{margin:3px 0 0; font-size:13px; color:var(--muted); font-weight:600}
+
+  .card{background:var(--bg); border-radius:var(--r); box-shadow:var(--sh-card); padding:18px; margin-bottom:14px}
+  .card > h2{margin:0 0 3px; font-size:16px; font-weight:800; letter-spacing:-.02em}
+  .card > h2 + .sub{margin:0 0 14px; font-size:13px; color:var(--muted); line-height:1.5}
+
+  .note{
+    display:flex; gap:12px; align-items:flex-start;
+    background:var(--warn-bg); color:var(--warn-ink);
+    border-radius:var(--r); padding:14px 16px; margin:14px 0; font-weight:700; font-size:14px;
+  }
+  .note.bad{background:var(--tint); color:var(--brand-d)}
+  .note.ok{background:var(--good-bg); color:var(--good)}
+
+  /* ---------- รายการเมนู ---------- */
+  .mlist{display:flex; flex-direction:column}
+  .m{
+    display:flex; align-items:center; gap:12px; width:100%;
+    border:none; background:none; font:inherit; color:inherit; text-align:left;
+    padding:13px 0; cursor:pointer;
+  }
+  .m + .m{border-top:1px solid var(--line)}
+  .m-n{flex:1; min-width:0; font-weight:800; font-size:15px; letter-spacing:-.01em}
+  .m-s{display:block; font-size:12.5px; color:var(--muted); font-weight:600; letter-spacing:0}
+  .m-p{flex:0 0 auto; font-weight:800; font-size:15px; font-variant-numeric:tabular-nums}
+  .m-add{
+    flex:0 0 auto; width:32px; height:32px; border-radius:50%;
+    background:var(--tint); color:var(--brand); display:grid; place-items:center;
+    font-size:20px; font-weight:800; line-height:1;
+  }
+
+  /* ---------- ชิปเลือกไส้ ---------- */
+  .gname{font-size:12px; color:var(--muted); font-weight:800; letter-spacing:.06em; margin:16px 0 8px}
+  .tops{display:flex; flex-wrap:wrap; gap:8px}
+  .tops button{
+    border:none; background:var(--soft); color:var(--ink-2); font:inherit; font-weight:700;
+    font-size:13.5px; padding:9px 14px; border-radius:var(--r-pill); cursor:pointer;
+    transition:background .15s, color .15s;
+  }
+  .tops button.on{background:var(--brand); color:#fff}
+
+  .qrow{display:flex; align-items:center; gap:14px; margin-top:18px}
+  .qrow span{flex:1; font-weight:800}
+  .qbtn{
+    width:40px; height:40px; border-radius:50%; border:none; cursor:pointer;
+    background:var(--soft); color:var(--ink); font-size:21px; font-weight:800; line-height:1;
+  }
+  .qbtn:disabled{opacity:.35; cursor:default}
+  .qn{min-width:34px; text-align:center; font-size:19px; font-weight:800; font-variant-numeric:tabular-nums}
+
+  /* ---------- ตะกร้า ---------- */
+  .ci{display:flex; align-items:flex-start; gap:12px; padding:12px 0}
+  .ci + .ci{border-top:1px solid var(--line)}
+  .ci-m{flex:1; min-width:0}
+  .ci-n{font-weight:800; font-size:14.5px}
+  .ci-s{font-size:12.5px; color:var(--muted); font-weight:600; margin-top:2px}
+  .ci-p{flex:0 0 auto; font-weight:800; font-variant-numeric:tabular-nums}
+  .ci-x{
+    flex:0 0 auto; border:none; background:none; cursor:pointer; color:var(--muted);
+    font-size:19px; font-weight:700; padding:0 2px; line-height:1;
+  }
+
+  textarea, input[type=text]{
+    width:100%; border:none; background:var(--soft); border-radius:var(--r);
+    padding:12px 14px; font:inherit; color:var(--ink); resize:none;
+  }
+  textarea:focus, input:focus{outline:2px solid var(--brand-mid); outline-offset:0}
+  label{display:block; font-size:12px; color:var(--ink-2); font-weight:700; margin:0 0 6px}
+  .fgap{margin-top:14px}
+
+  /* ---------- แถบรวมเงินล่างจอ ---------- */
+  .bar{
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    background:rgba(238,240,243,.92); backdrop-filter:blur(12px);
+  }
+  .bar-in{max-width:560px; margin:0 auto; display:flex; align-items:center; gap:12px}
+  .bar-t{flex:1; min-width:0}
+  .bar-t b{display:block; font-size:19px; font-weight:800; font-variant-numeric:tabular-nums}
+  .bar-t span{display:block; font-size:12px; color:var(--muted); font-weight:700}
+  .bar[hidden]{display:none}
+
+  .btn{
+    border:none; border-radius:var(--r-pill); cursor:pointer; font:inherit; font-weight:800;
+    padding:14px 26px; font-size:15.5px; background:var(--brand); color:#fff;
+    box-shadow:0 6px 18px rgba(211,43,43,.3); transition:transform .06s var(--ease);
+  }
+  .btn:active{transform:scale(.97)}
+  .btn:disabled{opacity:.45; box-shadow:none; cursor:default}
+  .btn.wide{width:100%}
+  .btn.ghost{background:var(--soft); color:var(--ink-2); box-shadow:none}
+
+  /* ---------- กล่องเลือกไส้ ---------- */
+  dialog{
+    border:none; padding:0; background:none; max-width:560px; width:100%;
+    margin:auto auto 0; max-height:88vh;
+  }
+  dialog::backdrop{background:rgba(22,24,28,.45)}
+  .sheet{
+    background:var(--bg); border-radius:22px 22px 0 0; padding:20px 18px;
+    padding-bottom:calc(20px + env(safe-area-inset-bottom, 0px));
+    max-height:88vh; overflow-y:auto; box-shadow:var(--sh-lift);
+  }
+  .sheet h3{margin:0; font-size:19px; font-weight:800; letter-spacing:-.02em}
+  .sheet .sub{margin:3px 0 0; font-size:13px; color:var(--muted); font-weight:600}
+  .sheet-foot{display:flex; gap:10px; margin-top:20px}
+  .sheet-foot .btn{flex:1}
+
+  /* ---------- หน้ารอคิว ---------- */
+  .qbig{text-align:center; padding:26px 0 8px}
+  .qbig b{display:block; font-size:62px; font-weight:800; line-height:1; letter-spacing:-.04em; color:var(--brand)}
+  .qbig span{display:block; font-size:13px; color:var(--muted); font-weight:700; margin-top:8px}
+  .steps{display:flex; gap:8px; margin:18px 0 4px}
+  .step{flex:1; text-align:center; font-size:12px; font-weight:800; color:var(--muted)}
+  .step i{display:block; height:5px; border-radius:var(--r-pill); background:var(--line); margin-bottom:7px}
+  .step.on{color:var(--brand)}
+  .step.on i{background:var(--brand)}
+
+  .empty{text-align:center; padding:28px 10px; color:var(--muted)}
+  .empty h3{margin:0 0 6px; font-size:16px; color:var(--ink)}
+  .empty p{margin:0; font-size:13.5px; line-height:1.6}
+
+  .foot{text-align:center; font-size:12px; color:var(--muted); padding:18px 0 4px; font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1 id="shopName">กำลังโหลด…</h1>
+    <p id="shopSub">ขอสักครู่นะครับ</p>
+  </header>
+  <div id="view"></div>
+  <p class="foot">สั่งแล้วมารับที่ร้าน จ่ายเงินตอนรับของ</p>
+</div>
+
+<div class="bar" id="bar" hidden>
+  <div class="bar-in">
+    <div class="bar-t"><b id="barTotal">฿0</b><span id="barCount">ยังไม่ได้เลือกอะไร</span></div>
+    <button class="btn" id="barBtn" onclick="goSend()">สั่งเลย</button>
+  </div>
+</div>
+
+<dialog id="dlg"><div class="sheet" id="sheet"></div></dialog>
+
+<script>
+/* ===================== หน้าสำหรับลูกค้าสั่งของ =====================
+   แยกจากแอปแม่ค้าคนละไฟล์คนละลิงก์ หน้านี้ไม่มีข้อมูลต้นทุนหรือยอดขายเลย
+   เห็นแค่ชื่อร้าน เมนู ราคา และออเดอร์ของตัวเอง
+
+   ที่เก็บออเดอร์กลางคือ Firebase Realtime Database คุยกันผ่าน REST ธรรมดา
+   จึงไม่ต้องโหลด SDK ไม่ต้องมี build step เหมือนกับแอปแม่ค้า */
+
+// ที่เก็บออเดอร์กลาง — เปลี่ยนตรงนี้ที่เดียวทั้งสองไฟล์
+const CLOUD_BASE = '';
+
+// เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
+// ไม่งั้นใครก็สร้างลิงก์ปลอมที่โชว์เมนูมั่ว ๆ ใต้ที่อยู่เว็บของร้านได้
+const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+
+const qs    = new URLSearchParams(location.search);
+const SHOP  = (qs.get('s') || '').trim();
+const BASE  = ((isLocal && qs.get('c')) || CLOUD_BASE || '').replace(/\/+$/, '');
+
+const el  = id => document.getElementById(id);
+const n   = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const baht = v => n(v).toLocaleString('th-TH', {maximumFractionDigits:2});
+
+/* ---------- คุยกับที่เก็บออเดอร์ ---------- */
+async function cloud(method, path, body){
+  if(!BASE) throw new Error('ยังไม่ได้ตั้งที่เก็บออเดอร์');
+  const res = await fetch(`${BASE}/${path}.json`, {
+    method,
+    headers: body === undefined ? undefined : {'Content-Type':'application/json'},
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  if(!res.ok) throw new Error('ต่อไม่ติด (' + res.status + ')');
+  return res.json();
+}
+
+/* ---------- สถานะหน้าจอ ---------- */
+let menu = null;          // ใบเมนูที่แม่ค้าเผยแพร่ไว้
+let cart = [];            // ของที่ลูกค้าเลือกไว้
+let sent = null;          // {id, at} ออเดอร์ที่ส่งไปแล้ว
+let mine = null;          // ออเดอร์ของเราที่อ่านกลับมาจากที่เก็บ
+let poll = null;
+
+const SENT_KEY = 'crepe-order-sent-' + SHOP;
+
+/* ===================== เริ่มทำงาน ===================== */
+start();
+
+async function start(){
+  if(!SHOP || !BASE){
+    el('shopName').textContent = 'ลิงก์ไม่ถูกต้อง';
+    el('shopSub').textContent  = 'ลองสแกน QR ที่หน้าร้านอีกครั้ง';
+    el('view').innerHTML = `<div class="note bad">ลิงก์นี้ไม่ได้บอกว่าเป็นร้านไหน ขอ QR หรือลิงก์จากทางร้านใหม่อีกครั้งนะครับ</div>`;
+    return;
+  }
+
+  // เคยสั่งค้างไว้ไหม (รีเฟรชหน้าแล้วต้องยังเห็นคิวของตัวเอง)
+  try{
+    const raw = localStorage.getItem(SENT_KEY);
+    if(raw){
+      const s = JSON.parse(raw);
+      // เก็บไว้ 6 ชั่วโมงพอ เลยกว่านั้นถือว่าจบไปแล้ว
+      if(s && s.id && Date.now() - n(s.at) < 6*3600*1000) sent = s;
+      else localStorage.removeItem(SENT_KEY);
+    }
+  }catch(e){}
+
+  try{
+    menu = await cloud('GET', `s/${SHOP}/menu`);
+  }catch(e){
+    el('shopName').textContent = 'ต่อไม่ติด';
+    el('shopSub').textContent  = 'เน็ตอาจหลุดอยู่';
+    el('view').innerHTML = `<div class="note bad">ตอนนี้โหลดเมนูไม่ได้ ลองเช็กสัญญาณแล้วรีเฟรชหน้านี้อีกครั้งครับ</div>`;
+    return;
+  }
+
+  if(!menu || !Array.isArray(menu.menus) || !menu.menus.length){
+    el('shopName').textContent = 'ยังไม่เปิดรับออเดอร์';
+    el('shopSub').textContent  = '';
+    el('view').innerHTML = `<div class="note">ทางร้านยังไม่ได้เปิดให้สั่งผ่านหน้านี้ สั่งที่หน้าร้านได้เลยครับ</div>`;
+    return;
+  }
+
+  el('shopName').textContent = menu.name || 'สั่งของ';
+  el('shopSub').textContent  = menu.branch || 'เลือกของที่อยากได้ แล้วกดสั่ง';
+
+  if(sent){ watchMine(); } else { draw(); }
+}
+
+/* ===================== หน้าเลือกของ ===================== */
+function draw(){
+  if(!menu.open){
+    el('view').innerHTML = `<div class="note">ตอนนี้ร้านปิดอยู่ ยังสั่งไม่ได้ครับ กลับมาใหม่ตอนร้านเปิดนะ</div>`;
+    bar();
+    return;
+  }
+
+  el('view').innerHTML = `
+    <div class="card">
+      <h2>เลือกของที่อยากได้</h2>
+      <p class="sub">แตะที่เมนู แล้วเลือกไส้กับจำนวน</p>
+      <div class="mlist">
+        ${menu.menus.map((m, i) => `
+          <button class="m" onclick="pick(${i})">
+            <span class="m-n">${esc(m.name)}<span class="m-s">${addonText(m)}</span></span>
+            <span class="m-p">฿${baht(m.price)}</span>
+            <span class="m-add">+</span>
+          </button>`).join('')}
+      </div>
+    </div>
+    ${cartCard()}`;
+  bar();
+}
+
+function addonText(m){
+  const gs = m.groups || [];
+  if(!gs.length) return 'ไม่มีไส้ให้เลือก';
+  const total = gs.reduce((s,g) => s + (g.items||[]).length, 0);
+  return `เลือกไส้ได้ ${total} อย่าง`;
+}
+
+function cartCard(){
+  if(!cart.length) return '';
+  return `
+    <div class="card">
+      <h2>ที่เลือกไว้</h2>
+      <p class="sub">แตะกากบาทเพื่อเอาออก</p>
+      ${cart.map((c, i) => `
+        <div class="ci">
+          <div class="ci-m">
+            <div class="ci-n">${esc(c.name)} ×${c.qty}</div>
+            ${c.addons.length ? `<div class="ci-s">${c.addons.map(a => esc(a.name)).join(' · ')}</div>` : ''}
+          </div>
+          <span class="ci-p">฿${baht(c.total)}</span>
+          <button class="ci-x" onclick="dropLine(${i})" aria-label="เอาออก">✕</button>
+        </div>`).join('')}
+    </div>`;
+}
+
+function dropLine(i){ cart.splice(i, 1); draw(); }
+
+/* ---------- กล่องเลือกไส้ + จำนวน ---------- */
+let edit = null;    // {mi, qty, picked:Set(ชื่อไส้)}
+
+function pick(mi){
+  edit = { mi, qty:1, picked:new Set() };
+  drawSheet();
+  el('dlg').showModal();
+}
+
+function drawSheet(){
+  const m = menu.menus[edit.mi];
+  const gs = m.groups || [];
+  el('sheet').innerHTML = `
+    <h3>${esc(m.name)}</h3>
+    <p class="sub" id="sheetSub">${sheetSub()}</p>
+    ${gs.map(g => `
+      <div class="gname">${esc(g.name)}</div>
+      <div class="tops">
+        ${(g.items||[]).map(it => `
+          <button type="button" class="${edit.picked.has(it.name) ? 'on' : ''}"
+                  onclick="tog('${jsq(it.name)}', this)">
+            ${esc(it.name)}${n(it.price) ? ' +' + baht(it.price) : ''}
+          </button>`).join('')}
+      </div>`).join('')}
+    <div class="qrow">
+      <span>จำนวน</span>
+      <button type="button" class="qbtn" onclick="bump(-1)" ${edit.qty <= 1 ? 'disabled' : ''}>−</button>
+      <span class="qn" id="qn">${edit.qty}</span>
+      <button type="button" class="qbtn" onclick="bump(1)">+</button>
+    </div>
+    <div class="sheet-foot">
+      <button type="button" class="btn ghost" onclick="dlg.close()">ยกเลิก</button>
+      <button type="button" class="btn" onclick="addToCart()">ใส่ตะกร้า</button>
+    </div>`;
+}
+
+// ค่าที่เอาไปใส่ใน onclick ต้องกันทั้ง ' และ \ ไม่งั้นชื่อไส้ที่มีเครื่องหมายพวกนี้จะทำให้ปุ่มตายเงียบ ๆ
+function jsq(s){
+  return String(s == null ? '' : s)
+    .replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"')
+    .replace(/</g, '\\u003c').replace(/\r?\n/g, ' ');
+}
+
+function sheetSub(){
+  const picked = [...edit.picked];
+  if(!picked.length) return 'แตะเลือกไส้ที่อยากได้ เลือกได้หลายอย่าง';
+  const extra = picked.reduce((s, nm) => s + n(findAddon(nm).price), 0);
+  return picked.join(' · ') + (extra ? ` · +${baht(extra)} บาท` : '');
+}
+
+function findAddon(name){
+  const m = menu.menus[edit.mi];
+  for(const g of (m.groups || []))
+    for(const it of (g.items || []))
+      if(it.name === name) return it;
+  return { name, price:0 };
+}
+
+function tog(name, btn){
+  if(edit.picked.has(name)) edit.picked.delete(name); else edit.picked.add(name);
+  // เปลี่ยนสีเฉพาะปุ่มที่กด ไม่วาดใหม่ทั้งกล่อง จะได้ไม่เด้งกลับขึ้นบนตอนเลื่อนหาไส้หวาน
+  if(btn) btn.classList.toggle('on', edit.picked.has(name));
+  el('sheetSub').textContent = sheetSub();
+}
+
+function bump(d){
+  edit.qty = Math.max(1, edit.qty + d);
+  drawSheet();
+}
+
+function addToCart(){
+  const m = menu.menus[edit.mi];
+  const addons = [...edit.picked].map(nm => ({ name:nm, price:n(findAddon(nm).price) }));
+  const each = n(m.price) + addons.reduce((s,a) => s + a.price, 0);
+  // id ติดไปด้วย เพื่อให้ฝั่งแม่ค้าผูกกลับเข้าเมนูเดิมได้ตอนบันทึกเป็นยอดขาย
+  cart.push({ id:m.id, name:m.name, qty:edit.qty, price:n(m.price), addons, total: each * edit.qty });
+  el('dlg').close();
+  draw();
+}
+
+/* ---------- แถบรวมเงินล่างจอ ---------- */
+const cartTotal = () => cart.reduce((s,c) => s + n(c.total), 0);
+const cartCount = () => cart.reduce((s,c) => s + n(c.qty), 0);
+
+function bar(){
+  const b = el('bar');
+  if(sent || !cart.length || !menu.open){ b.hidden = true; return; }
+  b.hidden = false;
+  el('barTotal').textContent = '฿' + baht(cartTotal());
+  el('barCount').textContent = `${cartCount()} ชิ้น`;
+}
+
+/* ===================== ส่งออเดอร์ ===================== */
+function goSend(){
+  el('sheet').innerHTML = `
+    <h3>ส่งออเดอร์</h3>
+    <p class="sub">รวม ${cartCount()} ชิ้น ฿${baht(cartTotal())} · จ่ายตอนมารับของ</p>
+    <div class="fgap">
+      <label for="who">ชื่อที่ให้เรียก (ไม่ใส่ก็ได้)</label>
+      <input type="text" id="who" maxlength="20" placeholder="เช่น โอ๋">
+    </div>
+    <div class="fgap">
+      <label for="note">บอกอะไรร้านเพิ่มไหม (ไม่ใส่ก็ได้)</label>
+      <textarea id="note" rows="2" maxlength="120" placeholder="เช่น ไม่เอาผัก เผ็ดน้อย"></textarea>
+    </div>
+    <div class="sheet-foot">
+      <button type="button" class="btn ghost" onclick="dlg.close()">ย้อนกลับ</button>
+      <button type="button" class="btn" id="sendBtn" onclick="send()">ส่งเลย</button>
+    </div>`;
+  el('dlg').showModal();
+}
+
+async function send(){
+  const btn = el('sendBtn');
+  if(!btn || btn.disabled) return;
+  btn.disabled = true; btn.textContent = 'กำลังส่ง…';
+
+  const body = {
+    at: Date.now(),
+    items: cart.map(c => ({ id:c.id, name:c.name, qty:c.qty, price:c.price, addons:c.addons, total:c.total })),
+    total: cartTotal(),
+    who: (el('who').value || '').trim().slice(0, 20),
+    note: (el('note').value || '').trim().slice(0, 120),
+    status: 'new'
+  };
+
+  try{
+    const res = await cloud('POST', `s/${SHOP}/orders`, body);
+    sent = { id: res.name, at: body.at };
+    try{ localStorage.setItem(SENT_KEY, JSON.stringify(sent)); }catch(e){}
+    cart = [];
+    el('dlg').close();
+    watchMine();
+  }catch(e){
+    btn.disabled = false; btn.textContent = 'ส่งเลย';
+    alert('ส่งไม่สำเร็จ เน็ตอาจหลุด ลองกดส่งอีกครั้งนะครับ');
+  }
+}
+
+/* ===================== หน้ารอคิว ===================== */
+function watchMine(){
+  drawMine();
+  bar();
+  if(poll) clearInterval(poll);
+  // ถามที่เก็บทุก 4 วินาที พอรู้สถานะแล้วหยุดเอง
+  poll = setInterval(refreshMine, 4000);
+  refreshMine();
+}
+
+async function refreshMine(){
+  try{
+    mine = await cloud('GET', `s/${SHOP}/orders/${sent.id}`);
+  }catch(e){ return; }
+  drawMine();
+  if(mine && (mine.status === 'done' || mine.status === 'rej')) clearInterval(poll);
+}
+
+function drawMine(){
+  const st = (mine && mine.status) || 'new';
+
+  if(st === 'rej'){
+    el('view').innerHTML = `
+      <div class="card">
+        <div class="note bad">ทางร้านรับออเดอร์นี้ไม่ไหวครับ${mine && mine.why ? ' — ' + esc(mine.why) : ''}</div>
+        <button class="btn wide" onclick="again()">สั่งใหม่อีกครั้ง</button>
+      </div>`;
+    return;
+  }
+
+  const steps = [
+    ['new',  'ส่งแล้ว'],
+    ['cook', 'กำลังทำ'],
+    ['done', 'รับได้เลย']
+  ];
+  const at = steps.findIndex(s => s[0] === st);
+
+  el('view').innerHTML = `
+    <div class="card">
+      <div class="qbig">
+        ${mine && mine.no ? `<b>${esc(String(mine.no))}</b><span>เลขคิวของคุณ</span>`
+                          : `<b>…</b><span>รอร้านกดรับออเดอร์</span>`}
+      </div>
+      <div class="steps">
+        ${steps.map((s, i) => `<div class="step ${i <= at ? 'on' : ''}"><i></i>${s[1]}</div>`).join('')}
+      </div>
+      ${st === 'done' ? `<div class="note ok">ของเสร็จแล้ว มารับที่ร้านได้เลยครับ</div>`
+        : st === 'cook' ? `<div class="note">ร้านรับออเดอร์แล้ว กำลังทำอยู่</div>`
+        : `<div class="note">ส่งให้ร้านแล้ว รอร้านกดรับสักครู่นะครับ</div>`}
+    </div>
+    ${mine ? orderCard(mine) : ''}
+    <div class="card">
+      <button class="btn ghost wide" onclick="again()">สั่งเพิ่มอีกออเดอร์</button>
+    </div>`;
+}
+
+function orderCard(o){
+  const items = Array.isArray(o.items) ? o.items : [];
+  return `
+    <div class="card">
+      <h2>ที่สั่งไว้</h2>
+      <p class="sub">จ่ายเงินตอนมารับของ</p>
+      ${items.map(it => `
+        <div class="ci">
+          <div class="ci-m">
+            <div class="ci-n">${esc(it.name)} ×${esc(String(it.qty))}</div>
+            ${(it.addons||[]).length ? `<div class="ci-s">${it.addons.map(a => esc(a.name)).join(' · ')}</div>` : ''}
+          </div>
+          <span class="ci-p">฿${baht(it.total)}</span>
+        </div>`).join('')}
+      <div class="ci" style="border-top:1px solid var(--line)">
+        <div class="ci-m"><div class="ci-n">รวม</div></div>
+        <span class="ci-p">฿${baht(o.total)}</span>
+      </div>
+    </div>`;
+}
+
+function again(){
+  if(poll) clearInterval(poll);
+  sent = null; mine = null; cart = [];
+  try{ localStorage.removeItem(SENT_KEY); }catch(e){}
+  draw();
+}
+</script>
+</body>
+</html>
