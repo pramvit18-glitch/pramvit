@@ -143,6 +143,29 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('ร้านปิดอยู่ ลูกค้าสั่งไม่ได้', (await cust2.textContent('#view')).includes('ร้านปิดอยู่'));
   push('ร้านปิดอยู่ ไม่มีแถบสั่งโผล่', await cust2.locator('#bar[hidden]').count() === 1);
 
+  /* ---------- สองร้านต้องไม่เห็นออเดอร์ของกัน ---------- */
+  // ร้าน B มีช่องของตัวเอง ลูกค้าที่สแกน QR ของ B ต้องไม่โผล่ไปที่เครื่องของ A
+  await fetch(`${CLOUD}/s/otherkey999/orders.json`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ at:Date.now(), total:99, status:'new',
+                           items:[{id:'zz', name:'ของร้านอื่น', qty:1, price:99, addons:[], total:99}] })
+  });
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(400);
+  push('ออเดอร์ของร้านอื่นไม่หลุดมาเครื่องนี้',
+    await seller.evaluate(() => cloudOrders.some(o => (o.items||[]).some(i => i.name === 'ของร้านอื่น'))) === false);
+
+  /* ---------- ลิงก์ร้านพาที่เก็บออเดอร์ไปด้วย ---------- */
+  const helper = await b.newPage({ viewport:{width:390,height:844} });
+  await helper.goto(APP + '/index.html');
+  await helper.evaluate(() => localStorage.clear());   // เครื่องใหม่เอี่ยม ยังไม่เคยตั้งอะไร
+  await helper.goto(`${APP}/index.html?shop=sh9&n=${encodeURIComponent('ร้านสาขาสอง')}&cb=${encodeURIComponent('https://example.firebasedatabase.app')}`);
+  await helper.waitForTimeout(500);
+  push('เครื่องที่รับลิงก์ร้านไป ได้ที่เก็บออเดอร์มาด้วยไม่ต้องตั้งเอง',
+    await helper.evaluate(() => localStorage.getItem('crepe-cloud')) === 'https://example.firebasedatabase.app');
+  push('ลิงก์ร้านยังผูกเครื่องกับร้านนั้นเหมือนเดิม',
+    await helper.evaluate(() => db.shopName) === 'ร้านสาขาสอง');
+
   /* ---------- ลิงก์มั่ว ---------- */
   const cust3 = await b.newPage({ viewport:{width:390,height:844} });
   await cust3.goto(`${APP}/order.html?s=ไม่มีจริง&c=${encodeURIComponent(CLOUD)}`);

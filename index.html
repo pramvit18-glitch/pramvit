@@ -1797,6 +1797,11 @@
 const KEY = 'crepe-cost-v1';        // ของเดิม เก็บร้านเดียว (ยังอ่านไว้เผื่อย้ายข้อมูล)
 const HUB = 'crepe-hub-v1';         // ของใหม่ เก็บได้หลายร้าน
 
+// ที่เก็บออเดอร์กลาง (ดูหัวข้อ "ให้ลูกค้าสั่งเอง")
+// ต้องประกาศไว้บนสุด เพราะ applyShopLink() ที่รันตอนเปิดแอปก็ใช้ตัวนี้
+const CLOUD_BASE = '';              // ค่าตั้งต้น — ต้องตรงกับใน order.html
+const CLOUD_KEY  = 'crepe-cloud';   // ที่เก็บที่ตั้งเองจากหน้าตั้งค่า (ของเครื่องนี้)
+
 // store = ก้อนใหญ่ที่เก็บทุกร้าน / db = ร้านที่กำลังใช้อยู่ (โค้ดที่เหลือใช้ db เหมือนเดิม)
 let store = null;
 const UNITS = ['กรัม','มิลลิลิตร','ชิ้น','แผ่น','ใบ','ช้อนโต๊ะ'];
@@ -2054,6 +2059,10 @@ function applyShopLink(){
   const name = (q.get('n') || '').trim();
   const branch = (q.get('b') || '').trim();
 
+  // เจ้าของส่งลิงก์ร้านมาพร้อมที่เก็บออเดอร์ เครื่องนี้จะได้รับออเดอร์ได้เลยไม่ต้องตั้งเอง
+  const cb = (q.get('cb') || '').trim().replace(/\/+$/, '');
+  if(/^https:\/\/[\w.-]+/.test(cb)){ try{ localStorage.setItem(CLOUD_KEY, cb); }catch(e){} }
+
   let x = store.shops.find(v => v.id === id);
   if(!x){
     const only = store.shops.length === 1 ? store.shops[0] : null;
@@ -2081,6 +2090,8 @@ function shopLink(id){
   q.set('shop', x.id);
   if(String(x.shopName||'').trim()) q.set('n', x.shopName);
   if(String(x.shopBranch||'').trim()) q.set('b', x.shopBranch);
+  // ที่เก็บออเดอร์ติดไปกับลิงก์ด้วย เครื่องที่รับลิงก์ไปจะได้ไม่ต้องตั้งเองซ้ำ
+  if(cloudBase()) q.set('cb', cloudBase());
   return base + '?' + q.toString();
 }
 
@@ -2125,9 +2136,6 @@ async function copyShopLink(){
 
    สิ่งที่ขึ้นไปบนนั้นมีแค่: ชื่อร้าน สาขา ร้านเปิดอยู่ไหม เมนู ราคา ไส้ และออเดอร์ที่ลูกค้าสั่ง
    สิ่งที่ไม่ขึ้นเด็ดขาด: ต้นทุน วัตถุดิบ ค่าใช้จ่าย ยอดขายย้อนหลัง กำไร รหัสคนดูแล */
-
-const CLOUD_BASE = '';              // ที่เก็บออเดอร์กลาง — ต้องตรงกับใน order.html
-const CLOUD_KEY  = 'crepe-cloud';   // ที่เก็บที่แม่ค้าตั้งเองจากหน้าตั้งค่า (ของเครื่องนี้)
 
 function cloudBase(){
   let own = '';
