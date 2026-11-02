@@ -321,7 +321,7 @@
   }
   .dseg-b svg{width:15px; height:15px}
   .dseg-b.on{background:var(--brand); color:#fff; box-shadow:0 7px 18px rgba(211,43,43,.28)}
-  .dash.dpane:not(.on){display:none}
+  .dpane:not(.on){display:none}
 
   /* ===================== ปุ่ม ===================== */
   button{font:inherit}
@@ -840,15 +840,16 @@
     -webkit-overflow-scrolling:touch; scrollbar-width:none;
   }
   .cats::-webkit-scrollbar{display:none}
+  /* ชิปชุดเดียวกับแท็บย่อยบนแดชบอร์ด (.dseg-b) เพื่อให้ทุกหน้าหน้าตาไปทางเดียวกัน */
   .cat{
-    flex:0 0 auto; border:1px solid var(--line); background:var(--bg); color:var(--ink-2);
-    border-radius:99px; padding:8px 15px; cursor:pointer; font:inherit;
+    flex:0 0 auto; border:none; background:var(--bg); color:var(--ink-2);
+    border-radius:var(--r-pill); padding:9px 15px; cursor:pointer; font:inherit;
     font-weight:700; font-size:13.5px; white-space:nowrap; transition:.16s;
+    box-shadow:var(--sh-card);
   }
   .cat b{color:var(--muted); font-weight:700; font-size:12px; margin-left:4px}
-  .cat:hover{border-color:var(--brand); color:var(--brand)}
-  .cat.on{background:var(--brand); border-color:var(--brand); color:#fff;
-          box-shadow:0 6px 16px rgba(211,43,43,.28)}
+  .cat:hover{color:var(--brand)}
+  .cat.on{background:var(--brand); color:#fff; box-shadow:0 7px 18px rgba(211,43,43,.28)}
   .cat.hot{display:inline-flex; align-items:center; gap:5px}
   .cat.hot svg{width:13px; height:13px}
   .cat.on b{color:rgba(255,255,255,.75)}
@@ -1995,8 +1996,17 @@ function headStat(){
                       : `ขาดทุนวันละ ${baht(-d.net)} บาท — ต้องขายเพิ่ม`};
 }
 
+// หน้าที่ไม่ได้อยู่บนแถบเมนูล่าง — เข้าได้จากทางลัดหรือหน้าตั้งค่า
+const PAGES = {
+  ing:   ['','ของที่ซื้อมา','ing'],
+  menu:  ['','เมนูและสูตร','menu'],
+  fixed: ['','ต้นทุนคงที่','fixed'],
+  dash:  ['','ภาพรวมร้าน','dash'],
+  more:  ['','อื่น ๆ','more']
+};
+
 function render(){
-  const t = TABS.find(x => x[0] === tab) || ['','ภาพรวม','dash'];
+  const t = TABS.find(x => x[0] === tab) || PAGES[tab] || ['','ภาพรวม','dash'];
   document.getElementById('pageTitle').textContent = t[3] || t[1];
   document.getElementById('appbarIc').innerHTML = icon(t[2] || 'dash', 19);
   const sub = document.getElementById('pageSub');
@@ -2030,9 +2040,10 @@ function render(){
 
   renderBanner();
 
-  // ส่วนบนของหน้าแรก (ค้นหา ทางลัด แถบวัน สถานะ เมนูขายดี) โผล่เฉพาะแท็บแดชบอร์ด
+  // หัวใหญ่ใช้ทุกหน้า ยกเว้นหน้าขายที่ต้องการพื้นที่เต็มจอ
   const home = tab === 'today';
-  document.getElementById('appbar').classList.toggle('big', home);
+  document.getElementById('appbar').classList.toggle('big', tab !== 'sale');
+  // ส่วนบนของหน้าแรก (ค้นหา ทางลัด แถบวัน สถานะ เมนูขายดี) โผล่เฉพาะแท็บแดชบอร์ด
   document.getElementById('homeTop').hidden = !home;
   if(home){
     renderHome();
@@ -2216,7 +2227,7 @@ dlg.addEventListener('close', () => {
 
 /* --------- แท็บ 1: วัตถุดิบ --------- */
 function viewIng(){
-  const back = `<button class="btn back" onclick="go('setup')">${icon('back',16)} ตั้งค่า</button>`;
+  const back = subHead('ing','ของที่ซื้อมา', db.ingredients.length ? db.ingredients.length + ' อย่าง · ใช้คิดต้นทุนต่อจาน' : 'ยังไม่ได้ใส่ของที่ซื้อมา', 'เพิ่ม', 'addIng()');
   const rows = db.ingredients.map(i => `
     <div class="li" role="button" tabindex="0" onclick="editIng('${i.id}')"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editIng('${i.id}')}">
@@ -2664,7 +2675,7 @@ function delItem(mid,idx){
 
 /* --------- แท็บ 3: ต้นทุนคงที่ --------- */
 function viewFixed(){
-  const back = `<button class="btn back" onclick="go('setup')">${icon('back',16)} ตั้งค่า</button>`;
+  const back = subHead('fixed','ค่าใช้จ่ายประจำ', breakEven() ? 'ต้องขายวันละ ' + Math.ceil(breakEven()) + ' จานถึงไม่ขาดทุน' : 'ยังคำนวณไม่ได้ — ต้องมีเมนูที่ตั้งราคาก่อน');
   const f = db.fixed;
   const fld = (k,l,ph='') => `<div class="f"><label>${l}</label>
     <input type="number" step="any" inputmode="decimal" value="${f[k]}" placeholder="${ph}" oninput="setFixed('${k}',this.value)"></div>`;
@@ -3751,7 +3762,6 @@ function cardHead(ic, title, sub, right){
    เพราะช่องค้นหาต้องไม่ถูกสร้างใหม่ทุกครั้งที่พิมพ์ ไม่งั้นคีย์บอร์ดเด้งปิด */
 
 let dashDay = dayKey();        // วันที่แดชบอร์ดกำลังดูอยู่ แตะแถบวันเพื่อย้อนหลัง
-let dashSeg = 'sale';          // แท็บย่อยบนแดชบอร์ด
 let homeQ   = '';              // คำค้นบนหน้าแรก
 
 const DOW_TH = ['จ','อ','พ','พฤ','ศ','ส','อา'];
@@ -3864,7 +3874,9 @@ function wkHTML(){
 }
 function pickDay(k){
   if(k > dayKey()) return;
-  dashDay = k; render();
+  dashDay = k;
+  histMonth = monthKey(k);    // การ์ดสรุปเดือนบนหน้าย้อนหลังเดินตามวันที่เลือกด้วย
+  render();
 }
 function shiftWeek(step){
   const next = addDays(dashDay, step * 7);
@@ -4010,13 +4022,30 @@ function renderHome(){
   runSearch(homeQ);
 }
 
-/* ---------- แท็บย่อยบนแดชบอร์ด ---------- */
-const DSEGS = [['sale','ขาย','cart'], ['money','เงิน','sum'], ['menu','เมนู','menu'], ['time','ช่วงเวลา','today']];
-function setSeg(s){
-  dashSeg = s;
-  document.querySelectorAll('.dseg-b').forEach(b => b.classList.toggle('on', b.dataset.seg === s));
-  document.querySelectorAll('.dpane').forEach(p => p.classList.toggle('on', p.dataset.seg === s));
+/* ---------- แท็บย่อยในหน้า ใช้ซ้ำได้ทุกหน้า =====================
+   วาดทุกแผงไว้ตั้งแต่แรกแล้วสลับด้วย CSS ไม่ได้วาดใหม่ตอนกด
+   เลยไม่เสียตำแหน่งสกรอลล์และไม่ต้องคิดเลขซ้ำ */
+const segs = { dash:'sale', setup:'shop' };     // แต่ละหน้าจำแท็บย่อยที่เปิดค้างไว้
+const segOn = (bar, key) => segs[bar] === key;
+
+// แถบแท็บย่อย — items เป็น [คีย์, ชื่อ, ไอคอน]
+function segBar(bar, items){
+  return `<div class="dseg">${items.map(([k,label,ic]) => `
+    <button type="button" class="dseg-b${segOn(bar,k) ? ' on' : ''}" data-sb="${bar}" data-seg="${k}"
+            onclick="setSeg('${bar}','${k}')">${ic ? icon(ic,15) : ''}${label}</button>`).join('')}</div>`;
 }
+// แผงเนื้อหาของแท็บย่อยหนึ่งอัน (cls = 'dash' ถ้าอยากให้การ์ดเรียงเป็นกริด)
+function segPane(bar, key, inner, cls){
+  return `<div class="${cls === undefined ? 'dash' : cls} dpane${segOn(bar,key) ? ' on' : ''}"
+               data-sb="${bar}" data-seg="${key}">${inner}</div>`;
+}
+function setSeg(bar, key){
+  segs[bar] = key;
+  document.querySelectorAll('[data-sb="' + bar + '"][data-seg]')
+    .forEach(el => el.classList.toggle('on', el.dataset.seg === key));
+}
+
+const DSEGS = [['sale','ขาย','cart'], ['money','เงิน','sum'], ['menu','เมนู','menu'], ['time','ช่วงเวลา','today']];
 
 function viewToday(){
   const key = dashDay;
@@ -4041,16 +4070,14 @@ function viewToday(){
 
   const L = dayLabel(key), OD = ofDay(key);     // "วันนี้" / "วันที่ 28 ต.ค."
   const isToday = key === dayKey();
-  const pane = s => `dash dpane${dashSeg === s ? ' on' : ''}" data-seg="${s}`;
+  const pane = s => `dash dpane${segOn('dash',s) ? ' on' : ''}" data-sb="dash" data-seg="${s}`;
 
   return `
   <div class="dash-wrap">
 
     ${shopHintCard()}
 
-    <div class="dseg">${DSEGS.map(([k,label,ic]) => `
-      <button type="button" class="dseg-b${dashSeg === k ? ' on' : ''}" data-seg="${k}"
-              onclick="setSeg('${k}')">${icon(ic,15)}${label}</button>`).join('')}</div>
+    ${segBar('dash', DSEGS)}
 
     <div class="${pane('sale')}">
 
@@ -4324,9 +4351,9 @@ function allMonths(){
   return [...new Set(allDays().map(monthKey))].sort().reverse();
 }
 function curMonth(){
-  const all = allMonths();
-  if(histMonth && all.includes(histMonth)) return histMonth;
-  return all[0] || monthKey(dayKey());
+  // เลือกเดือนเองแล้วให้ยึดอันนั้น แม้เดือนนั้นยังไม่มีบันทึก จะได้ตรงกับแถบวันด้านบน
+  if(histMonth) return histMonth;
+  return allMonths()[0] || monthKey(dayKey());
 }
 // เลื่อนไปเดือนที่มีข้อมูลถัดไป (รายการเรียงใหม่→เก่า)
 function shiftMonth(step){
@@ -4357,9 +4384,7 @@ function viewHist(){
     </div></div>`;
   }
 
-  const all = allMonths();
   const mk = curMonth();
-  const i = all.indexOf(mk);
   const m = sumMonth(mk);
   const inMonth = days.filter(k => monthKey(k) === mk);
   const top = Math.max(...inMonth.map(k => sumDay(k).sale), 1);
@@ -4373,16 +4398,18 @@ function viewHist(){
   const avgSale = m.days ? m.sale / m.days : 0;
 
   return `
-  <div class="card">
-    <div class="mnav">
-      <button type="button" class="mnav-b" onclick="shiftMonth(1)" ${all[i+1] ? '' : 'disabled'}
-              aria-label="เดือนก่อนหน้า">${icon('back',16)}</button>
-      <b class="mnav-t">${thaiMonth(mk)}</b>
-      <button type="button" class="mnav-b" onclick="shiftMonth(-1)" ${all[i-1] ? '' : 'disabled'}
-              aria-label="เดือนถัดไป">${icon('chev',16)}</button>
+  <div class="wk">${wkHTML()}</div>
+
+  ${srow(sumDay(dashDay).sale > 0 ? '' : 'flat', 'today', thaiDate(dashDay, true),
+    billsOf(dashDay) ? `${billsOf(dashDay)} บิล · ขายได้ ฿${baht(sumDay(dashDay).sale)}` : 'วันนี้ไม่มีบันทึก',
+    'ดูรายการ', `dayMoneyDialog('${dashDay}')`)}
+
+  <div class="card" style="margin-top:16px">
+    <div class="head-row">
+      <h2>${thaiMonth(mk)}</h2>
       <span class="head-tag">มีบันทึก ${m.days} วัน</span>
     </div>
-    <p class="hint" style="margin:14px 0 0">เฉลี่ยขายวันละ ฿${baht(avgSale)}</p>
+    <p class="hint" style="margin:6px 0 0">เฉลี่ยขายวันละ ฿${baht(avgSale)}</p>
     <div class="mon3">
       <div><span>เงินเข้า</span><b>${money(m.sale)}</b></div>
       <div><span>เงินออก</span><b>${money(m.exp)}</b></div>
@@ -4531,7 +4558,7 @@ function monthMoneyDialog(mk){
 
 /* --------- ภาพรวม (ย้ายไปอยู่ในแท็บ อื่น ๆ) --------- */
 function viewDash(){
-  const back = `<button class="btn back" onclick="go('setup')">${icon('back',16)} ตั้งค่า</button>`;
+  const back = subHead('dash','ภาพรวมร้าน', db.menus.length + ' เมนู · ' + db.ingredients.length + ' อย่างที่ซื้อมา');
   if(!db.menus.length){
     return `<div class="card">
       <div class="empty">
@@ -4823,8 +4850,8 @@ function viewSetup(){
     </div>`;
   }).join('');
 
-  return `
-  ${isLocked() ? `<div class="card shopcard">
+  /* ---- แท็บ "ร้าน": ร้านของฉัน + รหัสคนดูแล ---- */
+  const paneShop = (isLocked() ? `<div class="card shopcard">
     <span class="ic-tile big">${icon('store',20)}</span>
     <div class="shopcard-m">
       <div class="shopcard-n">${esc(db.shopName)}
@@ -4847,7 +4874,7 @@ function viewSetup(){
        <button type="button" class="btn sm primary" onclick="addShop()">${icon('plus',14)} เพิ่มร้าน</button>`)}
     <div class="shoplist">${shopListHTML(true)}</div>
     <p class="hint" style="margin:12px 0 0">แตะชื่อร้านเพื่อสลับไปใช้ร้านนั้น · กดรูปลิงก์เพื่อส่งให้คนดูแลร้านนั้นเปิดในมือถือตัวเอง · ดินสอคือแก้ชื่อหรือลบ</p>
-  </div>`}
+  </div>`) + `
 
   <div class="card">
     ${cardHead('lock','รหัสคนดูแล',
@@ -4864,8 +4891,10 @@ function viewSetup(){
       ${hasPin() && isAdmin() ? `<button type="button" class="btn ghost" onclick="lockAdmin()">ล็อกเดี๋ยวนี้</button>` : ''}
       ${hasPin() ? `<button type="button" class="btn ghost" onclick="clearPin()">เอารหัสออก</button>` : ''}
     </div>
-  </div>
+  </div>`;
 
+  /* ---- แท็บ "เมนู": เมนูที่ขาย + ชุดไส้ ---- */
+  const paneMenu = `
   <div class="card">
     ${cardHead('menu','แป้ง / เมนูที่ขาย','แตะชื่อเพื่อแก้ราคา · ปุ่ม "ชุดไส้" คือเลือกว่าเมนูนี้ใส่อะไรได้',
       `<span class="head-tag">${db.menus.length} เมนู</span>
@@ -4885,8 +4914,10 @@ function viewSetup(){
       <h3 style="font-size:16px">ยังไม่มีชุดไส้</h3>
       <p style="margin-bottom:0">เช่น "ไส้คาว" "ไส้หวาน" "ราดซอส (ฟรี)"</p>
     </div>`}</div>
-  </div>
+  </div>`;
 
+  /* ---- แท็บ "ต้นทุน" ---- */
+  const paneCost = `
   <div class="card">
     ${cardHead('sum','ช่วยตั้งราคา & คำนวณกำไร','ใช้ตอนอยากรู้ว่าควรขายเท่าไหร่ถึงมีกำไร ไม่ได้ใช้ทุกวัน')}
     <div class="navlist">
@@ -4894,8 +4925,10 @@ function viewSetup(){
       ${navRow('fixed','w','ค่าเช่า ค่าไฟ ค่าแก๊ส', breakEven() ? `ต้องขายวันละ ${Math.ceil(breakEven())} จานถึงไม่ขาดทุน` : 'ยังไม่ได้ใส่', "go('fixed')")}
       ${navRow('sum','g','ดูว่าเมนูไหนกำไรดี', db.menus.length ? `เทียบ ${db.menus.length} เมนู` : 'ยังไม่มีเมนู', "go('dash')")}
     </div>
-  </div>
+  </div>`;
 
+  /* ---- แท็บ "ข้อมูล" ---- */
+  const paneData = `
   <div class="card">
     ${cardHead('box','ข้อมูลของฉัน','เก็บอยู่ในเครื่องนี้เครื่องเดียว ควรคัดลอกเก็บไว้เป็นระยะ')}
     <div class="navlist">
@@ -4905,6 +4938,32 @@ function viewSetup(){
       ${navRow('trash','r','ล้างข้อมูลทั้งหมด','ลบทุกอย่างในเครื่องนี้ กู้คืนไม่ได้','resetAll()')}
     </div>
   </div>`;
+
+  return shopStatusRow()
+    + segBar('setup', [['shop','ร้าน','store'], ['menu','เมนู','menu'],
+                       ['cost','ต้นทุน','sum'],  ['data','ข้อมูล','box']])
+    + segPane('setup','shop', paneShop, '')
+    + segPane('setup','menu', paneMenu, '')
+    + segPane('setup','cost', paneCost, '')
+    + segPane('setup','data', paneData, '');
+}
+
+// การ์ดสถานะร้าน ใช้ซ้ำบนหัวหน้าอื่น ๆ ให้ไปทางเดียวกับการ์ดสถานะบนหน้าแรก
+function shopStatusRow(){
+  const key = dayKey();
+  const bills = billsOf(key);
+  return srow(db.shopOpen ? '' : 'warn', 'store',
+    esc(db.shopName || 'ร้านของฉัน'),
+    (db.shopOpen ? 'เปิดอยู่' : 'ปิดอยู่')
+      + (bills ? ` · วันนี้ ${bills} บิล ฿${baht(sumDay(key).sale)}` : ' · วันนี้ยังไม่ได้ขาย'),
+    db.shopOpen ? 'ปิดร้าน' : 'เปิดร้าน', 'toggleShopOpen()');
+}
+
+/* หัวของหน้าย่อยที่เข้ามาจากหน้าตั้งค่า — ปุ่มย้อนกลับ + การ์ดสรุป
+   ใช้ .srow ตัวเดียวกับการ์ดสถานะบนหน้าแรก ทุกหน้าจะได้หน้าตาไปทางเดียวกัน */
+function subHead(ic, title, sub, act, fn){
+  return `<button class="btn back" onclick="go('setup')">${icon('back',16)} ตั้งค่า</button>`
+       + srow('flat', ic, title, sub, act, fn);
 }
 
 // แถวเมนูย่อยที่มีไอคอนสี ใช้ในหน้าตั้งค่า
