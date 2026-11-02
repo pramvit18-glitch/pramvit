@@ -211,6 +211,57 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('ลิงก์ร้านยังผูกเครื่องกับร้านนั้นเหมือนเดิม',
     await helper.evaluate(() => db.shopName) === 'ร้านสาขาสอง');
 
+  /* ---------- เปิดลิงก์ร้านแล้วแอปต้องไม่ล้มกลางคัน ---------- */
+  // เคยพังมาแล้ว: applyShopLink() ถูกเรียกก่อนตัวแปรด้านล่างถูกประกาศ
+  // สคริปต์ทั้งแอปโยน ReferenceError แล้วหยุดกลางคันแบบเงียบ ๆ
+  // หน้าตาแอปยังขึ้นบางส่วนเลยดูเหมือนปกติ แต่ปุ่มทั้งหมดตาย
+  const errs = [];
+  const probe = await b.newPage({ viewport:{width:390,height:844} });
+  probe.on('pageerror', e => errs.push(String(e)));
+  await probe.goto(APP + '/index.html');
+  await probe.evaluate(() => localStorage.clear());
+  await probe.goto(`${APP}/index.html?shop=sh7&n=${encodeURIComponent('ร้านลิงก์')}&k=abcdefghij&o=1`);
+  await probe.waitForTimeout(600);
+  // ถ้าสคริปต์ตายจริง การถามค่าจะโยน error ออกมา ต้องรับไว้เองแล้วรายงานเป็นข้อตก
+  // ไม่งั้นมันพาล้มทั้งชุดเทสต์จนไม่รู้ว่าข้ออื่นเป็นยังไง
+  const ask = async (fn, fallback) => { try{ return await probe.evaluate(fn); }catch(e){ return fallback; } };
+
+  push('เปิดลิงก์ร้านแล้วไม่มี error หลุดออกมา', errs.length === 0);
+  push('สคริปต์รันจบไฟล์ ฟังก์ชันท้าย ๆ ยังเรียกได้',
+    await ask(() => typeof save === 'function' && typeof cloudReady === 'function'
+                 && typeof orderSetupDialog === 'function', false) === true);
+  push('หน้าแอปวาดขึ้นจริง ไม่ได้ค้างเปล่า',
+    (await ask(() => document.getElementById('view').innerHTML.length, 0)) > 500);
+  push('ปุ่มแถบล่างใช้ได้ (สคริปต์ไม่ตาย)',
+    (await ask(() => document.querySelectorAll('.bottomnav button').length, 0)) >= 4);
+
+  /* ---------- ลิงก์ร้านต้องพารหัสช่องรับออเดอร์ไปด้วย ---------- */
+  // ไม่งั้นเครื่องปลายทางสร้างรหัสใหม่ของตัวเอง กลายเป็นคนละช่องกับ QR หน้าร้าน
+  const madeLink = await seller.evaluate(() => shopLink(db.id));
+  push('ลิงก์ร้านมีรหัสช่องรับออเดอร์อยู่ด้วย', madeLink.includes('k=' + 'testkey123'));
+  push('ลิงก์ร้านบอกด้วยว่าเปิดรับออเดอร์อยู่', madeLink.includes('o=1'));
+
+  const branch = await b.newPage({ viewport:{width:390,height:844} });
+  await branch.goto(APP + '/index.html');
+  await branch.evaluate(() => localStorage.clear());
+  await branch.goto(`${APP}/index.html?shop=sh1&n=${encodeURIComponent('สาขาสาม')}&k=testkey123&o=1`);
+  await branch.waitForTimeout(500);
+  push('เครื่องที่รับลิงก์ไป ฟังช่องเดียวกับ QR หน้าร้าน',
+    await branch.evaluate(() => db.orderKey) === 'testkey123');
+  push('เครื่องที่รับลิงก์ไป เปิดรับออเดอร์ให้เลย',
+    await branch.evaluate(() => !!db.orderOn) === true);
+
+  /* ---------- เครื่องที่ยังไม่มีเมนู ต้องไม่ไปทับเมนูจริง ---------- */
+  const menuWas = JSON.stringify(await (await fetch(`${CLOUD}/s/${key}/menu.json`)).json());
+  await branch.evaluate(cloud => localStorage.setItem('crepe-cloud', cloud), CLOUD);
+  await branch.reload();
+  await branch.waitForTimeout(400);
+  // รับ error ไว้เอง ถ้าสคริปต์ฝั่งนั้นตาย จะได้ไปตกที่ข้อตรวจ ไม่ใช่ล้มทั้งชุด
+  try{ await branch.evaluate(async () => { await publishMenu(); save(); }); }catch(e){}
+  await branch.waitForTimeout(700);
+  const menuNow = JSON.stringify(await (await fetch(`${CLOUD}/s/${key}/menu.json`)).json());
+  push('เครื่องสาขาที่ยังไม่มีเมนู ไม่ไปลบเมนูจริงของลูกค้า', menuWas === menuNow && menuNow.includes('เครปกรอบ'));
+
   /* ---------- หน้าลูกค้าหา URL ของที่เก็บเองได้ ---------- */
   // ลูกค้าเปิดลิงก์เปล่า ๆ (ไม่มี ?c=) ต้องหาที่เก็บเจอเองจากชื่อโปรเจกต์ที่ฝังไว้
   const cust4 = await b.newPage({ viewport:{width:390,height:844} });

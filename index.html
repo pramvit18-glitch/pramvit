@@ -1857,7 +1857,9 @@ function allDays(){
 }
 
 let db = load();
-applyShopLink();
+// applyShopLink() ย้ายไปเรียกตอนท้ายไฟล์ ห้ามเรียกตรงนี้ —
+// มันเรียก save() ซึ่งแตะตัวแปรที่ประกาศอยู่ล่างกว่าบรรทัดนี้ (temporal dead zone)
+// สคริปต์ทั้งแอปจะล้มกลางคันแบบเงียบ ๆ ทันทีที่มีใครเปิดลิงก์ร้าน
 let tab = 'today';
 
 // ทำให้ข้อมูลร้านหนึ่งร้านอยู่ในรูปที่ใช้ได้เสมอ
@@ -2064,6 +2066,12 @@ function applyShopLink(){
   const cb = (q.get('cb') || '').trim().replace(/\/+$/, '');
   if(/^https:\/\/[\w.-]+/.test(cb)){ try{ localStorage.setItem(CLOUD_KEY, cb); }catch(e){} }
 
+  // รหัสช่องรับออเดอร์ของร้าน ต้องติดมากับลิงก์ด้วย
+  // ไม่งั้นเครื่องที่รับลิงก์ไปจะสร้างรหัสใหม่ของตัวเอง กลายเป็นคนละช่องกับ QR
+  // ที่ติดไว้หน้าร้านแล้ว ลูกค้าสแกนสั่งเข้าไปก็ไม่มีใครเห็น
+  const okey = (q.get('k') || '').trim();
+  const oon  = q.get('o') === '1';
+
   let x = store.shops.find(v => v.id === id);
   if(!x){
     const only = store.shops.length === 1 ? store.shops[0] : null;
@@ -2078,6 +2086,7 @@ function applyShopLink(){
     if(name) x.shopName = name;
     if(branch) x.shopBranch = branch;
   }
+  if(okey){ x.orderKey = okey; x.orderOn = oon ? 1 : 0; }
   store.active = x.id;
   store.locked = x.id;
   db = x; save();
@@ -2091,6 +2100,8 @@ function shopLink(id){
   q.set('shop', x.id);
   if(String(x.shopName||'').trim()) q.set('n', x.shopName);
   if(String(x.shopBranch||'').trim()) q.set('b', x.shopBranch);
+  // พารหัสช่องรับออเดอร์ไปด้วย เครื่องปลายทางจะได้ฟังช่องเดียวกับ QR ที่ติดหน้าร้านไว้
+  if(x.orderKey){ q.set('k', x.orderKey); if(x.orderOn) q.set('o', '1'); }
   // ที่เก็บออเดอร์ติดไปกับลิงก์ด้วย เฉพาะตอนที่ตั้งเองไว้ไม่ตรงกับค่าในตัวแอป
   // (ปกติทุกเครื่องมีค่าเดียวกันฝังมาอยู่แล้ว ใส่ไปก็รกลิงก์เปล่า ๆ)
   if(cloudBase() && cloudBase() !== CLOUD_BASE) q.set('cb', cloudBase());
@@ -2230,7 +2241,12 @@ function publishMenuSoon(){
 }
 async function publishMenu(){
   if(!db.orderKey) return;
-  await cloudReq('PUT', `s/${db.orderKey}/menu`, menuForCustomers());
+  const m = menuForCustomers();
+  // เครื่องที่เพิ่งรับลิงก์ร้านมายังไม่มีเมนูของตัวเอง (ข้อมูลอยู่แยกกันคนละเครื่อง)
+  // ถ้าปล่อยให้เผยแพร่เมนูเปล่า มันจะไปทับเมนูจริงที่เครื่องหลักเผยแพร่ไว้
+  // แล้วลูกค้าจะเห็นว่า "ยังไม่เปิดรับออเดอร์" ทั้งที่ร้านเปิดอยู่
+  if(!m.menus.length) return;
+  await cloudReq('PUT', `s/${db.orderKey}/menu`, m);
 }
 
 /* ---------- คอยดูว่ามีออเดอร์เข้ามาไหม ---------- */
@@ -6141,6 +6157,8 @@ if('serviceWorker' in navigator && !window.claude
   });
 }
 
+// เปิดด้วยลิงก์เฉพาะร้านไหม — ต้องทำที่นี่ หลังทุกอย่างถูกประกาศครบแล้ว
+applyShopLink();
 render();
 // เปิดแอปมาแล้วถ้าร้านนี้เปิดรับออเดอร์อยู่ ให้เริ่มคอยดูเลย
 startOrderWatch();
