@@ -189,7 +189,7 @@
 // ที่เก็บออเดอร์กลาง — ต้องตรงกับใน index.html
 // ใส่แค่ชื่อโปรเจกต์ Firebase ก็พอ เดี๋ยวหา URL เต็ม (ที่มีชื่อโซนปนอยู่) ให้เอง
 const CLOUD_PROJECT = 'pramvit-order';
-const CLOUD_BASE    = '';                  // ใส่ URL เต็มตรงนี้ได้ ถ้าไม่อยากให้ไปหาเอง
+const CLOUD_BASE    = 'https://pramvit-order-default-rtdb.asia-southeast1.firebasedatabase.app';   // ที่เก็บจริง (ถ้าว่าง จะไล่หาจาก CLOUD_PROJECT เอง)
 const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจอไว้ ลูกค้าคนเดิมจะได้ไม่ต้องหาซ้ำ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้

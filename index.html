@@ -1800,7 +1800,7 @@ const HUB = 'crepe-hub-v1';         // ของใหม่ เก็บได�
 // ที่เก็บออเดอร์กลาง (ดูหัวข้อ "ให้ลูกค้าสั่งเอง")
 // ต้องประกาศไว้บนสุด เพราะ applyShopLink() ที่รันตอนเปิดแอปก็ใช้ตัวนี้
 const CLOUD_PROJECT = 'pramvit-order';  // ชื่อโปรเจกต์ Firebase — ต้องตรงกับใน order.html
-const CLOUD_BASE = '';              // ค่าตั้งต้น — ต้องตรงกับใน order.html
+const CLOUD_BASE = 'https://pramvit-order-default-rtdb.asia-southeast1.firebasedatabase.app';   // ที่เก็บจริงของร้าน (ถ้าว่าง จะไปไล่หาจาก CLOUD_PROJECT เอง)
 const CLOUD_KEY  = 'crepe-cloud';   // ที่เก็บที่ตั้งเองจากหน้าตั้งค่า (ของเครื่องนี้)
 
 // store = ก้อนใหญ่ที่เก็บทุกร้าน / db = ร้านที่กำลังใช้อยู่ (โค้ดที่เหลือใช้ db เหมือนเดิม)
@@ -2091,8 +2091,9 @@ function shopLink(id){
   q.set('shop', x.id);
   if(String(x.shopName||'').trim()) q.set('n', x.shopName);
   if(String(x.shopBranch||'').trim()) q.set('b', x.shopBranch);
-  // ที่เก็บออเดอร์ติดไปกับลิงก์ด้วย เครื่องที่รับลิงก์ไปจะได้ไม่ต้องตั้งเองซ้ำ
-  if(cloudBase()) q.set('cb', cloudBase());
+  // ที่เก็บออเดอร์ติดไปกับลิงก์ด้วย เฉพาะตอนที่ตั้งเองไว้ไม่ตรงกับค่าในตัวแอป
+  // (ปกติทุกเครื่องมีค่าเดียวกันฝังมาอยู่แล้ว ใส่ไปก็รกลิงก์เปล่า ๆ)
+  if(cloudBase() && cloudBase() !== CLOUD_BASE) q.set('cb', cloudBase());
   return base + '?' + q.toString();
 }
 

@@ -226,8 +226,14 @@ const push = (name, v) => { ok.push([name, !!v]); };
     return r.fulfill({ status:404, body:'{}' });
   });
   await cust4.goto(`${APP}/order.html?s=${key}`);
-  await cust4.waitForTimeout(900);
-  push('หน้าลูกค้าหา URL ที่เก็บเองได้จากชื่อโปรเจกต์',
+  await cust4.waitForTimeout(400);
+  // ปกติ CLOUD_BASE ถูกฝังไว้แล้วจึงไม่ต้องหา — ล้างทิ้งก่อนเพื่อทดสอบทางสำรอง
+  // (ทางนี้ได้ใช้จริงถ้าร้านย้ายโซน หรือ CLOUD_BASE ถูกลบ)
+  probed = [];
+  await cust4.evaluate(() => { BASE = ''; try{ localStorage.removeItem('crepe-order-base'); }catch(e){} });
+  await cust4.evaluate(() => findBase());
+  await cust4.waitForTimeout(400);
+  push('หน้าลูกค้าหา URL ที่เก็บเองได้จากชื่อโปรเจกต์ ถ้าไม่ได้ฝังไว้',
     probed.some(u => u.includes('asia-southeast1')));
   push('หาเจอแล้วจำไว้ ไม่ต้องหาซ้ำรอบหน้า',
     (await cust4.evaluate(() => localStorage.getItem('crepe-order-base')) || '').includes('asia-southeast1'));
