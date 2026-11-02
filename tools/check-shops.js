@@ -19,7 +19,7 @@ const stub = () => {
       add(c){cls.add(c)}, remove(c){cls.delete(c)}, contains:c=>cls.has(c) },
     scrollIntoView(){}, style:{setProperty(){},removeProperty(){}}, replaceWith(){}, insertAdjacentHTML(){} };
 };
-global.document = { body: stub(), getElementById: stub, querySelector: () => stub(), createElement: stub };
+global.document = { body: stub(), addEventListener(){}, removeEventListener(){}, getElementById: stub, querySelector: () => stub(), createElement: stub };
 global.window = { addEventListener(){}, scrollTo(){} };
 global.navigator = {};
 global.location = { origin:'https://example.test', pathname:'/app/', search:'', href:'https://example.test/app/' };

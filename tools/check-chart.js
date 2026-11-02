@@ -7,7 +7,7 @@ const stub = () => ({ innerHTML:'', textContent:'', hidden:false, value:'', data
   addEventListener(){}, removeEventListener(){}, showModal(){}, close(){}, querySelectorAll:()=>[],
   querySelector:()=>stub(), focus(){}, setAttribute(){}, classList:{toggle(){},add(){},remove(){},contains:()=>false},
   scrollIntoView(){}, style:{setProperty(){},removeProperty(){}}, replaceWith(){}, insertAdjacentHTML(){} });
-global.document = { body: stub(), getElementById: stub, querySelector: () => stub(), createElement: stub };
+global.document = { body: stub(), addEventListener(){}, removeEventListener(){}, getElementById: stub, querySelector: () => stub(), createElement: stub };
 global.window = { addEventListener(){}, scrollTo(){} };
 global.navigator = {};
 

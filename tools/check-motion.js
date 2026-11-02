@@ -56,6 +56,27 @@ const hasTrans = target => rules.some(r =>
 const stiff = [...new Set(animated)].filter(t => t && !hasTrans(t));
 push(`ทุกตัวที่ยุบได้มี transition${stiff.length ? ' — ขาด: ' + stiff.join(', ') : ''}`, !stiff.length);
 
+/* ---------- iOS Safari ----------
+   ถ้าทั้งหน้าไม่มีใครฟัง touch เลย iOS จะไม่ยิง :active ให้ element ทั่วไป
+   พอเราปิด -webkit-tap-highlight-color ไว้ด้วย บนไอโฟนจึงไม่มีปฏิกิริยาอะไรสักอย่าง */
+push('มี listener touchstart ปลดล็อก :active ของ iOS',
+  /addEventListener\('touchstart'[\s\S]{0,60}passive:true/.test(script));
+push('ถ้าปิด tap highlight ของระบบ ต้องมีตัวปลดล็อกคู่กันเสมอ',
+  !/-webkit-tap-highlight-color:transparent/.test(css)
+  || /addEventListener\('touchstart'/.test(script));
+
+/* ---------- จังหวะกด: ยุบเร็ว เด้งกลับช้า ----------
+   แตะ 1 ครั้งกินเวลาราว 80ms ถ้าตั้งเท่ากันทั้งสองขา สเกลจะยุบไม่ถึงครึ่งก็ถูกดึงกลับ
+   กลายเป็นสั่นจาง ๆ มองแทบไม่เห็น ขากดจึงต้องสั้นกว่าขาปล่อยชัดเจน */
+const ms = v => { const m = new RegExp('--tap-' + v + ':\\s*(\\.?\\d+(?:\\.\\d+)?)s').exec(css);
+                  return m ? Number(m[1]) * 1000 : null; };
+const tIn = ms('in'), tOut = ms('out');
+push(`ขากดสั้นกว่า 80ms จะได้ยุบสุดทันนิ้ว (${tIn}ms)`, tIn !== null && tIn <= 80);
+push(`ขาปล่อยช้ากว่าขากดอย่างน้อย 3 เท่า (${tIn}ms → ${tOut}ms)`,
+  tIn && tOut && tOut >= tIn * 3);
+push('ใช้ตัวแปรจังหวะกด ไม่ได้ฝังตัวเลขไว้ในแต่ละกฎ',
+  (css.match(/var\(--tap-(in|out)\)/g) || []).length >= 4);
+
 /* ---------- จังหวะเดียวกันทั้งแอป ---------- */
 push('มีตัวแปรจังหวะกลาง --ease', /--ease:\s*cubic-bezier/.test(css));
 push('ใช้ --ease ซ้ำหลายที่ ไม่ได้ก๊อปตัวเลขกระจาย',

@@ -43,6 +43,8 @@
     --nav-h:62px;
     --drag:0px;              /* ระยะที่ลากหัวหน้าต่างลงอยู่ ตั้งจาก JS ตอนลากเท่านั้น */
     --ease:cubic-bezier(.2,.9,.3,1);   /* จังหวะเดียวกันทั้งแอป เข้าเร็วออกนุ่ม */
+    --tap-in:.06s;           /* ขากด: สั้นมาก ให้ยุบสุดก่อนนิ้วยกขึ้น (แตะ 1 ครั้ง ~80ms) */
+    --tap-out:.3s;           /* ขาปล่อย: ช้ากว่า ให้เห็นว่ามันเด้งกลับ */
     color-scheme: light;
   }
 
@@ -165,11 +167,11 @@
     width:48px; height:48px; border-radius:50%; background:var(--brand);
     transform:translateX(-50%) scale(.3); opacity:0;
     box-shadow:0 10px 22px rgba(211,43,43,.4), 0 0 0 4px var(--bg);
-    transition:opacity .18s, transform .24s cubic-bezier(.2,.9,.3,1);
+    transition:opacity .18s, transform .24s var(--ease);
   }
   .bottomnav button.on::before{opacity:1; transform:translateX(-50%) scale(1)}
   .bottomnav button.on{color:var(--brand)}
-  .bottomnav button svg{transition:transform .24s cubic-bezier(.2,.9,.3,1), color .18s}
+  .bottomnav button svg{transition:transform .24s var(--ease), color .18s}
   /* svg ใช้ stroke="currentColor" ตั้ง color ที่ตัว svg เลยเปลี่ยนแค่ไอคอน ป้ายยังเป็นสีแบรนด์ */
   .bottomnav button.on svg{color:#fff; transform:translateY(-16px)}
   @media(prefers-reduced-motion:reduce){
@@ -549,7 +551,7 @@
     transform:translateY(var(--drag, 0px));
   }
   dialog.dragging{transition:none}
-  dialog.snapback{transition:transform .22s cubic-bezier(.2,.9,.3,1)}
+  dialog.snapback{transition:transform .22s var(--ease)}
   /* ฉากหลังเบลอ ให้หน้าต่างเด่นขึ้นโดยไม่ต้องทำให้พื้นหลังมืดจัด */
   dialog::backdrop{
     background:rgba(22,24,28,.34);
@@ -646,69 +648,89 @@
   /* ===================== แตะแล้วตอบสนอง =====================
      ของที่กดได้ทุกชิ้นควรยุบลงตอนนิ้วแตะ ไม่งั้นรู้สึกว่าแอปไม่รับรู้ว่าเรากด
      แบ่ง 3 ระดับตามขนาด ของใหญ่ยุบน้อย ของเล็กยุบเยอะ จะได้รู้สึกเท่ากัน
+
+     จังหวะสำคัญกว่าขนาด: แตะหนึ่งครั้งกินเวลาราว 80ms
+     ถ้าตั้งเท่ากันทั้งขาไปขากลับ สเกลจะยุบไปไม่ถึงครึ่งก็ถูกดึงกลับ กลายเป็นสั่นจาง ๆ
+     เลยทำให้ "ยุบเร็ว เด้งกลับช้า" — ยุบสุดทันทีที่นิ้วแตะ แล้วค่อย ๆ คืนตอนปล่อย
      ใช้ transform อย่างเดียว ไม่แตะ layout เลยไม่ทำให้หน้ากระตุก */
-  .tap-s, .tap-m, .tap-l{
-    transition:transform .15s var(--ease), background-color .15s, color .15s, box-shadow .18s;
+  .tap-s, .tap-m, .tap-l,
+  .hsearch-x, .wk-nav button, .li-del, .stepper button, .bl-qty button, .bl-del,
+  .pick-box, .mnav-b, .dlg-tag,
+  .cat, .dseg-b, .pill, .top, .gchip, .step, .bl-top, .billclear,
+  .home-sec button, .srow-a, .wk-m, .shopswitch, .statepill, .shoppill,
+  .li, .seeall, .shoprow-main, .billrow, .pick-main, .day,
+  .wk-d .num, .bottomnav button,
+  .btn, .icon-btn, .orderbtn, .dlg-x, .quick-ic, .hil-av, .qmenu-b, .navrow, .posbtn,
+  .posrow, .dayx-row, .daybtn{
+    transition:transform var(--tap-out) var(--ease),
+               background-color .16s, color .16s, box-shadow .2s, border-color .16s;
     transform-origin:center;
   }
+  /* ขากด: สั้นมาก จะได้ยุบสุดก่อนนิ้วจะยกขึ้น */
+  .tap-s:active, .tap-m:active, .tap-l:active,
+  .hsearch-x:active, .wk-nav button:active, .li-del:active, .stepper button:active,
+  .bl-qty button:active, .bl-del:active, .pick-box:active, .mnav-b:active, .dlg-tag:active,
+  .cat:active, .dseg-b:active, .pill:active, .top:active, .gchip:active, .step:active,
+  .bl-top:active, .billclear:active, .home-sec button:active, .srow-a:active,
+  .wk-m:active, .shopswitch:active, .statepill:active, .shoppill:active,
+  .li:active, .seeall:active, .shoprow-main:active, .billrow:active,
+  .pick-main:active, .day:active,
+  .wk-d:active .num, .bottomnav button:active,
+  .btn:active, .icon-btn:active, .orderbtn:active, .dlg-x:active,
+  .quick-b:active .quick-ic, .hil-b:active .hil-av, .qmenu-b:active, .navrow:active,
+  .posbtn:active, .posrow:active, .dayx-row:active, .daybtn:active{
+    transition-duration:var(--tap-in);
+  }
+
+  /* ขนาดการยุบ — ของเล็กยุบเยอะ ของใหญ่ยุบน้อย ความรู้สึกจะได้เท่ากัน */
   .tap-s:active:not(:disabled){transform:scale(.90)}
   .tap-m:active:not(:disabled){transform:scale(.95)}
   .tap-l:active:not(:disabled){transform:scale(.985)}
 
   /* เล็ก — ปุ่มไอคอนกลม ปุ่มบวก-ลบ */
-  .hsearch-x, .wk-nav button, .li-del, .stepper button, .bl-qty button, .bl-del,
-  .pick-box, .mnav-b, .dlg-tag{
-    transition:transform .15s var(--ease), background-color .15s, color .15s, border-color .15s;
-    transform-origin:center;
-  }
   .hsearch-x:active, .wk-nav button:active:not(:disabled), .li-del:active,
   .stepper button:active, .bl-qty button:active, .bl-del:active,
-  .pick-box:active, .mnav-b:active:not(:disabled), .dlg-tag:active{transform:scale(.88)}
-
-  /* กลาง — ชิป ปุ่มข้อความ ช่องวันในปฏิทิน */
-  .cat, .dseg-b, .pill, .top, .gchip, .step, .bl-top, .billclear,
-  .home-sec button, .srow-a, .wk-m, .shopswitch, .statepill, .shoppill{
-    transition:transform .15s var(--ease), background-color .15s, color .15s, box-shadow .18s;
-    transform-origin:center;
-  }
-  .cat:active, .dseg-b:active, .pill:active, .top:active, .gchip:active, .step:active,
-  .bl-top:active, .billclear:active, .home-sec button:active, .srow-a:active,
-  .wk-m:active, .shopswitch:active:not(:disabled), .statepill:active{transform:scale(.94)}
+  .pick-box:active, .mnav-b:active:not(:disabled), .dlg-tag:active,
+  .icon-btn:active, .dlg-x:active{transform:scale(.86)}
 
   /* วันในปฏิทิน ยุบเฉพาะวงกลมตัวเลข ไม่ยุบทั้งช่อง จะได้ไม่ขยับชื่อวัน */
-  .wk-d .num{transition:transform .15s var(--ease), background-color .16s, box-shadow .16s}
-  .wk-d:active:not(:disabled) .num{transform:scale(.88)}
+  .wk-d:active:not(:disabled) .num{transform:scale(.86)}
+
+  /* กลาง — ชิป ปุ่มข้อความ ป้ายสถานะ */
+  .cat:active, .dseg-b:active, .pill:active, .top:active, .gchip:active, .step:active,
+  .bl-top:active, .billclear:active, .home-sec button:active, .srow-a:active,
+  .wk-m:active, .shopswitch:active:not(:disabled), .statepill:active,
+  .shoppill:active, .btn:active{transform:scale(.93)}
 
   /* ใหญ่ — แถวรายการ การ์ดที่กดได้ ปุ่มเต็มความกว้าง */
-  .li, .seeall, .shoprow-main, .billrow, .pick-main, .day{
-    transition:transform .15s var(--ease), background-color .14s, color .15s, box-shadow .18s;
-    transform-origin:center;
-  }
   .li:active, .seeall:active, .shoprow-main:active, .billrow:active,
-  .pick-main:active, .day:active{transform:scale(.985)}
+  .pick-main:active, .day:active, .navrow:active, .posrow:active,
+  .dayx-row:active, .daybtn:active, .qmenu-b:active, .posbtn:active{transform:scale(.975)}
 
-  /* แถบเมนูล่าง — ยุบทั้งปุ่มรวมวงกลมที่ลอยอยู่ด้วย */
-  .bottomnav button{transition:color .16s, transform .15s var(--ease)}
-  .bottomnav button:active{transform:scale(.90)}
+  /* ปุ่มใหญ่สีแดงกับแถบเมนูล่าง ยุบชัดหน่อยเพราะเป็นของที่กดบ่อยสุด */
+  .orderbtn:active{transform:scale(.96)}
+  .bottomnav button:active{transform:scale(.88)}
+  .quick-b:active .quick-ic, .hil-b:active .hil-av{transform:scale(.88)}
 
   /* แท่งกราฟเป็น SVG ขยับ transform แล้วจุดหมุนเพี้ยน ใช้จางลงแทน */
-  .chart .cday{transition:opacity .15s}
-  .chart .cday:active{opacity:.55}
+  .chart .cday{transition:opacity var(--tap-out)}
+  .chart .cday:active{opacity:.5; transition-duration:var(--tap-in)}
 
   @media(prefers-reduced-motion:reduce){
     .tap-s, .tap-m, .tap-l, .cat, .dseg-b, .pill, .top, .gchip, .li, .seeall,
-    .bottomnav button, .wk-d .num, .billrow, .shoprow-main{transition:none}
+    .bottomnav button, .wk-d .num, .billrow, .shoprow-main, .btn, .icon-btn,
+    .orderbtn, .quick-ic, .hil-av{transition:none}
     .tap-s:active, .tap-m:active, .tap-l:active, .cat:active, .dseg-b:active,
     .pill:active, .top:active, .gchip:active, .li:active, .seeall:active,
     .bottomnav button:active, .wk-d:active .num, .billrow:active,
-    .shoprow-main:active{transform:none}
+    .shoprow-main:active, .btn:active, .icon-btn:active, .orderbtn:active,
+    .quick-b:active .quick-ic, .hil-b:active .hil-av{transform:none}
   }
 
   /* สลับแท็บแล้วเนื้อหาค่อย ๆ ลอยขึ้นมา ไม่ใช่กระพริบเปลี่ยนทันที */
   @keyframes viewin{from{opacity:0; transform:translateY(7px)} to{opacity:1; transform:none}}
-  #view.swap, #homeTop.swap{animation:viewin .24s var(--ease)}
+  #view.swap, #homeTop.swap{animation:viewin .26s var(--ease)}
   @media(prefers-reduced-motion:reduce){ #view.swap, #homeTop.swap{animation:none} }
-
   details > summary{transition:background-color .15s, color .15s; border-radius:10px}
   details > summary:active{background:var(--soft); color:var(--brand)}
 
@@ -753,7 +775,7 @@
       max-height:86dvh; box-shadow:0 24px 70px rgba(22,24,28,.3);
       transform:none;
     }
-    dialog[open]{animation:dlgpop .2s cubic-bezier(.2,.9,.3,1)}
+    dialog[open]{animation:dlgpop .2s var(--ease)}
     @keyframes dlgpop{from{opacity:0; transform:scale(.96)} to{opacity:1; transform:scale(1)}}
     @media(prefers-reduced-motion:reduce){ dialog[open]{animation:none} }
     .dlg-grip-hit{display:none}
@@ -2335,6 +2357,11 @@ function askConfirm(title, sub, yesLabel, onYes){
 /* ===================== หน้าต่างกรอกข้อมูล ===================== */
 const dlg = document.getElementById('dlg');
 let dlgCfg = null;
+
+/* iOS Safari จะไม่ยิง :active ให้ element ทั่วไป ถ้าทั้งหน้าไม่มีใครฟัง touch เลย
+   เราปิด -webkit-tap-highlight-color ไว้ด้วย บนไอโฟนเลยไม่มีปฏิกิริยาอะไรสักอย่าง
+   listener เปล่า ๆ ตัวนี้แก้ได้ทั้งหมด ไม่ได้ทำอะไรนอกจากทำให้ iOS ยอมยิง :active */
+document.addEventListener('touchstart', () => {}, {passive:true});
 
 /* ---------- หน้าต่างแบบแผ่นเลื่อน: เส้นคั่นหัว + ลากลงเพื่อปิด ---------- */
 // เส้นใต้หัวหน้าต่างโผล่เฉพาะตอนเลื่อนดูเนื้อหา จะได้รู้ว่ายังมีของอยู่ข้างบน

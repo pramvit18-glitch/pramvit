@@ -11,7 +11,7 @@ const stub = () => ({ innerHTML:'', textContent:'', hidden:false, value:'', data
   querySelector:()=>stub(), focus(){}, setAttribute(){},
   classList:{toggle(){},add(){},remove(){},contains:()=>false},
   scrollIntoView(){}, style:{setProperty(){},removeProperty(){}}, replaceWith(){}, insertAdjacentHTML(){} });
-global.document = { body: stub(), getElementById: stub, querySelector: () => stub(), createElement: stub };
+global.document = { body: stub(), addEventListener(){}, removeEventListener(){}, getElementById: stub, querySelector: () => stub(), createElement: stub };
 global.window = { addEventListener(){}, scrollTo(){} };
 global.navigator = {};
 

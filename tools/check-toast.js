@@ -23,7 +23,7 @@ const stub = (id) => {
       add(c){cls.add(c)}, remove(c){cls.delete(c)}, contains:c=>cls.has(c) },
     scrollIntoView(){}, style:{setProperty(){},removeProperty(){}}, replaceWith(){}, insertAdjacentHTML(){} };
 };
-global.document = { body: stub(), getElementById: id => stub(id),
+global.document = { body: stub(), addEventListener(){}, removeEventListener(){}, getElementById: id => stub(id),
   querySelector: () => stub(), createElement: () => stub() };
 global.window = { addEventListener(){}, scrollTo(){} };
 global.navigator = {};

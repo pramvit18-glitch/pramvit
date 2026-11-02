@@ -23,7 +23,8 @@ global.document = {
   getElementById: id => id === "dlgFoot" ? footStub
                       : (id === "dlgSave" && footIsCustom) ? null
                       : stub(),
-  querySelector: () => stub(), createElement: stub, body: stub()
+  querySelector: () => stub(), createElement: stub, body: stub(),
+  addEventListener(){}, removeEventListener(){}
 };
 global.window = { addEventListener(){}, scrollTo(){} };
 global.navigator = {};
