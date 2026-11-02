@@ -32,7 +32,9 @@ push('ชิปที่เลือกอยู่ใช้สีแดงเ�
 push('แผงแท็บย่อยซ่อนได้ทั้งแบบกริดและแบบธรรมดา', css.includes('.dpane:not(.on){display:none}'));
 
 /* ---------- ระดับ render ---------- */
-push('หัวใหญ่เปิดทุกหน้ายกเว้นหน้าขาย', /classList\.toggle\('big',\s*tab\s*!==\s*'sale'\)/.test(script));
+// หัวใหญ่ต้องใช้ทุกหน้า ไม่มีหน้าไหนหลุดไปใช้หัวแบบเก่า
+push('หัวใหญ่ใช้ทุกหน้า ไม่มีหน้าไหนหลุด',
+  /classList\.add\('big'\)/.test(script) && !/classList\.toggle\('big'/.test(script));
 push('ส่วนบนหน้าแรกยังโผล่เฉพาะแท็บแดชบอร์ด', /getElementById\('homeTop'\)\.hidden\s*=\s*!home/.test(script));
 
 const probe = `

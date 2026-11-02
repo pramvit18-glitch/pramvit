@@ -80,6 +80,36 @@ push('มีบรรทัดคำอธิบายที่รับชิ�
 push('แถบสรุปหน้าขายวางเลขบนฐานเดียวกัน', /\.possum-n\{[^}]*align-items:baseline/.test(css));
 push('มีปุ่มเมนูกดด่วน', /\.qmenu\{[^}]*grid-template-columns/.test(css));
 
+/* ---------- gap ต้องไม่ชนกับ margin ----------
+   กล่องที่ตั้ง gap ไว้แล้ว ถ้าลูกยังพกมาร์จิ้นของตัวเองมาด้วย ระยะจะบวกกันสองชั้น
+   หน้าขายเคยเป็นแบบนี้ ได้ช่อง 28 / 56 / 24 / 28 ทั้งที่ทั้งแอปใช้ 14 */
+const rulesOf = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+  .map(m => ({ sels: m[1].split(',').map(x => x.trim().replace(/\s+/g, ' ')), body: m[2] }))
+  .filter(r => r.sels[0] && !r.sels[0].startsWith('@'));
+const bodyOfSel = s => rulesOf.filter(r => r.sels.includes(s)).map(r => r.body).join(';');
+const mval = (sel, side) => {
+  const b = bodyOfSel(sel);
+  const one = new RegExp('(?:^|;)\\s*margin-' + side + ':\\s*(-?[\\d.]+)px').exec(b);
+  if (one) return Number(one[1]);
+  const sh = /(?:^|;)\s*margin:\s*(-?[\d.]+)px\s+[^;]*?(-?[\d.]+)px/.exec(b);
+  if (sh) return Number(side === 'top' ? sh[1] : sh[2]);
+  return 0;
+};
+
+push('ลูกใน .sale-side ถูกล้างมาร์จิ้น ปล่อยให้ gap คุมคนเดียว',
+  /\.sale-side > \*\{margin-top:0; margin-bottom:0\}/.test(css));
+push('การ์ดบิลไม่มี inline margin ซ้อนกับ gap ของกริด',
+  !/class="card sale-list" style="margin-top/.test(src));
+
+// ไล่วัดช่องจริงอีกรอบ ต้องเป็น gap เปล่า ๆ ทุกช่อง
+const sideGap = mval('.sale-side', 'top') || 14;
+const gapNum = (/\.sale-side\{[^}]*gap:(\d+)px/.exec(css) || [])[1];
+const neutralised = /\.sale-side > \*\{margin-top:0; margin-bottom:0\}/.test(css);
+['.possum', '.orderbtn', '.home-sec', '.qmenu'].forEach(k => {
+  const extra = neutralised ? 0 : mval(k, 'top') + mval(k, 'bottom');
+  push(`ช่องรอบ ${k} เป็น ${gapNum}px เปล่า ๆ ไม่บวกมาร์จิ้นซ้ำ`, extra === 0);
+});
+
 const probe = `
 (() => {
   const r = [];
