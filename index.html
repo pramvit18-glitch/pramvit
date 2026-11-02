@@ -44,7 +44,10 @@
     --drag:0px;              /* ระยะที่ลากหัวหน้าต่างลงอยู่ ตั้งจาก JS ตอนลากเท่านั้น */
     --ease:cubic-bezier(.2,.9,.3,1);   /* จังหวะเดียวกันทั้งแอป เข้าเร็วออกนุ่ม */
     --tap-in:.06s;           /* ขากด: สั้นมาก ให้ยุบสุดก่อนนิ้วยกขึ้น (แตะ 1 ครั้ง ~80ms) */
-    --tap-out:.3s;           /* ขาปล่อย: ช้ากว่า ให้เห็นว่ามันเด้งกลับ */
+    --tap-out:.34s;          /* ขาปล่อย: ช้ากว่า ให้เห็นว่ามันเด้งกลับ */
+    /* โค้งสปริง: วิ่งเลยจุดหมายไปนิดแล้วค่อยถอยมานิ่ง คือสิ่งที่ทำให้รู้สึก "มีชีวิต"
+       ต่างจาก ease-out ที่ค่อย ๆ ช้าลงแล้วหยุดตรง ๆ แบบเครื่องจักร */
+    --spring:cubic-bezier(.34,1.56,.64,1);
     color-scheme: light;
   }
 
@@ -174,8 +177,26 @@
   .bottomnav button svg{transition:transform .24s var(--ease), color .18s}
   /* svg ใช้ stroke="currentColor" ตั้ง color ที่ตัว svg เลยเปลี่ยนแค่ไอคอน ป้ายยังเป็นสีแบรนด์ */
   .bottomnav button.on svg{color:#fff; transform:translateY(-16px)}
+
+  /* พอกลายเป็นแท็บที่เลือก ให้วงกับไอคอน "ป๊อป" เลยขนาดจริงแล้วหดกลับ
+     ใช้ keyframe ไม่ใช่ transition เพราะ transition ไปได้ทางเดียว เด้งเกินไม่ได้
+     (แถบเมนูถูกสร้างครั้งเดียว คลาส on เลยเปลี่ยนจริง อนิเมชันถึงได้เล่น) */
+  @keyframes navpop{
+    0%  {transform:translateX(-50%) scale(.4)}
+    55% {transform:translateX(-50%) scale(1.14)}
+    100%{transform:translateX(-50%) scale(1)}
+  }
+  @keyframes navicon{
+    0%  {transform:translateY(-16px) scale(.55)}
+    55% {transform:translateY(-16px) scale(1.16)}
+    100%{transform:translateY(-16px) scale(1)}
+  }
+  .bottomnav button.on::before{animation:navpop .42s var(--ease)}
+  .bottomnav button.on svg{animation:navicon .42s var(--ease)}
+
   @media(prefers-reduced-motion:reduce){
     .bottomnav button::before, .bottomnav button svg{transition:none}
+    .bottomnav button.on::before, .bottomnav button.on svg{animation:none}
   }
 
   /* ===================== หน้าแรก: หัวใหญ่ ค้นหา ทางลัด แถบวัน =====================
@@ -662,7 +683,7 @@
   .wk-d .num, .bottomnav button,
   .btn, .icon-btn, .orderbtn, .dlg-x, .quick-ic, .hil-av, .qmenu-b, .navrow, .posbtn,
   .posrow, .dayx-row, .daybtn{
-    transition:transform var(--tap-out) var(--ease),
+    transition:transform var(--tap-out) var(--spring),
                background-color .16s, color .16s, box-shadow .2s, border-color .16s;
     transform-origin:center;
   }
@@ -727,10 +748,20 @@
     .quick-b:active .quick-ic, .hil-b:active .hil-av{transform:none}
   }
 
-  /* สลับแท็บแล้วเนื้อหาค่อย ๆ ลอยขึ้นมา ไม่ใช่กระพริบเปลี่ยนทันที */
-  @keyframes viewin{from{opacity:0; transform:translateY(7px)} to{opacity:1; transform:none}}
-  #view.swap, #homeTop.swap{animation:viewin .26s var(--ease)}
-  @media(prefers-reduced-motion:reduce){ #view.swap, #homeTop.swap{animation:none} }
+  /* สลับแท็บแล้วเนื้อหาเลื่อนเข้ามาตามทิศที่กด
+     กดแท็บทางขวา เนื้อหาเลื่อนมาจากขวา กดทางซ้ายก็มาจากซ้าย
+     ให้ความรู้สึกว่าหน้าเรียงกันอยู่จริง ไม่ใช่กระพริบสลับภาพ
+     ส่วนหน้าที่ไม่ได้อยู่บนแถบล่าง (เข้าจากตั้งค่า) ใช้ลอยขึ้นธรรมดา */
+  @keyframes viewup{from{opacity:0; transform:translateY(8px)}  to{opacity:1; transform:none}}
+  @keyframes viewr {from{opacity:0; transform:translateX(26px)} to{opacity:1; transform:none}}
+  @keyframes viewl {from{opacity:0; transform:translateX(-26px)}to{opacity:1; transform:none}}
+  #view.swap, #homeTop.swap{animation:viewup .28s var(--ease)}
+  #view.swap-r, #homeTop.swap-r{animation:viewr .3s var(--ease)}
+  #view.swap-l, #homeTop.swap-l{animation:viewl .3s var(--ease)}
+  @media(prefers-reduced-motion:reduce){
+    #view.swap, #homeTop.swap, #view.swap-r, #homeTop.swap-r,
+    #view.swap-l, #homeTop.swap-l{animation:none}
+  }
   details > summary{transition:background-color .15s, color .15s; border-radius:10px}
   details > summary:active{background:var(--soft); color:var(--brand)}
 
@@ -2285,12 +2316,18 @@ function render(){
   // เนื้อหาลอยขึ้นมาเฉพาะตอนเปลี่ยนหน้า
   // render() ถูกเรียกบ่อยมาก (กดบันทึก เปิด-ปิดร้าน สลับวัน) ถ้าเล่นทุกครั้งจะรำคาญ
   if(tab !== shownTab){
+    // เลื่อนเข้าทางไหน ดูจากลำดับบนแถบล่าง
+    // หน้าที่ไม่ได้อยู่บนแถบ (เข้าจากตั้งค่า) หาลำดับไม่เจอ → ใช้ลอยขึ้นธรรมดา
+    const at = k => TABS.findIndex(t => t[0] === k);
+    const from = at(shownTab), to = at(tab);
+    const cls = (from < 0 || to < 0 || from === to) ? 'swap'
+              : (to > from ? 'swap-r' : 'swap-l');
     shownTab = tab;
     [view, document.getElementById('homeTop')].forEach(el => {
       if(!el || !el.classList) return;
-      el.classList.remove('swap');
+      el.classList.remove('swap','swap-r','swap-l');
       void el.offsetWidth;            // บังคับให้เบราว์เซอร์เริ่มแอนิเมชันรอบใหม่
-      el.classList.add('swap');
+      el.classList.add(cls);
     });
   }
 }
@@ -2362,6 +2399,17 @@ let dlgCfg = null;
    เราปิด -webkit-tap-highlight-color ไว้ด้วย บนไอโฟนเลยไม่มีปฏิกิริยาอะไรสักอย่าง
    listener เปล่า ๆ ตัวนี้แก้ได้ทั้งหมด ไม่ได้ทำอะไรนอกจากทำให้ iOS ยอมยิง :active */
 document.addEventListener('touchstart', () => {}, {passive:true});
+
+/* สั่นสั้น ๆ ตอนแตะของที่กดได้ ช่วยให้รู้สึกว่าปุ่ม "ติด"
+   ตามตรง: Android/Chrome รองรับ ส่วน iOS Safari ไม่รองรับ Vibration API เลย
+   บนไอโฟนจึงไม่สั่น แต่ไม่พังอะไร เพราะเช็ก navigator.vibrate ก่อนเรียกทุกครั้ง */
+const TAPPABLE = '.btn,.icon-btn,.orderbtn,.bottomnav button,.cat,.dseg-b,.qmenu-b,'
+               + '.quick-b,.hil-b,.wk-d,.li,.navrow,.seeall,.posbtn,.srow-a,.home-sec button';
+document.addEventListener('pointerdown', e => {
+  if(!navigator.vibrate) return;
+  const el = e.target.closest && e.target.closest(TAPPABLE);
+  if(el && !el.disabled) navigator.vibrate(8);
+}, {passive:true});
 
 /* ---------- หน้าต่างแบบแผ่นเลื่อน: เส้นคั่นหัว + ลากลงเพื่อปิด ---------- */
 // เส้นใต้หัวหน้าต่างโผล่เฉพาะตอนเลื่อนดูเนื้อหา จะได้รู้ว่ายังมีของอยู่ข้างบน

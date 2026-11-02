@@ -77,15 +77,48 @@ push(`ขาปล่อยช้ากว่าขากดอย่างน�
 push('ใช้ตัวแปรจังหวะกด ไม่ได้ฝังตัวเลขไว้ในแต่ละกฎ',
   (css.match(/var\(--tap-(in|out)\)/g) || []).length >= 4);
 
+/* ---------- สปริง: เด้งเลยจุดหมายแล้วค่อยนิ่ง ----------
+   ease-out ค่อย ๆ ช้าลงแล้วหยุดตรง ๆ แบบเครื่องจักร
+   สปริงวิ่งเลยไปนิดแล้วถอยกลับ — จุดนี้แหละที่ทำให้รู้สึกมีชีวิต */
+const spring = (/--spring:\s*cubic-bezier\(([^)]*)\)/.exec(css) || [])[1];
+push('มีโค้งสปริงแยกจากโค้งธรรมดา', !!spring);
+push(`โค้งสปริงเด้งเกินจริง (y2 ต้อง > 1 ได้ ${spring ? spring.split(',')[1] : '-'})`,
+  !!spring && Number(spring.split(',')[1]) > 1);
+push('ขาปล่อยของการกดใช้สปริง', /transition:transform var\(--tap-out\) var\(--spring\)/.test(css));
+
+/* ---------- ไอคอนแท็บป๊อปตอนถูกเลือก ---------- */
+push('มี keyframe ป๊อปของวงกับไอคอน',
+  /@keyframes navpop/.test(css) && /@keyframes navicon/.test(css));
+const popMid = (/@keyframes navicon\{[\s\S]*?55%\s*\{transform:translateY\(-16px\) scale\(([\d.]+)\)/.exec(css) || [])[1];
+push(`ป๊อปเลยขนาดจริงก่อนหดกลับ (กลางทาง ${popMid || '-'})`, Number(popMid) > 1);
+push('ป๊อปด้วย keyframe ไม่ใช่ transition (transition เด้งเกินไม่ได้)',
+  /\.bottomnav button\.on::before\{animation:navpop/.test(css)
+  && /\.bottomnav button\.on svg\{animation:navicon/.test(css));
+
+/* ---------- สั่นตอนกด ---------- */
+push('มีสั่นสั้น ๆ ตอนแตะ', /navigator\.vibrate\(\d+\)/.test(script));
+push('เช็กก่อนว่าเครื่องรองรับ ไม่งั้นไอโฟนจะพัง',
+  /if\(!navigator\.vibrate\) return/.test(script));
+push('ไม่สั่นให้ปุ่มที่กดไม่ได้', /!el\.disabled/.test(script));
+
 /* ---------- จังหวะเดียวกันทั้งแอป ---------- */
 push('มีตัวแปรจังหวะกลาง --ease', /--ease:\s*cubic-bezier/.test(css));
 push('ใช้ --ease ซ้ำหลายที่ ไม่ได้ก๊อปตัวเลขกระจาย',
   (css.match(/var\(--ease\)/g) || []).length >= 6);
 
 /* ---------- สลับหน้าแล้วมีทรานซิชัน ---------- */
-push('มีแอนิเมชันตอนเปลี่ยนหน้า', /@keyframes viewin/.test(css));
+push('มีแอนิเมชันตอนเปลี่ยนหน้า ครบทั้งลอยขึ้นและเลื่อนซ้าย-ขวา',
+  ['viewup','viewr','viewl'].every(k => new RegExp('@keyframes ' + k + '\\b').test(css)));
 push('แอนิเมชันเปลี่ยนหน้าผูกกับทั้งเนื้อหาและส่วนบนหน้าแรก',
-  /#view\.swap,\s*#homeTop\.swap\{animation:viewin/.test(css));
+  /#view\.swap,\s*#homeTop\.swap\{animation:viewup/.test(css)
+  && /#view\.swap-r,\s*#homeTop\.swap-r\{animation:viewr/.test(css));
+// ทิศต้องมาจากลำดับแท็บจริง ไม่ใช่เดาหรือสุ่ม
+push('ทิศการเลื่อนคิดจากลำดับบนแถบล่าง',
+  /TABS\.findIndex\(t => t\[0\] === k\)/.test(script) && /to > from \? 'swap-r' : 'swap-l'/.test(script));
+push('หน้าที่ไม่ได้อยู่บนแถบล่างใช้ลอยขึ้นแทน ไม่เดาทิศมั่ว',
+  /from < 0 \|\| to < 0/.test(script));
+push('ล้างคลาสทิศเก่าก่อนใส่อันใหม่',
+  /classList\.remove\('swap','swap-r','swap-l'\)/.test(script));
 push('เล่นเฉพาะตอนเปลี่ยนหน้า ไม่ใช่ทุกครั้งที่วาดใหม่',
   /if\(tab !== shownTab\)/.test(script) && /shownTab = tab/.test(script));
 push('รีสตาร์ทแอนิเมชันด้วยการบังคับ reflow', /void el\.offsetWidth/.test(script));
