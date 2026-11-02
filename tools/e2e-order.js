@@ -142,9 +142,8 @@ const push = (name, v) => { ok.push([name, !!v]); };
   await cust2.waitForTimeout(600);
   push('ร้านปิดอยู่ ลูกค้าสั่งไม่ได้', (await cust2.textContent('#view')).includes('ร้านปิดอยู่'));
   push('ร้านปิดอยู่ ไม่มีแถบสั่งโผล่', await cust2.locator('#bar[hidden]').count() === 1);
-  push('ร้านปิดอยู่ แต่ยังดูราคาได้ ไม่ใช่ทางตัน',
-    (await cust2.textContent('#view')).includes('เครปกรอบ'));
-  push('ร้านปิดอยู่ กดเมนูสั่งไม่ได้', await cust2.locator('#view button.li').count() === 0);
+  push('ร้านปิดอยู่ ไม่โชว์เมนูเลย', !(await cust2.textContent('#view')).includes('เครปกรอบ'));
+  push('ร้านปิดอยู่ ขึ้นรูปใหญ่บอกสถานะ', await cust2.locator('#view .empty.big .empty-ic').count() === 1);
 
   /* ---------- แม่ค้ากดหยุดรับออเดอร์ = ลูกค้าต้องสั่งไม่ได้ ---------- */
   // เคยพลาด: ปิดแล้วไม่ได้บอกคลาวด์เลย ลูกค้ายังสั่งเข้ามาได้แต่ไม่มีใครเห็น
@@ -163,10 +162,10 @@ const push = (name, v) => { ok.push([name, !!v]); };
   await cust5.goto(`${APP}/order.html?s=${key}&c=${encodeURIComponent(CLOUD)}`);
   await cust5.waitForTimeout(600);
   const t5 = await cust5.textContent('#view');
-  push('หยุดรับแล้ว ลูกค้าเปิดลิงก์ได้แต่สั่งไม่ได้', t5.includes('สั่งผ่านหน้านี้ไม่ได้'));
+  push('หยุดรับแล้ว ลูกค้าเปิดลิงก์ได้แต่สั่งไม่ได้', t5.includes('ยังไม่เปิดรับออเดอร์'));
   push('หยุดรับแล้ว ไม่มีแถบสั่งโผล่', await cust5.locator('#bar[hidden]').count() === 1);
-  push('หยุดรับแล้ว กดเมนูสั่งไม่ได้', await cust5.locator('#view button.li').count() === 0);
-  push('หยุดรับแล้ว ยังดูราคาได้', t5.includes('เครปกรอบ'));
+  push('หยุดรับแล้ว ไม่โชว์เมนูเลย', !t5.includes('เครปกรอบ'));
+  push('หยุดรับแล้ว ขึ้นรูปใหญ่บอกสถานะ', await cust5.locator('#view .empty.big .empty-ic').count() === 1);
 
   // เปิดกลับไว้ให้ข้อถัด ๆ ไปใช้ต่อ
   await seller.evaluate(async () => { db.orderOn = 1; save(); await publishMenu(); });

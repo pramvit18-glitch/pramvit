@@ -266,10 +266,22 @@
   .sumrow b{flex:0 0 auto; font-size:17px; font-weight:800; font-variant-numeric:tabular-nums}
   .sumrow span{flex:1; font-weight:800}
 
-  .empty{text-align:center; padding:26px 10px; color:var(--muted)}
-  .empty h3{margin:0 0 6px; font-size:16px; color:var(--ink)}
-  .empty p{margin:0; font-size:13.5px; line-height:1.6}
+  .empty{text-align:center; padding:40px 10px; color:var(--muted); font-size:13.5px}
+  .empty-ic{width:62px; height:62px; margin:0 auto 16px; border-radius:var(--r);
+            background:var(--tint); color:var(--brand); display:grid; place-items:center}
+  .empty-ic svg{width:30px; height:30px}
+  .empty h3{margin:0 0 7px; font-size:18px; font-weight:800; color:var(--ink); letter-spacing:-.03em}
+  .empty p{margin:0 auto; max-width:300px; line-height:1.65}
 
+  /* หน้า "สั่งไม่ได้ตอนนี้" — ลูกค้าต้องเห็นแล้วรู้ทันที ไม่ต้องอ่าน
+     รูปใหญ่กว่าปกติเท่าตัว เพราะทั้งหน้ามีอยู่แค่นี้ */
+  .empty.big{padding:56px 14px 60px}
+  .empty.big .empty-ic{width:96px; height:96px; border-radius:26px; margin-bottom:22px}
+  .empty.big .empty-ic svg{width:46px; height:46px}
+  .empty.big h3{font-size:23px; margin-bottom:10px}
+  .empty.big p{font-size:14.5px; max-width:260px}
+
+  .foot[hidden]{display:none}
   .foot{text-align:center; font-size:12px; color:var(--muted); padding:16px 0 4px; font-weight:600}
 
   /* แตะแล้วยุบลงนิดเหมือนแอปร้าน จะได้รู้สึกว่าแอปรับรู้ว่าเรากด */
@@ -293,7 +305,7 @@
     <span class="appbar-ic" id="appbarIc" aria-hidden="true"></span>
   </header>
   <div id="view"></div>
-  <p class="foot">สั่งแล้วมารับที่ร้าน · จ่ายเงินตอนรับของ</p>
+  <p class="foot" id="foot">สั่งแล้วมารับที่ร้าน · จ่ายเงินตอนรับของ</p>
 </div>
 
 <div class="bar" id="bar" hidden>
@@ -484,12 +496,13 @@ function draw(){
   const taking = menu.taking !== false;
   if(!menu.open || !taking){
     el('view').innerHTML = closedView(
-      !menu.open ? 'ตอนนี้ร้านปิดอยู่'            : 'ตอนนี้สั่งผ่านหน้านี้ไม่ได้',
-      !menu.open ? 'กลับมาใหม่ตอนร้านเปิดนะครับ'  : 'ทางร้านรับออเดอร์ที่หน้าร้านอย่างเดียว');
+      !menu.open ? 'ตอนนี้ร้านปิดอยู่'           : 'ยังไม่เปิดรับออเดอร์',
+      !menu.open ? 'กลับมาใหม่ตอนร้านเปิดนะครับ' : 'ตอนนี้สั่งที่หน้าร้านได้เลยครับ');
     bar();
     return;
   }
 
+  el('foot').hidden = false;
   el('view').innerHTML = `
     <div class="card">
       ${cardHead('menu', 'เลือกของที่อยากได้', 'แตะที่เมนู แล้วเลือกไส้กับจำนวน')}
@@ -512,24 +525,16 @@ function draw(){
   bar();
 }
 
-/* สั่งไม่ได้ แต่ยังโชว์ราคาให้ดู — ลูกค้าที่ยืนต่อคิวอยู่จะได้เลือกไว้ก่อนได้
-   ถ้าตัดเมนูทิ้งไปเลย หน้านี้จะกลายเป็นทางตัน เปิดมาแล้วไม่ได้อะไรกลับไป */
+/* สั่งไม่ได้ = ไม่โชว์เมนูเลย เหลือรูปใหญ่กับข้อความเดียว
+   เจ้าของอยากให้ลูกค้าเห็นปุ๊บรู้ปั๊บ ไม่ต้องอ่านอะไรเยอะ
+   ถ้าโชว์เมนูค้างไว้ ลูกค้าจะพยายามกดสั่งแล้วงงว่าทำไมกดไม่ได้ */
 function closedView(title, sub){
+  el('foot').hidden = true;        // ยังสั่งไม่ได้ บรรทัดนี้ไม่เกี่ยวแล้ว
   return `<div class="card">
-    <div class="note warn">${icon('store',17)}<span><b>${esc(title)}</b><br>${esc(sub)}</span></div>
-  </div>
-  <div class="card">
-    ${cardHead('menu', 'เมนูกับราคา', 'ดูไว้ก่อนได้ ยังกดสั่งไม่ได้')}
-    <div class="list">
-      ${menu.menus.map(m => `
-        <div class="li" style="cursor:default">
-          <span class="av">${esc(initial(m.name))}</span>
-          <div class="li-main">
-            <div class="li-title">${esc(m.name)}</div>
-            <div class="li-sub">${addonText(m)}</div>
-          </div>
-          <span class="li-p">฿${baht(m.price)}</span>
-        </div>`).join('')}
+    <div class="empty big">
+      <div class="empty-ic">${icon('store',46)}</div>
+      <h3>${esc(title)}</h3>
+      <p>${esc(sub)}</p>
     </div>
   </div>`;
 }
