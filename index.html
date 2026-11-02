@@ -30,9 +30,8 @@
     --brand-d:#a81f1f;      /* แดงเข้ม สำหรับตัวหนังสือเล็ก */
     --brand-l:#f6b9b9;      /* แดงอ่อน */
     --brand-mid:#e8605f;    /* แดงกลาง */
-
-    --r-card:22px;           /* ความมนของการ์ด */
-    --r-pill:999px;
+    --r:12px;               /* ความมนของทุกพื้นผิว — การ์ด ช่องกรอก แถว กล่อง ใช้ค่าเดียวกันหมด */
+    --r-pill:999px;         /* แคปซูล — เป็นรูปทรง ไม่ใช่ค่าความมน */
     --sh-card:0 6px 22px rgba(22,24,28,.07), 0 1px 3px rgba(22,24,28,.05);
     --sh-lift:0 10px 30px rgba(22,24,28,.12);
 
@@ -82,7 +81,7 @@
   }
   .appbar.stuck::after{opacity:.92}
   .appbar-ic{
-    width:42px; height:42px; flex:0 0 auto; border-radius:13px; display:grid; place-items:center;
+    width:42px; height:42px; flex:0 0 auto; border-radius:var(--r); display:grid; place-items:center;
     background:linear-gradient(145deg, var(--brand-mid), var(--brand-d)); color:#fff;
     box-shadow:0 6px 16px rgba(211,43,43,.3);
   }
@@ -127,7 +126,7 @@
 
   /* ===================== ส่วนเนื้อหา: หัวข้อ + เส้นคั่น ===================== */
   .card, .block{
-    background:var(--bg); border-radius:var(--r-card); box-shadow:var(--sh-card);
+    background:var(--bg); border-radius:var(--r); box-shadow:var(--sh-card);
     padding:18px; margin-bottom:14px;
   }
   .card:last-child, .block:last-child{margin-bottom:0}
@@ -148,7 +147,7 @@
     position:fixed; left:50%; transform:translateX(-50%);
     bottom:calc(10px + env(safe-area-inset-bottom, 0px));
     width:calc(100% - 24px); max-width:560px; z-index:25; display:flex;
-    background:var(--bg); border-radius:26px; box-shadow:var(--sh-lift);
+    background:var(--bg); border-radius:var(--r); box-shadow:var(--sh-lift);
     padding:6px;
   }
   .bottomnav button{
@@ -302,7 +301,7 @@
   /* ---------- การ์ดสถานะของวันที่เลือก ---------- */
   .srow{
     display:flex; align-items:center; gap:14px; margin-top:14px; padding:15px 18px;
-    background:var(--bg); border-radius:var(--r-card); box-shadow:var(--sh-card);
+    background:var(--bg); border-radius:var(--r); box-shadow:var(--sh-card);
   }
   .srow-ic{
     width:48px; height:48px; flex:0 0 auto; border-radius:50%; display:grid; place-items:center;
@@ -386,7 +385,7 @@
   .f label{font-size:12px; color:var(--ink-2); font-weight:700}
   input,select,textarea{
     font:inherit; width:100%; color:var(--ink); background:var(--soft);
-    border:1px solid var(--line); border-radius:11px; padding:12px 13px; transition:.16s;
+    border:1px solid var(--line); border-radius:var(--r); padding:12px 13px; transition:.16s;
   }
   input:focus,select:focus,textarea:focus{
     outline:none; border-color:var(--brand); background:var(--bg);
@@ -422,7 +421,7 @@
     font:inherit; color:inherit;
   }
   .li{cursor:pointer; transition:background .14s; padding-left:10px; padding-right:10px;
-      margin:0 -10px; border-radius:10px}
+      margin:0 -10px; border-radius:var(--r)}
   .li:hover{background:var(--soft)}
   .li:focus-visible{outline:2px solid var(--brand); outline-offset:-2px}
   .li:last-of-type, .li-read:last-of-type{border-bottom:none}
@@ -434,7 +433,7 @@
   .li-subrow .li-sub{margin:0}
   .li-end{display:flex; align-items:center; gap:9px; flex:0 0 auto}
   .li-del{
-    width:30px; height:30px; border-radius:9px; border:1px solid var(--line);
+    width:30px; height:30px; border-radius:var(--r); border:1px solid var(--line);
     background:var(--bg); color:var(--muted); cursor:pointer; display:grid; place-items:center;
   }
   .li-del:hover{color:var(--bad); border-color:var(--bad)}
@@ -443,18 +442,18 @@
 
   .row-head{display:flex; align-items:center; gap:10px}
   .chip{
-    display:inline-flex; align-items:center; padding:4px 10px; border-radius:8px;
+    display:inline-flex; align-items:center; padding:4px 10px; border-radius:var(--r);
     background:var(--soft); color:var(--ink-2); font-size:12px; font-weight:700;
     font-variant-numeric:tabular-nums; white-space:nowrap;
   }
-  .status{padding:4px 11px; border-radius:8px; font-size:12.5px; font-weight:700; white-space:nowrap}
+  .status{padding:4px 11px; border-radius:var(--r); font-size:12.5px; font-weight:700; white-space:nowrap}
   .status.is-good{background:var(--good-bg); color:var(--good-ink)}
   .status.is-warn{background:var(--warn-bg); color:var(--warn-ink)}
   .status.is-bad{background:var(--bad-bg); color:var(--bad-ink)}
 
   /* ===================== หน้าว่าง ===================== */
   .empty{text-align:center; padding:40px 10px; color:var(--muted); font-size:13.5px}
-  .empty-ic{width:62px; height:62px; margin:0 auto 16px; border-radius:20px;
+  .empty-ic{width:62px; height:62px; margin:0 auto 16px; border-radius:var(--r);
             background:var(--tint); color:var(--brand); display:grid; place-items:center}
   .empty-ic svg{width:30px; height:30px}
   .empty h3{margin:0 0 7px; font-size:18px; font-weight:800; color:var(--ink); letter-spacing:-.03em}
@@ -470,7 +469,7 @@
   .step:last-child{border-bottom:none}
   .step:hover .step-label{color:var(--brand)}
   .step.done{cursor:default}
-  .step-no{width:30px; height:30px; flex:0 0 auto; border-radius:10px; background:var(--tint);
+  .step-no{width:30px; height:30px; flex:0 0 auto; border-radius:var(--r); background:var(--tint);
            color:var(--brand-d); display:grid; place-items:center; font-weight:800; font-size:14px}
   .step.done .step-no{background:var(--good); color:#fff}
   .step-main{flex:1; min-width:0; display:block}
@@ -481,19 +480,19 @@
   /* ===================== กราฟ (บาง เรียบ) ===================== */
   .split{display:flex; gap:2px; height:10px; margin:14px 0 11px}
   .split i{display:block; height:100%; background:var(--line)}
-  .split i:first-child{border-radius:5px 0 0 5px}
-  .split i:last-child{border-radius:0 5px 5px 0}
-  .split i.only{border-radius:5px}
+  .split i:first-child{border-radius:var(--r) 0 0 var(--r)}
+  .split i:last-child{border-radius:0 var(--r) var(--r) 0}
+  .split i.only{border-radius:var(--r)}
   .seg-cost{background:var(--brand)!important}
   .seg-profit{background:var(--brand-l)!important}
   .seg-loss{background:var(--bad)!important}
   .legend{display:flex; flex-wrap:wrap; gap:7px 18px; font-size:12.5px; color:var(--ink-2)}
   .legend span{display:inline-flex; align-items:center; gap:7px}
-  .legend i{width:9px; height:9px; border-radius:3px; flex:0 0 auto}
+  .legend i{width:9px; height:9px; border-radius:50%; flex:0 0 auto}
   .legend b{color:var(--ink); font-variant-numeric:tabular-nums}
 
-  .meter{height:7px; border-radius:99px; overflow:hidden; background:var(--line-2)}
-  .meter>i{display:block; height:100%; border-radius:99px; background:var(--brand); transition:width .4s ease}
+  .meter{height:7px; border-radius:var(--r-pill); overflow:hidden; background:var(--line-2)}
+  .meter>i{display:block; height:100%; border-radius:var(--r-pill); background:var(--brand); transition:width .4s ease}
   .meter.is-good>i{background:var(--good)}
   .meter.is-warn>i{background:var(--warn)}
   .meter.is-bad>i{background:var(--bad)}
@@ -517,15 +516,15 @@
   .scroll table{min-width:430px}
 
   /* ===================== กล่องข้อความ ===================== */
-  .verdict{border-radius:12px; padding:14px 16px; font-size:13.5px; line-height:1.6; margin:0 0 16px}
+  .verdict{border-radius:var(--r); padding:14px 16px; font-size:13.5px; line-height:1.6; margin:0 0 16px}
   .verdict b:first-child{display:block; font-size:16px; margin-bottom:3px; letter-spacing:-.02em}
   .verdict.is-good{background:var(--good-bg); color:var(--good-ink)}
   .verdict.is-warn{background:var(--warn-bg); color:var(--warn-ink)}
   .verdict.is-bad{background:var(--bad-bg); color:var(--bad-ink)}
-  .note{background:var(--soft); border-left:3px solid var(--brand); border-radius:0 10px 10px 0;
+  .note{background:var(--soft); border-left:3px solid var(--brand); border-radius:0 var(--r) var(--r) 0;
         padding:13px 15px; font-size:13px; color:var(--ink-2); margin-top:12px; line-height:1.6}
   .hint{color:var(--muted); font-size:12.5px; margin:12px 0 0; line-height:1.55}
-  .panel{background:var(--soft); border-radius:12px; padding:15px}
+  .panel{background:var(--soft); border-radius:var(--r); padding:15px}
 
   details{margin-top:14px}
   details>summary{cursor:pointer; list-style:none; color:var(--brand); font-weight:700;
@@ -537,10 +536,10 @@
   /* ===================== หน้าเลือกของ ===================== */
   .picks{display:flex; flex-direction:column}
   .pick{display:grid; grid-template-columns:26px 1fr; gap:8px 13px; align-items:center;
-        padding:14px 10px; margin:0 -10px; border-bottom:1px solid var(--line-2); border-radius:10px}
+        padding:14px 10px; margin:0 -10px; border-bottom:1px solid var(--line-2); border-radius:var(--r)}
   .pick:last-child{border-bottom:none}
   .pick.on{background:var(--tint)}
-  .pick-box{width:26px; height:26px; border-radius:8px; border:2px solid var(--line);
+  .pick-box{width:26px; height:26px; border-radius:var(--r); border:2px solid var(--line);
             background:var(--bg); color:transparent; cursor:pointer; padding:0;
             display:grid; place-items:center; transition:.15s}
   .pick.on .pick-box{background:var(--brand); border-color:var(--brand); color:#fff}
@@ -553,7 +552,7 @@
 
   .savebar{
     position:sticky; bottom:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
-    background:var(--bg); border:1px solid var(--line); border-radius:14px;
+    background:var(--bg); border:1px solid var(--line); border-radius:var(--r);
     padding:14px 16px; box-shadow:0 6px 24px rgba(22,24,28,.1); margin-top:18px;
   }
   .savebar .btnrow .btn{flex:1}
@@ -565,7 +564,7 @@
   dialog{
     border:none; padding:0; color:var(--ink); background:var(--bg);
     width:100%; max-width:640px; max-height:92dvh; overflow:auto;
-    margin:auto auto 0; border-radius:28px 28px 0 0;
+    margin:auto auto 0; border-radius:var(--r) var(--r) 0 0;
     padding-bottom:env(safe-area-inset-bottom, 0px);
     box-shadow:0 -10px 50px rgba(22,24,28,.25);
     /* ลากหัวหน้าต่างลงเพื่อปิด — ตัวเลื่อนตั้งจาก JS */
@@ -589,7 +588,7 @@
   }
 
   .dlg-grip{
-    width:38px; height:4px; border-radius:99px; background:var(--line);
+    width:38px; height:4px; border-radius:var(--r-pill); background:var(--line);
     margin:0 auto; transition:background .16s;
   }
   .dlg-grip-hit{
@@ -621,7 +620,7 @@
     background:none; border:none; padding:0; text-decoration:underline;
     text-underline-offset:3px; text-decoration-thickness:1.5px;
   }
-  .dlg-tag.on{background:var(--tint); border-radius:99px; padding:4px 10px; text-decoration:none}
+  .dlg-tag.on{background:var(--tint); border-radius:var(--r-pill); padding:4px 10px; text-decoration:none}
   .dlg-x{
     flex:0 0 auto; width:34px; height:34px; border-radius:50%; cursor:pointer;
     border:none; background:var(--soft); color:var(--ink-2);
@@ -641,7 +640,7 @@
   .gchip{
     display:inline-flex; flex-direction:column; align-items:flex-start; gap:1px;
     border:1.5px solid var(--line); background:var(--bg); color:var(--ink);
-    border-radius:14px; padding:9px 14px; cursor:pointer; font:inherit; transition:.14s;
+    border-radius:var(--r); padding:9px 14px; cursor:pointer; font:inherit; transition:.14s;
   }
   .gchip-n{font-weight:800; font-size:13.5px}
   .gchip small{font-size:11px; color:var(--muted); font-weight:700}
@@ -650,11 +649,11 @@
   .gchip.on small{color:var(--brand)}
   .gchip.on .gchip-n::before{content:'✓ '; font-weight:900}
   .gpick-empty{
-    background:var(--soft); border-radius:14px; padding:13px 15px;
+    background:var(--soft); border-radius:var(--r); padding:13px 15px;
   }
   .gpick-empty b{font-size:13.5px}
   .gpick-empty p{margin:3px 0 0; font-size:12.5px; color:var(--ink-2); line-height:1.55}
-  .dlg-live{grid-column:1/-1; background:var(--tint); color:var(--brand-d); border-radius:11px;
+  .dlg-live{grid-column:1/-1; background:var(--tint); color:var(--brand-d); border-radius:var(--r);
             padding:12px 14px; font-size:13.5px; font-weight:700; line-height:1.5;
             font-variant-numeric:tabular-nums}
   .dlg-err{grid-column:1/-1; color:var(--bad-ink); font-size:12.5px; font-weight:700}
@@ -762,7 +761,7 @@
   @media(prefers-reduced-motion:reduce){
     .swap, .swap-r, .swap-l{animation:none}
   }
-  details > summary{transition:background-color .15s, color .15s; border-radius:10px}
+  details > summary{transition:background-color .15s, color .15s; border-radius:var(--r)}
   details > summary:active{background:var(--soft); color:var(--brand)}
 
   .gloss{display:flex; flex-direction:column; gap:16px}
@@ -802,7 +801,7 @@
     .scroll table{min-width:0}
     /* จอใหญ่: เป็นกล่องลอยกลางจอ ไม่ใช่แผ่นเลื่อนขึ้นจากล่าง */
     dialog{
-      max-width:540px; margin:auto; border-radius:26px; padding-bottom:0;
+      max-width:540px; margin:auto; border-radius:var(--r); padding-bottom:0;
       max-height:86dvh; box-shadow:0 24px 70px rgba(22,24,28,.3);
       transform:none;
     }
@@ -817,7 +816,7 @@
   .daybtns{display:grid; grid-template-columns:1fr 1fr; gap:12px}
   .daybtn{
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px;
-    padding:22px 12px; border-radius:16px; border:1.5px solid var(--line);
+    padding:22px 12px; border-radius:var(--r); border:1.5px solid var(--line);
     background:var(--bg); cursor:pointer; font:inherit; font-weight:800; font-size:16px;
     color:var(--ink); transition:.16s;
   }
@@ -836,7 +835,7 @@
   .pills{display:flex; flex-wrap:wrap; gap:8px}
   .pill{
     border:1.5px solid var(--line); background:var(--bg); color:var(--ink);
-    border-radius:12px; padding:10px 14px; cursor:pointer; font:inherit;
+    border-radius:var(--r); padding:10px 14px; cursor:pointer; font:inherit;
     font-weight:700; font-size:14px; display:inline-flex; align-items:center; gap:8px;
     transition:.16s;
   }
@@ -846,7 +845,7 @@
   .pill.on b{color:rgba(255,255,255,.8)}
 
   .stepper{display:flex; align-items:center; gap:0; width:fit-content;
-           border:1.5px solid var(--line); border-radius:12px; overflow:hidden}
+           border:1.5px solid var(--line); border-radius:var(--r); overflow:hidden}
   .stepper button{
     width:46px; height:46px; border:none; background:var(--soft); color:var(--ink);
     font-size:22px; font-weight:700; cursor:pointer; line-height:1;
@@ -860,7 +859,7 @@
   .tops{display:flex; flex-wrap:wrap; gap:8px}
   .tops .top{
     border:1.5px solid var(--line); background:var(--bg); color:var(--ink);
-    border-radius:99px; padding:9px 15px; cursor:pointer; font:inherit;
+    border-radius:var(--r-pill); padding:9px 15px; cursor:pointer; font:inherit;
     font-weight:700; font-size:13.5px; transition:.16s;
   }
   .tops .top b{color:var(--muted); font-weight:700; font-variant-numeric:tabular-nums}
@@ -875,14 +874,14 @@
   .day{
     display:grid; grid-template-columns:76px 1fr auto; gap:4px 12px; align-items:center;
     padding:12px 10px; margin:0 -10px; border:none; background:none; cursor:pointer;
-    border-bottom:1px solid var(--line-2); border-radius:10px; font:inherit; color:inherit;
+    border-bottom:1px solid var(--line-2); border-radius:var(--r); font:inherit; color:inherit;
     text-align:left; transition:background .14s;
   }
   .day:last-child{border-bottom:none}
   .day:hover{background:var(--soft)}
   .day-d{font-weight:700; font-size:13.5px}
-  .day-bar{height:8px; border-radius:99px; background:var(--line-2); overflow:hidden}
-  .day-bar>i{display:block; height:100%; border-radius:99px; background:var(--brand)}
+  .day-bar{height:8px; border-radius:var(--r-pill); background:var(--line-2); overflow:hidden}
+  .day-bar>i{display:block; height:100%; border-radius:var(--r-pill); background:var(--brand)}
   .day-v{font-weight:800; font-size:14px; font-variant-numeric:tabular-nums; text-align:right}
   .day-n{grid-column:2/-1; font-size:11.5px; font-variant-numeric:tabular-nums}
 
@@ -894,7 +893,7 @@
   .posgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px}
   .posbtn{
     display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between;
-    gap:10px; min-height:84px; padding:14px; border-radius:14px;
+    gap:10px; min-height:84px; padding:14px; border-radius:var(--r);
     border:1.5px solid var(--line); background:var(--bg); cursor:pointer;
     font:inherit; color:inherit; text-align:left; transition:.14s;
   }
@@ -916,11 +915,11 @@
   }
   .billclear:hover{color:var(--bad); background:var(--bad-bg)}
   .billclear svg{width:13px; height:13px}
-  .dlg-bill{background:var(--soft); border-radius:18px; padding:8px}
+  .dlg-bill{background:var(--soft); border-radius:var(--r); padding:8px}
   .bill{display:flex; flex-direction:column; gap:8px}
   .bill-line{
     display:grid; grid-template-columns:1fr auto auto; gap:8px 12px; align-items:center;
-    background:var(--bg); border-radius:16px; padding:12px 14px; box-shadow:var(--sh-card);
+    background:var(--bg); border-radius:var(--r); padding:12px 14px; box-shadow:var(--sh-card);
   }
   .bl-main{min-width:0; grid-column:1 / -1}
   .bl-name{font-weight:800; font-size:15px; display:flex; align-items:center; gap:8px}
@@ -964,7 +963,7 @@
     top:calc(env(safe-area-inset-top, 0px) + 14px);
     right:14px; transform:translateY(-12px);
     max-width:min(calc(100vw - 28px), 380px); width:max-content; text-align:left;
-    background:var(--ink); color:#fff; padding:13px 18px; border-radius:12px;
+    background:var(--ink); color:#fff; padding:13px 18px; border-radius:var(--r);
     border:none; overflow:visible;
     font-weight:700; font-size:14px; line-height:1.45; z-index:60; opacity:0; pointer-events:none;
     transition:opacity .2s, transform .2s; box-shadow:0 10px 30px rgba(22,24,28,.32);
@@ -988,7 +987,7 @@
     .billbox{
       position:sticky; top:20px; padding:20px;
       border:1px solid var(--line); border-top:1px solid var(--line);
-      border-radius:16px; background:var(--bg);
+      border-radius:var(--r); background:var(--bg);
       box-shadow:0 6px 24px rgba(22,24,28,.07);
       max-height:calc(100dvh - 40px); display:flex; flex-direction:column;
     }
@@ -1001,7 +1000,7 @@
     /* จอแคบ: บิลอยู่ล่าง แต่ยอดรวมกับปุ่มรับเงินติดขอบจอไว้ */
     .billfoot{
       position:sticky; bottom:calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
-      background:var(--bg); border:1px solid var(--line); border-radius:14px;
+      background:var(--bg); border:1px solid var(--line); border-radius:var(--r);
       padding:14px 16px; box-shadow:0 6px 24px rgba(22,24,28,.1); margin-top:18px;
     }
   }
@@ -1016,7 +1015,7 @@
   }
   .possearch-ic svg{width:16px; height:16px}
   .possearch input{
-    width:100%; border:1px solid var(--line); border-radius:12px; background:var(--soft);
+    width:100%; border:1px solid var(--line); border-radius:var(--r); background:var(--soft);
     padding:12px 14px 12px 38px; font:inherit; font-size:14px; color:var(--ink);
   }
   .possearch input::placeholder{color:var(--muted)}
@@ -1046,7 +1045,7 @@
   .posbtn.has{border-color:var(--brand); background:var(--tint)}
   .posbtn-c{
     position:absolute; top:-7px; right:-7px; min-width:24px; height:24px; padding:0 6px;
-    border-radius:99px; background:var(--brand); color:#fff;
+    border-radius:var(--r-pill); background:var(--brand); color:#fff;
     font-size:12.5px; font-weight:800; display:grid; place-items:center;
     box-shadow:0 2px 6px rgba(211,43,43,.4);
   }
@@ -1054,7 +1053,7 @@
 
   /* ===================== หน้าขาย: จัดใหม่ให้เป็นแคชเชียร์ ===================== */
   .posgrid{grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:9px}
-  .posbtn{min-height:76px; padding:12px; gap:6px; border-radius:13px}
+  .posbtn{min-height:76px; padding:12px; gap:6px; border-radius:var(--r)}
   .posbtn-n{font-size:13.5px; line-height:1.3}
   .posbtn-p{font-size:19px}
 
@@ -1063,7 +1062,7 @@
   .bill-n{flex:1; font-size:12.5px; color:var(--muted); font-weight:700}
   .bill-empty{
     text-align:center; color:var(--muted); font-size:13.5px; line-height:1.7;
-    padding:26px 8px; border:1px dashed var(--line); border-radius:12px;
+    padding:26px 8px; border:1px dashed var(--line); border-radius:var(--r);
   }
   .bill-empty span{font-size:12px; opacity:.85}
 
@@ -1101,7 +1100,7 @@
   .posrow{
     display:flex; align-items:center; gap:12px; width:100%; text-align:left;
     padding:13px 14px; border:1.5px solid transparent; background:var(--bg); cursor:pointer;
-    border-radius:16px; box-shadow:var(--sh-card);
+    border-radius:var(--r); box-shadow:var(--sh-card);
     font:inherit; color:inherit; transition:.14s;
   }
   .posrow:hover{transform:translateY(-1px); box-shadow:var(--sh-lift)}
@@ -1115,12 +1114,12 @@
     font-size:11.5px; font-weight:700; color:var(--muted);
   }
   .posrow-top::before{
-    content:''; width:6px; height:6px; border-radius:99px; background:var(--brand-l); flex:0 0 auto;
+    content:''; width:6px; height:6px; border-radius:var(--r-pill); background:var(--brand-l); flex:0 0 auto;
   }
   .posrow.has .posrow-top{color:var(--brand)}
   .posrow.has .posrow-top::before{background:var(--brand)}
   .posrow-c{
-    flex:0 0 auto; min-width:26px; height:26px; padding:0 8px; border-radius:99px;
+    flex:0 0 auto; min-width:26px; height:26px; padding:0 8px; border-radius:var(--r-pill);
     background:var(--brand); color:#fff; font-size:13px; font-weight:800;
     display:grid; place-items:center; box-shadow:0 4px 10px rgba(211,43,43,.3);
   }
@@ -1150,7 +1149,7 @@
   /* ===================== หน้าขาย =====================
      หน้านี้ใช้ยืนขายหน้าร้าน เลยเอาของที่ต้องกดขึ้นก่อน สรุปตัวเลขย่อให้เหลือแถบเดียว */
   .possum{
-    background:var(--bg); border-radius:var(--r-card); box-shadow:var(--sh-card);
+    background:var(--bg); border-radius:var(--r); box-shadow:var(--sh-card);
     padding:16px 18px; margin-bottom:14px;
   }
   .possum-top{display:flex; align-items:center; gap:12px; margin-bottom:12px}
@@ -1173,13 +1172,13 @@
   .qmenu{display:grid; grid-template-columns:repeat(auto-fill, minmax(148px,1fr)); gap:10px}
   .qmenu-b{
     display:flex; align-items:center; gap:10px; text-align:left; cursor:pointer; font:inherit;
-    border:none; background:var(--bg); box-shadow:var(--sh-card); border-radius:16px;
+    border:none; background:var(--bg); box-shadow:var(--sh-card); border-radius:var(--r);
     padding:12px 13px; color:var(--ink); transition:.14s;
   }
   .qmenu-b:hover{box-shadow:var(--sh-lift)}
   .qmenu-b:active{transform:scale(.97)}
   .qmenu-av{
-    width:36px; height:36px; flex:0 0 auto; border-radius:12px; display:grid; place-items:center;
+    width:36px; height:36px; flex:0 0 auto; border-radius:var(--r); display:grid; place-items:center;
     background:var(--tint); color:var(--brand-d); font-size:15px; font-weight:800;
   }
   .qmenu-m{flex:1; min-width:0}
@@ -1208,7 +1207,7 @@
 
   /* ===================== Dashboard แบบการ์ดหลายใบ ===================== */
   .dash{display:grid; grid-template-columns:1fr; gap:14px}
-  .dash .card{padding:18px; border:none; border-radius:var(--r-card); box-shadow:var(--sh-card)}
+  .dash .card{padding:18px; border:none; border-radius:var(--r); box-shadow:var(--sh-card)}
 
   /* ไอคอน + ข้อความอยู่แถวบนเสมอ ส่วนป้ายกับปุ่มตกลงแถวล่างเมื่อที่ไม่พอ
      ไม่งั้นคำอธิบายจะถูกบีบจนเหลือคอลัมน์แคบ ๆ แล้วตัดคำมั่ว */
@@ -1223,7 +1222,7 @@
   /* ป้ายกับปุ่มที่ตกลงมาแถวล่าง ให้ชิดซ้ายเป็นกลุ่มเดียวกัน */
   .card-head > .head-tag{align-self:center}
   .ic-tile{
-    width:38px; height:38px; flex:0 0 auto; border-radius:13px;
+    width:38px; height:38px; flex:0 0 auto; border-radius:var(--r);
     background:var(--tint); color:var(--brand); display:grid; place-items:center;
   }
   .card-head-t{flex:1; min-width:0}
@@ -1241,7 +1240,7 @@
   .shoprow{display:flex; align-items:center; gap:8px}
   .shoprow-main{
     flex:1; min-width:0; display:flex; align-items:center; gap:12px; text-align:left; cursor:pointer;
-    border:1px solid var(--line); border-radius:14px; background:var(--bg);
+    border:1px solid var(--line); border-radius:var(--r); background:var(--bg);
     padding:11px 13px; font:inherit; color:inherit; transition:.16s;
   }
   .shoprow-main:hover{border-color:var(--brand); background:var(--soft)}
@@ -1252,7 +1251,7 @@
     font-weight:800; font-size:14.5px; letter-spacing:-.02em;
   }
   .shoprow-n em{
-    font-style:normal; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:99px;
+    font-style:normal; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:var(--r-pill);
     background:var(--brand); color:#fff;
   }
   .shoprow-s{
@@ -1270,7 +1269,7 @@
   .shopswitch > span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .shopswitch svg{width:13px; height:13px; flex:0 0 auto}
   .shopswitch b{
-    flex:0 0 auto; font-size:10.5px; font-weight:800; padding:1px 7px; border-radius:99px;
+    flex:0 0 auto; font-size:10.5px; font-weight:800; padding:1px 7px; border-radius:var(--r-pill);
     background:var(--tint); color:var(--brand-d);
   }
   .shopswitch:hover{color:var(--brand-d)}
@@ -1280,7 +1279,7 @@
   .lockcard{display:flex; align-items:center; gap:13px}
   .shopswitch.fixed{cursor:default}
   .shopswitch.fixed:hover{color:var(--muted)}
-  .ic-tile.big{width:46px; height:46px; border-radius:14px;
+  .ic-tile.big{width:46px; height:46px; border-radius:var(--r);
     background:linear-gradient(145deg, var(--brand), var(--brand-d)); color:#fff}
   .ic-tile.big svg{width:20px; height:20px}
   .shopcard-m{flex:1; min-width:0}
@@ -1289,28 +1288,28 @@
   .shopcard-s{margin-top:3px; font-size:12px; color:var(--muted); font-weight:600;
               overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .statepill{
-    font-size:11px; font-weight:800; padding:3px 9px; border-radius:99px;
+    font-size:11px; font-weight:800; padding:3px 9px; border-radius:var(--r-pill);
     background:var(--soft); color:var(--muted);
   }
   .statepill.on{background:var(--good-bg); color:var(--good-ink)}
 
   .pricetag{
-    margin-left:7px; font-size:11.5px; font-weight:800; padding:2px 8px; border-radius:99px;
+    margin-left:7px; font-size:11.5px; font-weight:800; padding:2px 8px; border-radius:var(--r-pill);
     background:var(--tint); color:var(--brand-d); vertical-align:1px;
   }
 
   .navlist{
     display:flex; flex-direction:column; gap:2px;
-    background:var(--soft); border-radius:18px; padding:6px;
+    background:var(--soft); border-radius:var(--r); padding:6px;
   }
   .navrow{
     display:flex; align-items:center; gap:12px; width:100%; text-align:left; cursor:pointer;
     border:none; background:none; font:inherit; color:inherit;
-    padding:11px 10px; margin:0; border-radius:14px; transition:background .14s;
+    padding:11px 10px; margin:0; border-radius:var(--r); transition:background .14s;
   }
   .navrow:hover{background:var(--bg)}
   .navrow:active{transform:scale(.99)}
-  .navrow .ic-tile{width:34px; height:34px; border-radius:11px}
+  .navrow .ic-tile{width:34px; height:34px; border-radius:var(--r)}
   .navrow .ic-tile svg{width:17px; height:17px}
   .navrow-m{flex:1; min-width:0}
   .navrow-t{display:block; font-weight:700; font-size:14.5px}
@@ -1325,7 +1324,7 @@
   /* ===================== ย้อนหลัง ===================== */
   .mnav{display:flex; align-items:center; gap:10px}
   .mnav-b{
-    width:34px; height:34px; flex:0 0 auto; border-radius:11px; cursor:pointer;
+    width:34px; height:34px; flex:0 0 auto; border-radius:var(--r); cursor:pointer;
     border:1px solid var(--line); background:var(--bg); color:var(--ink-2);
     display:grid; place-items:center; transition:.16s;
   }
@@ -1335,10 +1334,10 @@
   .mnav-t{flex:1; min-width:0; text-align:center; font-size:17px; font-weight:800; letter-spacing:-.02em}
 
   .mbox{display:flex; flex-direction:column; gap:2px; background:var(--soft);
-        border-radius:18px; padding:6px}
+        border-radius:var(--r); padding:6px}
   .mbox-row{
     display:flex; align-items:center; gap:10px; padding:11px 12px;
-    background:var(--bg); border-radius:14px;
+    background:var(--bg); border-radius:var(--r);
   }
   .mbox-ic{
     width:28px; height:28px; flex:0 0 auto; border-radius:50%;
@@ -1364,7 +1363,7 @@
 
   .mon3{display:flex; gap:10px; margin-top:16px}
   .mon3 > div{
-    flex:1; min-width:0; background:var(--soft); border-radius:13px; padding:12px 13px;
+    flex:1; min-width:0; background:var(--soft); border-radius:var(--r); padding:12px 13px;
   }
   .mon3 span{display:block; font-size:11.5px; color:var(--muted); font-weight:700; line-height:1.35}
   .mon3 b{
@@ -1377,7 +1376,7 @@
   .dayx{display:flex; flex-direction:column; gap:10px}
   .dayx-row{
     display:flex; flex-direction:column; gap:9px; width:100%; text-align:left; cursor:pointer;
-    border:1px solid var(--line); border-radius:14px; background:var(--bg);
+    border:1px solid var(--line); border-radius:var(--r); background:var(--bg);
     padding:13px 14px; font:inherit; color:inherit; transition:.16s;
   }
   .dayx-row:hover{border-color:var(--brand); background:var(--soft)}
@@ -1385,7 +1384,7 @@
   .dayx-top{display:flex; align-items:center; gap:9px}
   .dayx-d{flex:0 0 auto; font-weight:800; font-size:14.5px}
   .dayx-net{
-    flex:1; min-width:0; font-size:11.5px; font-weight:800; padding:3px 9px; border-radius:99px;
+    flex:1; min-width:0; font-size:11.5px; font-weight:800; padding:3px 9px; border-radius:var(--r-pill);
     background:var(--tint); color:var(--brand-d); justify-self:start;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
@@ -1395,22 +1394,22 @@
     flex:0 0 auto; margin-left:auto; font-weight:800; font-size:16px;
     font-variant-numeric:tabular-nums;
   }
-  .dayx-bar{display:block; height:7px; border-radius:99px; background:var(--line-2); overflow:hidden}
+  .dayx-bar{display:block; height:7px; border-radius:var(--r-pill); background:var(--line-2); overflow:hidden}
   .dayx-bar i{
-    display:block; height:100%; border-radius:99px;
+    display:block; height:100%; border-radius:var(--r-pill);
     background:linear-gradient(90deg, var(--brand-mid), var(--brand));
   }
 
   .seeall{
     width:100%; margin-top:14px; padding:12px; cursor:pointer; font:inherit;
     font-size:13px; font-weight:800; color:var(--brand-d);
-    background:var(--tint); border:1px dashed var(--brand); border-radius:12px;
+    background:var(--tint); border:1px dashed var(--brand); border-radius:var(--r);
   }
   .seeall:hover{background:var(--brand); border-style:solid; color:#fff}
 
   /* การ์ดหลัก ไล่เฉดส้ม */
   .hero-card{
-    background:var(--bg); color:var(--ink); border-radius:var(--r-card);
+    background:var(--bg); color:var(--ink); border-radius:var(--r);
     padding:18px; position:relative; overflow:hidden; box-shadow:var(--sh-card);
   }
   .hero-main{position:relative; z-index:1}
@@ -1422,7 +1421,7 @@
     font-size:12.5px; font-weight:800; background:var(--bg); color:var(--ink-2);
   }
   .shoppill.on{border-color:var(--brand-l); color:var(--brand)}
-  .shoppill i{width:7px; height:7px; border-radius:99px; background:var(--muted)}
+  .shoppill i{width:7px; height:7px; border-radius:var(--r-pill); background:var(--muted)}
   .shoppill.on i{background:#13a05a; box-shadow:0 0 0 3px rgba(19,160,90,.22)}
   .shoppill:active{transform:scale(.95)}
 
@@ -1437,7 +1436,7 @@
   .hero-side{flex:0 0 auto; display:flex; flex-direction:column; gap:10px; text-align:right}
   .hero-side span{display:block; font-size:11px; color:var(--muted); font-weight:700}
   .hero-side b{display:block; font-size:16px; font-weight:800; font-variant-numeric:tabular-nums}
-  .hero-ic{width:40px; height:40px; border-radius:13px; background:var(--tint); color:var(--brand);
+  .hero-ic{width:40px; height:40px; border-radius:var(--r); background:var(--tint); color:var(--brand);
            display:grid; place-items:center; flex:0 0 auto}
   .hero-k{font-size:15px; font-weight:800; letter-spacing:-.02em}
   .hero-sub{font-size:12px; color:var(--muted); font-weight:600}
@@ -1452,7 +1451,7 @@
              border-top:1px solid var(--line); font-size:12.5px; color:var(--ink-2); font-weight:600}
 
   /* การ์ดสถิติสีพาสเทล */
-  .stat-card{border-radius:var(--r-card); padding:16px 16px 10px; position:relative;
+  .stat-card{border-radius:var(--r); padding:16px 16px 10px; position:relative;
              overflow:hidden; box-shadow:var(--sh-card)}
   .stat-card.tint-o{background:var(--tint)}
   .stat-card.tint-g{background:var(--soft)}
@@ -1468,7 +1467,7 @@
   .rankx-row{display:flex; align-items:center; gap:12px}
   .rankx-no{
     width:28px; height:28px; min-width:28px; flex:0 0 auto; padding:0 4px;
-    border-radius:99px; background:var(--soft);
+    border-radius:var(--r-pill); background:var(--soft);
     color:var(--ink-2); display:grid; place-items:center; font-weight:800; font-size:13px;
   }
   .rankx-no.top{background:var(--brand); color:#fff; box-shadow:0 3px 9px rgba(211,43,43,.35)}
@@ -1528,14 +1527,14 @@
   .billrow{
     display:flex; align-items:center; gap:12px; width:100%; text-align:left;
     padding:13px 10px; margin:0 -10px; border:none; background:none; cursor:pointer;
-    border-bottom:1px solid var(--line-2); border-radius:12px;
+    border-bottom:1px solid var(--line-2); border-radius:var(--r);
     font:inherit; color:inherit; transition:background .14s;
   }
   .billrow:last-child{border-bottom:none}
   .billrow:hover{background:var(--soft)}
   .billrow:focus-visible{outline:2px solid var(--brand); outline-offset:-2px}
   .billrow-t{
-    flex:0 0 auto; width:50px; height:30px; border-radius:9px; background:var(--tint);
+    flex:0 0 auto; width:50px; height:30px; border-radius:var(--r); background:var(--tint);
     color:var(--brand-d); display:grid; place-items:center;
     font-size:12px; font-weight:800; font-variant-numeric:tabular-nums;
   }
@@ -1562,7 +1561,7 @@
   .dlg-body .posrow{padding:10px; gap:10px}
   .dlg-body .posrow-n{font-size:14px}
   .dlg-body .posrow-p{font-size:15.5px}
-  .dlg-body .posrow-add{width:26px; height:26px; border-radius:8px}
+  .dlg-body .posrow-add{width:26px; height:26px; border-radius:var(--r)}
   .dlg-body .posrow-add svg{width:14px; height:14px}
   .dlg-body .posrow-c{min-width:21px; height:21px; font-size:11.5px}
 
