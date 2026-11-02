@@ -42,6 +42,7 @@
 
     --nav-h:62px;
     --drag:0px;              /* ระยะที่ลากหัวหน้าต่างลงอยู่ ตั้งจาก JS ตอนลากเท่านั้น */
+    --ease:cubic-bezier(.2,.9,.3,1);   /* จังหวะเดียวกันทั้งแอป เข้าเร็วออกนุ่ม */
     color-scheme: light;
   }
 
@@ -641,6 +642,75 @@
   .dlg-foot .btn.primary{flex:1.5}
   .dlg-foot .btn.ghost{flex:0 1 auto; padding-left:18px; padding-right:18px}
   .dlg-foot .btn.danger{flex:0 1 auto}
+
+  /* ===================== แตะแล้วตอบสนอง =====================
+     ของที่กดได้ทุกชิ้นควรยุบลงตอนนิ้วแตะ ไม่งั้นรู้สึกว่าแอปไม่รับรู้ว่าเรากด
+     แบ่ง 3 ระดับตามขนาด ของใหญ่ยุบน้อย ของเล็กยุบเยอะ จะได้รู้สึกเท่ากัน
+     ใช้ transform อย่างเดียว ไม่แตะ layout เลยไม่ทำให้หน้ากระตุก */
+  .tap-s, .tap-m, .tap-l{
+    transition:transform .15s var(--ease), background-color .15s, color .15s, box-shadow .18s;
+    transform-origin:center;
+  }
+  .tap-s:active:not(:disabled){transform:scale(.90)}
+  .tap-m:active:not(:disabled){transform:scale(.95)}
+  .tap-l:active:not(:disabled){transform:scale(.985)}
+
+  /* เล็ก — ปุ่มไอคอนกลม ปุ่มบวก-ลบ */
+  .hsearch-x, .wk-nav button, .li-del, .stepper button, .bl-qty button, .bl-del,
+  .pick-box, .mnav-b, .dlg-tag{
+    transition:transform .15s var(--ease), background-color .15s, color .15s, border-color .15s;
+    transform-origin:center;
+  }
+  .hsearch-x:active, .wk-nav button:active:not(:disabled), .li-del:active,
+  .stepper button:active, .bl-qty button:active, .bl-del:active,
+  .pick-box:active, .mnav-b:active:not(:disabled), .dlg-tag:active{transform:scale(.88)}
+
+  /* กลาง — ชิป ปุ่มข้อความ ช่องวันในปฏิทิน */
+  .cat, .dseg-b, .pill, .top, .gchip, .step, .bl-top, .billclear,
+  .home-sec button, .srow-a, .wk-m, .shopswitch, .statepill, .shoppill{
+    transition:transform .15s var(--ease), background-color .15s, color .15s, box-shadow .18s;
+    transform-origin:center;
+  }
+  .cat:active, .dseg-b:active, .pill:active, .top:active, .gchip:active, .step:active,
+  .bl-top:active, .billclear:active, .home-sec button:active, .srow-a:active,
+  .wk-m:active, .shopswitch:active:not(:disabled), .statepill:active{transform:scale(.94)}
+
+  /* วันในปฏิทิน ยุบเฉพาะวงกลมตัวเลข ไม่ยุบทั้งช่อง จะได้ไม่ขยับชื่อวัน */
+  .wk-d .num{transition:transform .15s var(--ease), background-color .16s, box-shadow .16s}
+  .wk-d:active:not(:disabled) .num{transform:scale(.88)}
+
+  /* ใหญ่ — แถวรายการ การ์ดที่กดได้ ปุ่มเต็มความกว้าง */
+  .li, .seeall, .shoprow-main, .billrow, .pick-main, .day{
+    transition:transform .15s var(--ease), background-color .14s, color .15s, box-shadow .18s;
+    transform-origin:center;
+  }
+  .li:active, .seeall:active, .shoprow-main:active, .billrow:active,
+  .pick-main:active, .day:active{transform:scale(.985)}
+
+  /* แถบเมนูล่าง — ยุบทั้งปุ่มรวมวงกลมที่ลอยอยู่ด้วย */
+  .bottomnav button{transition:color .16s, transform .15s var(--ease)}
+  .bottomnav button:active{transform:scale(.90)}
+
+  /* แท่งกราฟเป็น SVG ขยับ transform แล้วจุดหมุนเพี้ยน ใช้จางลงแทน */
+  .chart .cday{transition:opacity .15s}
+  .chart .cday:active{opacity:.55}
+
+  @media(prefers-reduced-motion:reduce){
+    .tap-s, .tap-m, .tap-l, .cat, .dseg-b, .pill, .top, .gchip, .li, .seeall,
+    .bottomnav button, .wk-d .num, .billrow, .shoprow-main{transition:none}
+    .tap-s:active, .tap-m:active, .tap-l:active, .cat:active, .dseg-b:active,
+    .pill:active, .top:active, .gchip:active, .li:active, .seeall:active,
+    .bottomnav button:active, .wk-d:active .num, .billrow:active,
+    .shoprow-main:active{transform:none}
+  }
+
+  /* สลับแท็บแล้วเนื้อหาค่อย ๆ ลอยขึ้นมา ไม่ใช่กระพริบเปลี่ยนทันที */
+  @keyframes viewin{from{opacity:0; transform:translateY(7px)} to{opacity:1; transform:none}}
+  #view.swap, #homeTop.swap{animation:viewin .24s var(--ease)}
+  @media(prefers-reduced-motion:reduce){ #view.swap, #homeTop.swap{animation:none} }
+
+  details > summary{transition:background-color .15s, color .15s; border-radius:10px}
+  details > summary:active{background:var(--soft); color:var(--brand)}
 
   .gloss{display:flex; flex-direction:column; gap:16px}
   .gloss-row{display:flex; flex-direction:column; gap:4px}
@@ -2166,7 +2236,8 @@ function render(){
     if(si) si.value = '';
   }
 
-  document.getElementById('view').innerHTML =
+  const view = document.getElementById('view');
+  view.innerHTML =
     tab==='sale'  ? viewPOS()   :
     tab==='today' ? viewToday() :
     tab==='setup' ? viewSetup() :
@@ -2176,7 +2247,20 @@ function render(){
     tab==='ing'   ? viewIng()   :
     tab==='fixed' ? viewFixed() :
     tab==='dash'  ? viewDash()  : viewMore();
+
+  // เนื้อหาลอยขึ้นมาเฉพาะตอนเปลี่ยนหน้า
+  // render() ถูกเรียกบ่อยมาก (กดบันทึก เปิด-ปิดร้าน สลับวัน) ถ้าเล่นทุกครั้งจะรำคาญ
+  if(tab !== shownTab){
+    shownTab = tab;
+    [view, document.getElementById('homeTop')].forEach(el => {
+      if(!el || !el.classList) return;
+      el.classList.remove('swap');
+      void el.offsetWidth;            // บังคับให้เบราว์เซอร์เริ่มแอนิเมชันรอบใหม่
+      el.classList.add('swap');
+    });
+  }
 }
+let shownTab = null;        // หน้าที่วาดไว้ล่าสุด ใช้ดูว่าเปลี่ยนหน้าหรือแค่วาดซ้ำ
 const ADMIN_TABS = ['ing','fixed','dash','menu'];   // เครื่องมือของคนดูแล ไม่ใช่ของหน้าร้าน
 function go(t){
   if(ADMIN_TABS.includes(t) && !adminOk(() => go(t))) return;

@@ -76,7 +76,7 @@ if ([cTop, cSize, lift, padTop, svgH, gap].some(v => v === null || Number.isNaN(
 }
 
 // ตัวเลือกหน้าใน render() ต้องรู้จักทุกแท็บ ไม่งั้นแท็บนั้นจะเงียบ ๆ ไปโผล่หน้าสำรอง
-const dispatch = (/getElementById\('view'\)\.innerHTML =([\s\S]{0,600}?);/.exec(script) || [])[1] || '';
+const dispatch = (/\bview\.innerHTML\s*=([\s\S]{0,600}?);/.exec(script) || [])[1] || '';
 const tabsBlock = (/const TABS = \[([\s\S]*?)\];/.exec(script) || [])[1] || '';
 const keys = [...tabsBlock.matchAll(/\['(\w+)'/g)].map(m => m[1]);
 const unrouted = keys.filter(k => !new RegExp("tab\\s*===?\\s*'" + k + "'").test(dispatch));
