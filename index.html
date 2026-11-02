@@ -147,11 +147,13 @@
   }
   .bottomnav button{
     flex:1; border:none; background:none; cursor:pointer; font:inherit;
-    padding:8px 2px 7px; color:var(--muted); font-size:11px; font-weight:700;
+    padding:8px 1px 7px; color:var(--muted); font-size:11px; font-weight:700;
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
     transition:color .16s; position:relative;
   }
   .bottomnav button svg{width:21px; height:21px; position:relative; z-index:1}
+  /* 5 เมนูแล้ว เหลือราว 70px ต่ออัน ป้ายต้องไม่ตัดบรรทัด */
+  .bottomnav button span{max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   /* วงกลมจาง ๆ หลังไอคอนของเมนูที่เลือกอยู่ */
   .bottomnav button::before{
     content:''; position:absolute; top:4px; left:50%; transform:translateX(-50%);
@@ -2054,6 +2056,7 @@ const icon = (k,s=18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fi
 const TABS = [
   ['today', 'แดชบอร์ด',   'today'],
   ['sale',  'ขาย',        'cart',  'ขายหน้าร้าน'],
+  ['money', 'รายจ่าย',     'down',  'รายรับ-รายจ่าย'],
   ['hist',  'ย้อนหลัง',    'hist'],
   ['setup', 'ตั้งค่า',     'more',  'ตั้งค่าระบบ']
 ];
@@ -2071,6 +2074,7 @@ function headStat(){
   if(tab === 'today') return null;    // การ์ดหลักบน Dashboard บอกอยู่แล้ว ไม่ต้องซ้ำ
 
   if(tab === 'hist') return null;     // การ์ดเดือนบอกครบแล้ว
+  if(tab === 'money') return null;    // การ์ดรายจ่ายบอกครบแล้ว
   if(tab === 'setup') return null;    // การ์ดร้านบอกครบแล้ว
   if(tab === 'more'){
     return {k:'อื่น ๆ', v:'', s:'ของที่นาน ๆ ใช้ที'};
@@ -2159,6 +2163,7 @@ function render(){
     tab==='today' ? viewToday() :
     tab==='setup' ? viewSetup() :
     tab==='hist'  ? viewHist()  :
+    tab==='money' ? viewExpense() :
     tab==='menu'  ? viewMenu()  :
     tab==='ing'   ? viewIng()   :
     tab==='fixed' ? viewFixed() :
@@ -4191,7 +4196,7 @@ function renderHome(){
 /* ---------- แท็บย่อยในหน้า ใช้ซ้ำได้ทุกหน้า =====================
    วาดทุกแผงไว้ตั้งแต่แรกแล้วสลับด้วย CSS ไม่ได้วาดใหม่ตอนกด
    เลยไม่เสียตำแหน่งสกรอลล์และไม่ต้องคิดเลขซ้ำ */
-const segs = { dash:'sale', setup:'shop' };     // แต่ละหน้าจำแท็บย่อยที่เปิดค้างไว้
+const segs = { dash:'sale', setup:'shop', exp:'day' };     // แต่ละหน้าจำแท็บย่อยที่เปิดค้างไว้
 const segOn = (bar, key) => segs[bar] === key;
 
 // แถบแท็บย่อย — items เป็น [คีย์, ชื่อ, ไอคอน]
@@ -4539,6 +4544,78 @@ function bigDayCut(keys){
   const avg = keys.reduce((a,k) => a + sumDay(k).sale, 0) / keys.length;
   return Math.max(100, Math.round(avg / 100) * 100);
 }
+
+/* ===================== หน้ารายจ่าย =====================
+   เงินเข้ามีแท็บขายของตัวเองอยู่แล้ว ฝั่งเงินออกเลยควรมีที่อยู่เท่า ๆ กัน
+   ของในหน้านี้ใช้ชิ้นส่วนเดิมทั้งหมด (moneyBox / expRows / expByNote) ไม่มี logic ใหม่ */
+const EXPS_SHOWN = 8;           // โชว์รายการล่าสุดเท่านี้ ที่เหลือกดดูทั้งหมด
+
+function viewExpense(){
+  const key = dayKey();
+  const mk = curMonth();
+  const d = sumDay(key), m = sumMonth(mk);
+
+  const today = (db.expenses||[]).filter(x => x.d === key)
+                  .sort((a,b) => String(b.t||'').localeCompare(String(a.t||'')));
+  const inMonth = (db.expenses||[]).filter(x => monthKey(x.d) === mk)
+                  .sort((a,b) => (b.d + (b.t||'')).localeCompare(a.d + (a.t||'')));
+  const groups = expByNote(mk);
+  const top = groups.length ? Math.max(groups[0].total, 1) : 1;
+
+  const addBtn = `<button type="button" class="btn sm primary" onclick="expenseDialog(null)">${icon('plus',14)} เพิ่ม</button>`;
+
+  /* ---- วันนี้ ---- */
+  const paneDay = `
+  <div class="card">
+    ${cardHead('down','เงินเข้า-ออกวันนี้', thaiDate(key), addBtn)}
+    ${moneyBox(d.sale, d.exp)}
+    ${today.length ? `<div class="sec">จ่ายไปวันนี้ · ${today.length} รายการ</div>
+      ${expRows(today.slice(0, EXPS_SHOWN), false)}` : `<div class="empty" style="padding:24px 10px">
+      <p style="margin:0">วันนี้ยังไม่ได้บันทึกรายจ่าย — ซื้อของอะไรมากดเพิ่มไว้ได้เลย</p></div>`}
+    <button type="button" class="seeall" onclick="dayMoneyDialog('${key}')">
+      ดูรายละเอียดของวันนี้</button>
+  </div>`;
+
+  /* ---- เดือนนี้ ---- */
+  const paneMonth = `
+  <div class="card">
+    ${cardHead('sum','เงินเข้า-ออกทั้งเดือน', thaiMonth(mk), `<span class="head-tag">บันทึก ${m.days} วัน</span>`)}
+    ${moneyBox(m.sale, m.exp)}
+    <button type="button" class="seeall" onclick="monthMoneyDialog('${mk}')">
+      ดูรายละเอียดทั้งเดือน</button>
+  </div>
+
+  ${groups.length ? `<div class="card">
+    ${cardHead('box','เงินออกไปกับอะไรบ้าง','รวมรายการที่ซื้อซ้ำ ๆ เข้าด้วยกัน')}
+    <div class="rankx">${groups.map(g => `
+      <div class="rankx-row">
+        <span class="rankx-no">${g.times}</span>
+        <div class="rankx-main">
+          <div class="rankx-n">${esc(g.note)}</div>
+          <div class="meter"><i style="width:${clamp(g.total/top*100,4,100)}%"></i></div>
+        </div>
+        <div class="rankx-v">${money(g.total)}<span>${g.times} ครั้ง</span></div>
+      </div>`).join('')}</div>
+  </div>` : ''}
+
+  <div class="card">
+    ${cardHead('hist','รายจ่ายของเดือนนี้',
+      inMonth.length ? `${inMonth.length} รายการ · แตะเพื่อแก้ไข` : 'ยังไม่มีรายจ่าย', addBtn)}
+    ${expRows(inMonth.slice(0, EXPS_SHOWN), true)}
+    ${inMonth.length > EXPS_SHOWN ? `<button type="button" class="seeall" onclick="monthMoneyDialog('${mk}')">
+      ดูรายจ่ายทั้งหมดของเดือนนี้ (${inMonth.length} รายการ)</button>` : ''}
+  </div>`;
+
+  // รายจ่ายไม่ใช่เรื่องดีหรือร้าย ใช้โทนกลางเสมอ ไม่ต้องเขียวไม่ต้องแดง
+  return srow('flat', 'down', 'จ่ายไปเดือนนี้',
+      m.exp > 0 ? `฿${baht(m.exp)} จาก ${inMonth.length} รายการ · ${thaiMonth(mk)}`
+                : `ยังไม่มีรายจ่ายใน${thaiMonth(mk)}`,
+      'เพิ่ม', 'expenseDialog(null)')
+    + segBar('exp', [['day','วันนี้','today'], ['month','เดือนนี้','sum']])
+    + segPane('exp','day',   paneDay,   '')
+    + segPane('exp','month', paneMonth, '');
+}
+
 
 function viewHist(){
   const days = allDays();
