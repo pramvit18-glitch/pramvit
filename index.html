@@ -1378,7 +1378,7 @@
   .mbox-ic svg{width:15px; height:15px}
   .mbox-row.in .mbox-ic{background:var(--good-bg); color:var(--good-ink)}
   .mbox-row.out .mbox-ic{background:var(--tint); color:var(--brand)}
-  .mbox-row.net .mbox-ic{background:var(--soft); color:var(--ink-2)}
+  .mbox-row.net .mbox-ic{background:var(--bg); color:var(--ink)}
   .mbox-k{flex:1; min-width:0; font-size:13px; font-weight:700; color:var(--ink-2);
           overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .mbox-row b{
@@ -1387,11 +1387,12 @@
   }
   .mbox-row.in b{color:var(--good-ink)}
   .mbox-row.out b{color:var(--brand)}
-  .mbox-row.net{background:var(--ink); }
-  .mbox-row.net .mbox-k{color:rgba(255,255,255,.8)}
-  .mbox-row.net .mbox-ic{background:rgba(255,255,255,.14); color:#fff}
-  .mbox-row.net b{color:#fff}
-  .mbox-row.net b.bad{color:#ff8f8f}
+  /* บรรทัด "เหลือ" เป็นบรรทัดสรุป ทำให้เด่นด้วยตัวหนังสือเข้มกับเลขใหญ่ขึ้น
+     ของเดิมใส่พื้นสีดำไว้ แต่กล่อง .mbox มี padding ซ้ายขวา 14px พื้นดำเลยกินไม่เต็มกล่อง
+     เห็นเป็นแท่งดำมุมเหลี่ยมลอยอยู่ข้างใน แถมแอปนี้ตั้งใจไม่มีโหมดมืด จึงเอาพื้นดำออก */
+  .mbox-row.net .mbox-k{color:var(--ink)}
+  .mbox-row.net b{font-size:19px; color:var(--ink)}
+  .mbox-row.net b.bad{color:var(--bad)}
 
   .mon3{display:flex; gap:10px; margin-top:16px}
   .mon3 > div{
