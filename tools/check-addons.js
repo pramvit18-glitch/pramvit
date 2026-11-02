@@ -77,7 +77,7 @@ const probe = `
   const before = orderTotal() - 10;
   out.push(['เลือกไส้แล้วขึ้นในบิล', orderDialogHTML().indexOf('ไข่ไก่') >= 0]);
   out.push(['ไส้บวกราคาให้ถูก', orderTotal() === before + 10]);
-  out.push(['ปุ่มเปลี่ยนเป็นแก้ไส้', orderDialogHTML().indexOf('แก้ไส้ (1 อย่าง)') >= 0]);
+  out.push(['ปุ่มเปลี่ยนเป็นแก้ไส้ พร้อมบอกจำนวน', orderDialogHTML().indexOf('แก้ไส้ (1)') >= 0]);
   pickLineTop(lid, 'ไข่ไก่', btn);
   out.push(['กดซ้ำเอาไส้ออกได้', orderTotal() === before]);
   out.push(['ไม่เหลือค่าค้างนอกบรรทัด (window._topPick)', typeof window._topPick === 'undefined']);

@@ -110,6 +110,17 @@ const neutralised = /\.sale-side > \*\{margin-top:0; margin-bottom:0\}/.test(css
   push(`ช่องรอบ ${k} เป็น ${gapNum}px เปล่า ๆ ไม่บวกมาร์จิ้นซ้ำ`, extra === 0);
 });
 
+/* ---------- แถวในบิล (หน้าต่างสั่งสินค้า) ----------
+   เคยเป็น 3 บรรทัดซ้อน: ชื่อ+ราคา / ชิปเลือกไส้ / ปุ่มนับ+ลบ
+   และยังเป็นการ์ดขาวมีเงาซ้อนในกล่องเทาซ้อนในหน้าต่างอีก รวม 3 ชั้น */
+push('ปุ่มนับ ชิปไส้ ปุ่มลบ อยู่บรรทัดเดียวกัน', /\.bl-act\{[^}]*display:flex/.test(css));
+push('ชิปเลือกไส้หดได้เมื่อที่ไม่พอ', /\.bl-top\{[^}]*flex:0 1 auto[\s\S]*?text-overflow:ellipsis/.test(css));
+push('ปุ่มลบชิดขวาสุดของแถว', /\.bl-del\{[^}]*margin-left:auto/.test(css));
+push('ในหน้าต่าง แถวเป็นแบบแบน ไม่ใช่การ์ดซ้อนการ์ด',
+  /\.dlg-body \.bill-line\{[^}]*background:none[^}]*box-shadow:none/.test(css));
+push('แถวในหน้าต่างคั่นด้วยเส้น ไม่ใช่ช่องว่าง',
+  /\.dlg-body \.bill-line \+ \.bill-line\{border-top:1px/.test(css));
+
 const probe = `
 (() => {
   const r = [];
@@ -160,6 +171,19 @@ const probe = `
     (ing.match(/li-end/g)||[]).length > 0
     && ing.split('li-end')[1].slice(0, 400).indexOf('class="chip"') < 0]);
   r.push(['ของที่ซื้อมา: แท็กปิดครบ', bal(ing)]);
+
+  /* ---- แถวในบิลต้องเหลือ 2 บรรทัด ---- */
+  order = { lines: [] }; orderOpen = true;
+  tapMenu(db.menus[0].id);
+  const bill = orderDialogHTML();
+  const line = bill.split('<div class="bill-line">')[1] || '';
+  r.push(['แถวในบิลมีสองก้อน: ชื่อ-ราคา กับ แถวปุ่ม',
+    line.indexOf('bl-main') >= 0 && line.indexOf('bl-act') >= 0]);
+  r.push(['ชิปเลือกไส้ย้ายลงไปอยู่ในแถวปุ่มแล้ว',
+    line.indexOf('bl-act') >= 0 && line.indexOf('bl-act') < line.indexOf('bl-top')]);
+  r.push(['ปุ่มนับ ชิปไส้ ปุ่มลบ อยู่ในก้อนเดียวกันครบสาม',
+    ['bl-qty','bl-top','bl-del'].every(c => line.indexOf(c) > line.indexOf('bl-act'))]);
+  order = null; orderOpen = false;
 
   /* ---- หน้าขายแบบใหม่ ---- */
   const pos = viewPOS();

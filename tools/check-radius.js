@@ -23,14 +23,15 @@ const OK = v =>
   v === 'var(--r)' ||            // พื้นผิว
   v === 'var(--r-pill)' ||       // แคปซูล
   v === '50%' ||                 // วงกลม
+  v === '0' ||                   // ไม่มีมุมมน — เป็นเจตนา ไม่ใช่ตัวเลขลอย
   v === 'inherit' ||
   // มุมแยก เช่น "var(--r) var(--r) 0 0" — ทุกส่วนต้องเป็น token หรือ 0
   (/\s/.test(v) && v.split(/\s+/).every(p => p === '0' || p === 'var(--r)' || p === 'var(--r-pill)'));
 
 const bad = Object.keys(kinds).filter(v => !OK(v));
 push(`ไม่มีตัวเลขความมนดิบ ๆ หลงเหลือ${bad.length ? ' — เจอ: ' + bad.join(' | ') : ''}`, !bad.length);
-push(`จำนวนค่าความมนที่ใช้ไม่เกิน 6 แบบ (ตอนนี้ ${Object.keys(kinds).length})`,
-  Object.keys(kinds).length <= 6);
+push(`จำนวนค่าความมนที่ใช้ไม่เกิน 7 แบบ (ตอนนี้ ${Object.keys(kinds).length})`,
+  Object.keys(kinds).length <= 7);
 
 /* ---------- รูปทรงต้องไม่ถูกยุบไปด้วย ----------
    วงกลมกับแคปซูลเป็น "รูปทรง" ไม่ใช่ค่าความมน ถ้าโดนเปลี่ยนเป็น 12px คือดีไซน์พัง */

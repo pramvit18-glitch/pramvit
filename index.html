@@ -918,10 +918,12 @@
   .dlg-bill{background:var(--soft); border-radius:var(--r); padding:8px}
   .bill{display:flex; flex-direction:column; gap:8px}
   .bill-line{
-    display:grid; grid-template-columns:1fr auto auto; gap:8px 12px; align-items:center;
+    display:flex; flex-direction:column; gap:8px;
     background:var(--bg); border-radius:var(--r); padding:12px 14px; box-shadow:var(--sh-card);
   }
-  .bl-main{min-width:0; grid-column:1 / -1}
+  .bl-main{min-width:0}
+  /* ปุ่มนับจำนวน ชิปเลือกไส้ และปุ่มลบ อยู่บรรทัดเดียวกันหมด ลดจาก 3 บรรทัดเหลือ 2 */
+  .bl-act{display:flex; align-items:center; gap:10px}
   .bl-name{font-weight:800; font-size:15px; display:flex; align-items:center; gap:8px}
   .bl-name .bl-sum{margin-left:auto; font-size:16px; color:var(--brand)}
   .bl-add{
@@ -929,7 +931,8 @@
     font-variant-numeric:tabular-nums; line-height:1.5;
   }
   .bl-top{
-    margin-top:8px; padding:6px 12px; cursor:pointer; font:inherit; font-size:12px; font-weight:800;
+    flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    padding:6px 12px; cursor:pointer; font:inherit; font-size:12px; font-weight:800;
     border:1.5px dashed var(--brand-l); border-radius:var(--r-pill);
     background:var(--bg); color:var(--brand);
   }
@@ -937,7 +940,7 @@
   .bl-top.on{border-style:solid; border-color:var(--line); background:var(--soft); color:var(--ink-2)}
   .bl-top.on:hover{border-color:var(--brand); background:var(--tint); color:var(--brand)}
   .bl-qty{
-    grid-column:1; justify-self:start;
+    flex:0 0 auto;
     display:flex; align-items:center; gap:2px; background:var(--soft);
     border-radius:var(--r-pill); padding:3px;
   }
@@ -950,7 +953,7 @@
   .bl-qty span{min-width:30px; text-align:center; font-weight:800; font-variant-numeric:tabular-nums}
   .bl-sum{font-weight:800; font-size:15px; font-variant-numeric:tabular-nums}
   .bl-del{
-    grid-column:3; justify-self:end;
+    flex:0 0 auto; margin-left:auto;
     width:34px; height:34px; border-radius:50%; border:none;
     background:var(--soft); color:var(--muted); cursor:pointer; display:grid; place-items:center;
   }
@@ -1577,13 +1580,21 @@
   .dlg-body .posrow-add svg{width:14px; height:14px}
   .dlg-body .posrow-c{min-width:21px; height:21px; font-size:11.5px}
 
-  /* บิลเลื่อนในกรอบของตัวเอง */
-  .dlg-bill{max-height:min(30vh, 250px); overflow-y:auto; padding:8px}
-  .dlg-body .bill-line{padding:10px 0; gap:6px 10px}
+  /* บิลเลื่อนในกรอบของตัวเอง
+     ในหน้าต่างมีกล่องซ้อนกันอยู่แล้ว 2 ชั้น (หน้าต่าง → กล่องเทา)
+     ถ้าแต่ละแถวเป็นการ์ดขาวมีเงาอีก จะกลายเป็น 3 ชั้นและดูอัดแน่น
+     ในหน้าต่างจึงให้แถวเป็นแบบแบน คั่นด้วยเส้นบาง ๆ แทน */
+  .dlg-bill{max-height:min(30vh, 250px); overflow-y:auto; padding:2px 12px}
+  .dlg-body .bill{gap:0}
+  .dlg-body .bill-line{
+    background:none; box-shadow:none; border-radius:0;
+    padding:11px 0; gap:7px;
+  }
+  .dlg-body .bill-line + .bill-line{border-top:1px solid var(--line)}
   .dlg-body .bl-name{font-size:14px}
   .dlg-body .bl-qty button{width:30px; height:30px; font-size:17px}
   .dlg-body .bl-qty span{min-width:28px; font-size:14px}
-  .dlg-body .bl-top{font-size:11.5px; padding:3px 9px; margin-top:4px}
+  .dlg-body .bl-top{font-size:11.5px; padding:4px 10px}
   .dlg-body .posrow-top{font-size:11px}
 
   /* ยอดรวมกับปุ่มติดอยู่ล่างหน้าต่างเสมอ ไม่ต้องเลื่อนหา */
@@ -3428,14 +3439,16 @@ function orderDialogHTML(){
         ${picked
           ? `<div class="bl-add">${l.addons.map(a => esc(a.name) + (n(a.price) > 0 ? ' +' + baht(a.price) : '')).join(' · ')}</div>`
           : ''}
-        ${tops ? `<button type="button" class="bl-top${picked ? ' on' : ''}" onclick="lineAddons('${l.lid}')">${picked ? `แก้ไส้ (${picked} อย่าง)` : `+ เลือกไส้ · มี ${tops} อย่าง`}</button>` : ''}
       </div>
-      <div class="bl-qty">
-        <button type="button" onclick="lineQty('${l.lid}',-1)" aria-label="ลด">−</button>
-        <span>${n(l.qty)}</span>
-        <button type="button" onclick="lineQty('${l.lid}',1)" aria-label="เพิ่ม">+</button>
+      <div class="bl-act">
+        <div class="bl-qty">
+          <button type="button" onclick="lineQty('${l.lid}',-1)" aria-label="ลด">−</button>
+          <span>${n(l.qty)}</span>
+          <button type="button" onclick="lineQty('${l.lid}',1)" aria-label="เพิ่ม">+</button>
+        </div>
+        ${tops ? `<button type="button" class="bl-top${picked ? ' on' : ''}" onclick="lineAddons('${l.lid}')">${picked ? `แก้ไส้ (${picked})` : `+ เลือกไส้ · ${tops}`}</button>` : ''}
+        <button type="button" class="bl-del" onclick="delLine('${l.lid}')" aria-label="ลบ">${icon('trash',15)}</button>
       </div>
-      <button type="button" class="bl-del" onclick="delLine('${l.lid}')" aria-label="ลบ">${icon('trash',15)}</button>
     </div>`;
   }).join('');
 
