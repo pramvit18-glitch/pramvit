@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/auto-push.sh",
+            "timeout": 120,
+            "statusMessage": "ตรวจแล้วบันทึกขึ้น git..."
+          }
+        ]
+      }
+    ]
+  }
+}
