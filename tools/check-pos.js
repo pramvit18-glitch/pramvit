@@ -44,8 +44,12 @@ const probe = `
   out.push(['หน้าต่างสั่งสินค้าแท็กครบ', ['div','span','button','p'].every(t => o(t) === c(t))]);
 
   // --- หน้าขายต้องเก็บบิลที่ขายไปแล้วเป็นรายการ ---
+  // เมนูที่มีไส้ กดสองครั้ง = สองจานแยกบรรทัด จึงได้สองแถวใต้บิลเดียวกัน
+  const lineCount = order.lines.length;
   payBill();
-  out.push(['รับเงินแล้วบิลเข้าไปในสมุด', (db.sales||[]).length === 1]);
+  out.push(['รับเงินแล้วบิลเข้าไปในสมุด', (db.sales||[]).length === lineCount]);
+  out.push(['ทุกแถวอยู่ใต้บิลเดียวกัน',
+    new Set((db.sales||[]).map(x => x.bill)).size === 1]);
   orderOpen = false; order = null;
   const page = viewPOS();
   out.push(['หน้าขายมีปุ่มสั่งสินค้า', page.indexOf('openOrderDialog()') >= 0]);

@@ -3277,14 +3277,37 @@ const orderCount = () => (order ? order.lines : []).reduce((s,l) => s + n(l.qty)
 // กดเมนู: ถ้าบรรทัดล่าสุดเป็นเมนูเดียวกันและยังไม่ใส่ท็อปปิ้ง ให้บวกจำนวนแทนการเพิ่มบรรทัดใหม่
 function tapMenu(id){
   const m = findMenu(id); if(!m || !order) return;
-  const last = order.lines.find(l => l.menuId === id && !(l.addons||[]).length);
-  if(last){ last.qty = n(last.qty) + 1; repaintOrder(); return; }
+  const tops = menuAddons(m);
+
+  // เมนูที่ไม่มีไส้ให้เลือก กดซ้ำ = เพิ่มจำนวนในบรรทัดเดิม ไม่ต้องแตกบรรทัด
+  if(!tops.length){
+    const same = order.lines.find(l => l.menuId === id);
+    if(same){ same.qty = n(same.qty) + 1; repaintOrder(); return; }
+  }
+
+  // เมนูที่มีไส้ กดแต่ละครั้ง = จานใหม่ที่เลือกไส้ของตัวเองได้
+  // (เดิมไปบวกจำนวนให้บรรทัดเดิมที่ยังไม่มีไส้ ทำให้สั่งจานเดิมแต่คนละไส้ไม่ได้เลย)
+  // อยากได้จานเหมือนเดิมเพิ่ม ให้กด + ที่บรรทัดในบิลแทน
   const line = { lid: uid(), menuId:id, name:m.name, price:n(m.price), qty:1, addons:[] };
   order.lines.push(line);
   repaintOrder();
-  // เมนูที่มีไส้ ให้เลือกไส้ต่อเลย ไม่ต้องไปหาปุ่มเอง
-  if(menuAddons(m).length) lineAddons(line.lid);
+  if(tops.length) lineAddons(line.lid);
 }
+
+// ไส้ของจานนี้ตรงกับอีกบรรทัดเป๊ะไหม — ใช้ชื่อไส้ที่เรียงแล้วเทียบ
+const lineKey = l => l.menuId + '|' + (l.addons||[]).map(a => a.name).sort().join(',');
+
+/* เลือกไส้เสร็จแล้ว ถ้าได้จานที่เหมือนบรรทัดอื่นเป๊ะ ให้ยุบรวมกัน
+   ไม่งั้นกดเมนูเดิมแล้วเลือกไส้ชุดเดิม จะได้บรรทัดซ้ำสองอันในบิล */
+function mergeSameLine(lid){
+  if(!order) return;
+  const l = order.lines.find(x => x.lid === lid); if(!l) return;
+  const twin = order.lines.find(x => x.lid !== lid && lineKey(x) === lineKey(l));
+  if(!twin) return;
+  twin.qty = n(twin.qty) + n(l.qty);
+  order.lines = order.lines.filter(x => x.lid !== lid);
+}
+function doneAddons(lid){ mergeSameLine(lid); repaintOrder(); }
 function lineQty(lid, v){
   const l = order.lines.find(x => x.lid === lid); if(!l) return;
   l.qty = n(l.qty) + v;
@@ -3308,8 +3331,8 @@ function lineAddons(lid){
     title:'เลือกไส้ / ท็อปปิ้ง',
     sub: topSumText(l),
     html: topsHTML(tops, new Set((l.addons||[]).map(a => a.name)), lid),
-    onDismiss: () => { if(orderOpen) drawOrderDialog(); },
-    foot:[{label:'เสร็จแล้ว', cls:'primary wide', fn:'repaintOrder()'}]
+    onDismiss: () => { mergeSameLine(lid); if(orderOpen) drawOrderDialog(); },
+    foot:[{label:'เสร็จแล้ว', cls:'primary wide', fn:`doneAddons('${lid}')`}]
   });
   l._draw = draw;
   draw();

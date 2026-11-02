@@ -77,8 +77,9 @@ const probe = `
 
   tapMenu(m.id);
   r.push(['กดเพิ่มเมนูเดิมซ้ำ ก็ยังไม่ดีด', dlgEl.scrollTop === 420]);
-  r.push(['กดซ้ำแล้วรวมเป็นบรรทัดเดียว จำนวนเป็น 2',
-    order.lines.length === 1 && order.lines[0].qty === 2]);
+  // เมนูที่มีไส้ กดซ้ำ = จานใหม่แยกบรรทัด / เมนูที่ไม่มีไส้ = บวกจำนวนในบรรทัดเดิม
+  const plates = menuAddons(m).length ? 2 : 1;
+  r.push(['กดซ้ำแล้วจำนวนบรรทัดถูกตามชนิดเมนู', order.lines.length === plates]);
 
   /* ปุ่ม +/− ในบิลก็ต้องไม่ดีด */
   lineQty(order.lines[0].lid, 1);

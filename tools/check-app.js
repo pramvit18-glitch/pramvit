@@ -63,11 +63,49 @@ const probe = `
   logic.push(['เปิดบิลได้', !!order]);
   views['ขาย (POS)'] = viewPOS();
 
+  /* เมนูที่ "ไม่มีไส้ให้เลือก" กดซ้ำ = บวกจำนวนในบรรทัดเดิม
+     เมนูตัวอย่างมีไส้ครบทุกอัน เลยต้องสร้างเมนูเปล่าขึ้นมาทดสอบเงื่อนไขนี้เอง */
+  const plain = { id: 'plain-test', name: 'น้ำเปล่า', price: 10, groupIds: [], items: [] };
+  db.menus.push(plain);
+  order.lines = [];
+  tapMenu(plain.id); tapMenu(plain.id); tapMenu(plain.id);
+  logic.push(['เมนูไม่มีไส้ กดซ้ำแล้วบวกจำนวน ไม่แตกบรรทัด',
+    order.lines.length === 1 && order.lines[0].qty === 3]);
+  db.menus = db.menus.filter(x => x.id !== plain.id);
+
+  /* เมนูที่ "มีไส้ให้เลือก" กดแต่ละครั้ง = จานใหม่ เลือกไส้คนละแบบได้
+     เคยเป็นบั๊ก: ไปบวกจำนวนให้บรรทัดเดิมที่ยังไม่มีไส้ ทำให้สั่งคนละไส้ไม่ได้ */
+  const withTop = db.menus.find(x => menuAddons(x).length);
+  order.lines = [];
+  tapMenu(withTop.id);
+  tapMenu(withTop.id);
+  logic.push(['เมนูมีไส้ กดซ้ำแล้วได้จานใหม่ ไม่ใช่บวกจำนวน', order.lines.length === 2]);
+
+  /* เลือกไส้ชุดเดียวกันทั้งสองจาน → ยุบรวมเป็นบรรทัดเดียว บิลจะได้ไม่ซ้ำ */
+  const t0 = menuAddons(withTop)[0];
+  pickLineTop(order.lines[0].lid, t0.name);
+  pickLineTop(order.lines[1].lid, t0.name);
+  doneAddons(order.lines[1].lid);
+  logic.push(['สองจานไส้เหมือนกันเป๊ะ ยุบรวมเป็นบรรทัดเดียว',
+    order.lines.length === 1 && order.lines[0].qty === 2]);
+
+  /* แต่ถ้าไส้ต่างกัน ต้องแยกบรรทัดกันอยู่ */
+  tapMenu(withTop.id);
+  const t1 = menuAddons(withTop)[1];
+  if (t1) {
+    pickLineTop(order.lines[1].lid, t1.name);
+    doneAddons(order.lines[1].lid);
+    logic.push(['ไส้คนละแบบ แยกบรรทัดกัน', order.lines.length === 2]);
+  }
+
+  order.lines = [];
   tapMenu(m0.id);
-  tapMenu(m0.id);
-  logic.push(['กดเมนูซ้ำแล้วเพิ่มจำนวน', order.lines.length === 1 && order.lines[0].qty === 2]);
   tapMenu(m1.id);
-  logic.push(['กดคนละเมนูแล้วขึ้นบรรทัดใหม่', order.lines.length === (m1 === m0 ? 1 : 2)]);
+  logic.push(['กดคนละเมนูแล้วขึ้นบรรทัดใหม่',
+    new Set(order.lines.map(l => l.menuId)).size === (m1 === m0 ? 1 : 2)]);
+
+  // ตั้งสถานะที่ชัดเจนให้ช่วงถัดไป: บิลมีเมนูแรก 2 จาน
+  order.lines = [{ lid: uid(), menuId: m0.id, name: m0.name, price: n(m0.price), qty: 2, addons: [] }];
 
   const l0 = order.lines[0];
   const top = (m0.addons || [])[0];
