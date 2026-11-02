@@ -17,7 +17,7 @@ const stub = () => {
     querySelectorAll:()=>[], querySelector:()=>stub(), focus(){}, setAttribute(){},
     classList:{ toggle(c,on){ const w = on === undefined ? !cls.has(c) : !!on; w ? cls.add(c) : cls.delete(c); },
       add(c){cls.add(c)}, remove(c){cls.delete(c)}, contains:c=>cls.has(c) },
-    scrollIntoView(){}, replaceWith(){}, insertAdjacentHTML(){} };
+    scrollIntoView(){}, style:{setProperty(){},removeProperty(){}}, replaceWith(){}, insertAdjacentHTML(){} };
 };
 global.document = { body: stub(), getElementById: stub, querySelector: () => stub(), createElement: stub };
 global.window = { addEventListener(){}, scrollTo(){} };

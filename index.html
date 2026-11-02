@@ -41,6 +41,7 @@
     --bad:#b91c1c;   --bad-ink:#b91c1c;   --bad-bg:#fdeeee;
 
     --nav-h:62px;
+    --drag:0px;              /* ระยะที่ลากหัวหน้าต่างลงอยู่ ตั้งจาก JS ตอนลากเท่านั้น */
     color-scheme: light;
   }
 
@@ -529,16 +530,52 @@
     margin:auto auto 0; border-radius:28px 28px 0 0;
     padding-bottom:env(safe-area-inset-bottom, 0px);
     box-shadow:0 -10px 50px rgba(22,24,28,.25);
+    /* ลากหัวหน้าต่างลงเพื่อปิด — ตัวเลื่อนตั้งจาก JS */
+    transform:translateY(var(--drag, 0px));
   }
-  dialog::backdrop{background:rgba(22,24,28,.4)}
-  dialog[open]{animation:sheet .24s cubic-bezier(.2,.9,.3,1)}
+  dialog.dragging{transition:none}
+  dialog.snapback{transition:transform .22s cubic-bezier(.2,.9,.3,1)}
+  /* ฉากหลังเบลอ ให้หน้าต่างเด่นขึ้นโดยไม่ต้องทำให้พื้นหลังมืดจัด */
+  dialog::backdrop{
+    background:rgba(22,24,28,.34);
+    -webkit-backdrop-filter:blur(7px) saturate(.9);
+    backdrop-filter:blur(7px) saturate(.9);
+  }
+  dialog[open]{animation:sheet .3s cubic-bezier(.17,.84,.26,1)}
+  dialog[open]::backdrop{animation:dlgfade .26s ease}
   @keyframes sheet{from{transform:translateY(100%)} to{transform:translateY(0)}}
-  @media(prefers-reduced-motion:reduce){ dialog[open]{animation:none} }
-  .dlg-grip{width:38px; height:4px; border-radius:99px; background:var(--line); margin:12px auto 0}
-  .dlg-head{padding:14px 20px 0; display:flex; align-items:flex-start; gap:12px}
+  @keyframes dlgfade{from{opacity:0} to{opacity:1}}
+  @media(prefers-reduced-motion:reduce){
+    dialog[open], dialog[open]::backdrop{animation:none}
+    dialog::backdrop{-webkit-backdrop-filter:none; backdrop-filter:none}
+  }
+
+  .dlg-grip{
+    width:38px; height:4px; border-radius:99px; background:var(--line);
+    margin:0 auto; transition:background .16s;
+  }
+  .dlg-grip-hit{
+    position:sticky; top:0; z-index:5; padding:11px 0 7px; cursor:grab;
+    touch-action:none; background:var(--bg);
+  }
+  .dlg-grip-hit:active{cursor:grabbing}
+  .dlg-grip-hit:active .dlg-grip{background:var(--muted)}
+
+  /* หัวหน้าต่างลอยติดบนตอนเลื่อนดูเนื้อหายาว ๆ */
+  .dlg-head{
+    position:sticky; top:22px; z-index:4;
+    padding:3px 20px 13px; display:flex; align-items:flex-start; gap:12px;
+    background:var(--bg);
+  }
+  .dlg-head::after{
+    content:''; position:absolute; left:0; right:0; bottom:0; height:1px;
+    background:var(--line); opacity:0; transition:opacity .2s;
+  }
+  dialog.scrolled .dlg-head::after{opacity:1}
+  .dlg-head .ic-tile{margin-top:1px}
   .dlg-head-t{flex:1; min-width:0}
-  .dlg-head h3{margin:0; font-size:19px; font-weight:800; letter-spacing:-.03em}
-  .dlg-head p{margin:4px 0 0; font-size:12.5px; color:var(--muted); line-height:1.5}
+  .dlg-head h3{margin:0; font-size:21px; font-weight:800; letter-spacing:-.035em; line-height:1.25}
+  .dlg-head p{margin:4px 0 0; font-size:13px; color:var(--muted); line-height:1.5}
   .dlg-head p:empty{display:none}
   .dlg-tag{
     margin-left:4px; vertical-align:2px; cursor:pointer; font:inherit;
@@ -584,8 +621,12 @@
             font-variant-numeric:tabular-nums}
   .dlg-err{grid-column:1/-1; color:var(--bad-ink); font-size:12.5px; font-weight:700}
   .dlg-err:empty{display:none}
-  .dlg-foot{padding:18px 20px 22px; display:flex; gap:10px}
-  .dlg-foot .btn{flex:1; padding:13px 18px}
+  .dlg-foot{padding:16px 20px 22px; display:flex; gap:10px}
+  .dlg-foot .btn{flex:1; padding:14px 18px; font-size:15px}
+  /* ปุ่มหลักหนักกว่าปุ่มยกเลิก จะได้รู้ว่าควรกดอันไหน */
+  .dlg-foot .btn.primary{flex:1.5}
+  .dlg-foot .btn.ghost{flex:0 1 auto; padding-left:18px; padding-right:18px}
+  .dlg-foot .btn.danger{flex:0 1 auto}
 
   .gloss{display:flex; flex-direction:column; gap:16px}
   .gloss-row{display:flex; flex-direction:column; gap:4px}
@@ -622,8 +663,17 @@
     .pick-qtyrow{grid-column:3}
     .savebar{bottom:20px}
     .scroll table{min-width:0}
-    dialog{max-width:540px; margin:auto; border-radius:20px; animation:none; padding-bottom:0}
-    .dlg-grip{display:none}
+    /* จอใหญ่: เป็นกล่องลอยกลางจอ ไม่ใช่แผ่นเลื่อนขึ้นจากล่าง */
+    dialog{
+      max-width:540px; margin:auto; border-radius:26px; padding-bottom:0;
+      max-height:86dvh; box-shadow:0 24px 70px rgba(22,24,28,.3);
+      transform:none;
+    }
+    dialog[open]{animation:dlgpop .2s cubic-bezier(.2,.9,.3,1)}
+    @keyframes dlgpop{from{opacity:0; transform:scale(.96)} to{opacity:1; transform:scale(1)}}
+    @media(prefers-reduced-motion:reduce){ dialog[open]{animation:none} }
+    .dlg-grip-hit{display:none}
+    .dlg-head{top:0; padding-top:20px}
   }
 
   /* ===================== สมุดรายวัน ===================== */
@@ -1461,8 +1511,9 @@
 
 <dialog id="dlg">
   <form id="dlgForm" onsubmit="return dlgSubmit(event)">
-    <div class="dlg-grip"></div>
+    <div class="dlg-grip-hit" id="dlgGrip"><div class="dlg-grip"></div></div>
     <div class="dlg-head">
+      <span class="ic-tile" id="dlgIcon" hidden></span>
       <div class="dlg-head-t">
         <h3 id="dlgTitle"></h3>
         <p id="dlgSub"></p>
@@ -1686,7 +1737,7 @@ function adminOk(retry){
 }
 
 function askPin(onOk){
-  openDialog({
+  openDialog({ icon:'lock',
     title:'ใส่รหัสคนดูแล',
     sub:'ส่วนนี้แก้แล้วกระทบยอดเงิน เลยขอรหัสก่อน',
     fields:[{k:'pin', label:'รหัส', value:'', placeholder:'ตัวเลข 4-6 หลัก', wide:true}],
@@ -1703,7 +1754,7 @@ function askPin(onOk){
 function pinDialog(){
   if(hasPin() && !adminOk(() => pinDialog())) return;
   const setting = hasPin();
-  openDialog({
+  openDialog({ icon:'lock',
     title: setting ? 'เปลี่ยนรหัสคนดูแล' : 'ตั้งรหัสคนดูแล',
     sub:'ใช้ตอนจะแก้เมนู ราคา ชุดไส้ ลบบิล หรือล้างข้อมูล',
     fields:[
@@ -1775,7 +1826,7 @@ function shopLinkDialog(id){
   if(!adminOk(() => shopLinkDialog(id))) return;
   const x = store.shops.find(v => v.id === id); if(!x) return;
   const url = shopLink(id);
-  openDialog({
+  openDialog({ icon:'link',
     title:'ลิงก์ของร้านนี้',
     sub: shopTitle(x),
     html:`
@@ -2108,7 +2159,8 @@ function resetAll(){
 
 function askConfirm(title, sub, yesLabel, onYes){
   window._confirmYes = onYes;
-  openDialog({
+  // หน้าต่างยืนยันใช้โทนแดง ให้รู้ตั้งแต่แรกเห็นว่านี่คือของที่ย้อนไม่ได้
+  openDialog({ icon:'trash', tone:'r',
     title, sub,
     html:'',
     foot:[
@@ -2122,6 +2174,48 @@ function askConfirm(title, sub, yesLabel, onYes){
 const dlg = document.getElementById('dlg');
 let dlgCfg = null;
 
+/* ---------- หน้าต่างแบบแผ่นเลื่อน: เส้นคั่นหัว + ลากลงเพื่อปิด ---------- */
+// เส้นใต้หัวหน้าต่างโผล่เฉพาะตอนเลื่อนดูเนื้อหา จะได้รู้ว่ายังมีของอยู่ข้างบน
+dlg.addEventListener('scroll', () => dlg.classList.toggle('scrolled', dlg.scrollTop > 4), {passive:true});
+
+// ลากแถบขีดบนหัวลงเพื่อปิด — ลากไม่ถึงครึ่งทางก็เด้งกลับที่เดิม
+(() => {
+  const grip = document.getElementById('dlgGrip');
+  if(!grip || !grip.addEventListener) return;
+  const CLOSE_AT = 110;              // ลากเกินเท่านี้ (พิกเซล) ถือว่าตั้งใจปิด
+  let from = null;
+
+  const move = e => {
+    if(from === null) return;
+    const dy = Math.max(0, e.clientY - from);
+    dlg.style.setProperty('--drag', dy + 'px');
+  };
+  const end = e => {
+    if(from === null) return;
+    const dy = Math.max(0, e.clientY - from);
+    from = null;
+    dlg.classList.remove('dragging');
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    if(dy > CLOSE_AT){ dlgDismiss(); return; }
+    dlg.classList.add('snapback');
+    dlg.style.setProperty('--drag', '0px');
+    setTimeout(() => dlg.classList.remove('snapback'), 240);
+  };
+
+  grip.addEventListener('pointerdown', e => {
+    // จอใหญ่เป็นกล่องลอยกลางจอ ไม่ได้เป็นแผ่นเลื่อน เลยไม่ต้องลาก
+    if(window.matchMedia && window.matchMedia('(min-width:760px)').matches) return;
+    from = e.clientY;
+    dlg.classList.remove('snapback');
+    dlg.classList.add('dragging');
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  });
+})();
+
 // fields: [{k, label, type:'text'|'number'|'select', value, options, placeholder, wide, step}]
 // ปุ่มใน <form> ที่ไม่ได้ใส่ type จะเป็น submit โดยปริยาย กดแล้วกล่องปิดทันที
 // บังคับให้เป็นปุ่มธรรมดาทั้งหมด เหลือแต่ปุ่มบันทึกที่ตั้ง type="submit" ไว้เอง
@@ -2132,6 +2226,14 @@ function plainButtons(){
 
 function openDialog(cfg){
   dlgCfg = cfg;
+  const ic = document.getElementById('dlgIcon');
+  ic.hidden = !cfg.icon;
+  ic.innerHTML = cfg.icon ? icon(cfg.icon, 19) : '';
+  // tone: 'r' แดง (ลบ/อันตราย) · 'w' เหลือง (เตือน) · 'g' เขียว (สำเร็จ) · ไม่ใส่ = แดงอ่อนปกติ
+  ic.className = 'ic-tile' + (cfg.tone ? ' tone-' + cfg.tone : '');
+  dlg.classList.remove('scrolled','dragging','snapback');
+  dlg.style.removeProperty('--drag');
+  dlg.scrollTop = 0;
   document.getElementById('dlgTitle').innerHTML = esc(cfg.title)
     + (cfg.tag ? ` <button type="button" class="dlg-tag${cfg.tag.on ? ' on' : ''}" onclick="${cfg.tag.fn}">${esc(cfg.tag.label)}</button>` : '');
   document.getElementById('dlgSub').textContent = cfg.sub || '';
@@ -2264,7 +2366,7 @@ function viewIng(){
 }
 // หน้าต่างเดียวใช้ได้ทั้งเพิ่มและแก้ไข (ส่ง null = เพิ่มใหม่)
 function ingDialog(ing){
-  openDialog({
+  openDialog({ icon:'ing',
     title: ing ? 'แก้ไขวัตถุดิบ' : 'เพิ่มวัตถุดิบ',
     sub:'กรอกตามบิลที่ซื้อจริง ระบบคิดราคาต่อหน่วยให้เอง',
     fields:[
@@ -2592,7 +2694,7 @@ function groupPickerHTML(){
 function menuDialog(m){
   if(!adminOk(() => menuDialog(m))) return;
   menuDraftGroups = new Set(m ? (m.groupIds || []) : []);
-  openDialog({
+  openDialog({ icon:'menu',
     title: m ? 'แก้ไขเมนู' : 'เพิ่มเมนูใหม่',
     sub: m ? 'แก้ชื่อ ราคา และเลือกไส้ที่ใส่ได้' : 'ใส่ชื่อ ราคา แล้วติ๊กไส้ที่ใส่ได้ ในหน้าต่างเดียวจบ',
     fields:[
@@ -2639,7 +2741,7 @@ function delMenu(id){
 function itemDialog(mid, idx){
   const m = findMenu(mid); if(!m) return;
   const cur = idx >= 0 ? m.items[idx] : null;
-  openDialog({
+  openDialog({ icon:'box',
     title: cur ? 'แก้ไขวัตถุดิบในสูตร' : 'เพิ่มวัตถุดิบในสูตร',
     sub:`เมนู: ${m.name || '(ยังไม่มีชื่อ)'}`,
     fields:[
@@ -2741,7 +2843,7 @@ function openHelp(){
     ['กำไรสุทธิ', 'เงินที่เหลือเข้ากระเป๋าจริง ๆ<br>หักทั้งค่าของและค่าเช่าค่าไฟแล้ว'],
     ['ราคาที่แนะนำ', 'ถ้าอยากได้กำไรตามเป้าที่ตั้งไว้ ควรตั้งราคาเท่าไหร่<br>เป็นแค่ตัวเลขแนะนำ จะขายราคาเดิมก็ได้']
   ];
-  openDialog({
+  openDialog({ icon:'menu',
     title:'คำในแอปแปลว่าอะไร',
     sub:'อ่านครั้งเดียวก็พอ ไม่ต้องจำ',
     html:`<div class="gloss">${G.map(([k,v]) =>
@@ -2913,7 +3015,7 @@ function repaintPosList(){
 
 function openPOS(){
   if(!db.menus.length){
-    openDialog({ title:'ยังไม่มีเมนู', sub:'ตั้งเมนูกับราคาไว้ก่อน แล้วค่อยมาเปิดบิล',
+    openDialog({ icon:'menu', title:'ยังไม่มีเมนู', sub:'ตั้งเมนูกับราคาไว้ก่อน แล้วค่อยมาเปิดบิล',
       html:'<p style="margin:0;color:var(--ink-2)">ไปที่แท็บ <b>เมนู</b> กดปุ่ม <b>เพิ่ม</b> ใส่ชื่อกับราคาขาย แล้วกลับมาที่นี่ครับ</p>' });
     return;
   }
@@ -2957,12 +3059,12 @@ function lineAddons(lid){
   const m = findMenu(l.menuId);
   const tops = menuAddons(m);
   if(!tops.length){
-    openDialog({ title:'เมนูนี้ยังไม่ได้ตั้งไส้', sub: m ? m.name : '',
+    openDialog({ icon:'ing', title:'เมนูนี้ยังไม่ได้ตั้งไส้', sub: m ? m.name : '',
       html:'<p style="margin:0;color:var(--ink-2)">ไปที่แท็บ <b>ตั้งค่า</b> → แตะเมนูนี้ → <b>ชุดไส้ที่ใส่ได้</b> แล้วติ๊กชุดไส้ที่ใช้ครับ</p>' });
     return;
   }
   // อ่านของที่เลือกใหม่ทุกครั้งที่วาด ไม่งั้นติ๊กแล้วปุ่มไม่เปลี่ยนสี
-  const draw = () => openDialog({
+  const draw = () => openDialog({ icon:'ing',
     title:'เลือกไส้ / ท็อปปิ้ง',
     sub: topSumText(l),
     html: topsHTML(tops, new Set((l.addons||[]).map(a => a.name)), lid),
@@ -3023,7 +3125,7 @@ function repaintOrder(){
 
 function openOrderDialog(){
   if(!db.menus.length){
-    openDialog({ title:'ยังไม่มีเมนู', sub:'ตั้งเมนูกับราคาไว้ก่อน แล้วค่อยมาสั่ง',
+    openDialog({ icon:'menu', title:'ยังไม่มีเมนู', sub:'ตั้งเมนูกับราคาไว้ก่อน แล้วค่อยมาสั่ง',
       html:'<p style="margin:0;color:var(--ink-2)">ไปที่แท็บ <b>ตั้งค่า</b> แล้วเพิ่มเมนูที่ขายก่อนครับ</p>' });
     return;
   }
@@ -3039,7 +3141,7 @@ function closeOrderDialog(){
 
 function drawOrderDialog(){
   const has = !!(order && order.lines.length);
-  openDialog({
+  openDialog({ icon:'cart',
     title: 'สั่งสินค้า',
     sub: quickPick ? 'เฉพาะเมนูที่ขายดีใน 7 วันล่าสุด' : 'กดเมนูที่ลูกค้าสั่ง หรือค้นหาชื่อเมนู',
     html: orderDialogHTML(),
@@ -3219,7 +3321,7 @@ function shopListHTML(withEdit){
 
 function shopHub(){
   if(isLocked()) return;
-  openDialog({
+  openDialog({ icon:'store',
     title:'ร้านของฉัน',
     sub:'แต่ละร้านแยกเมนู ไส้ ยอดขาย และรายจ่ายของตัวเอง',
     html:`<div class="shoplist">${shopListHTML(false)}</div>`,
@@ -3231,7 +3333,7 @@ function shopHub(){
 function addShop(){
   if(!adminOk(() => addShop())) return;
   if(isLocked()) return toast('เครื่องนี้ตั้งไว้สำหรับร้านเดียว');
-  openDialog({
+  openDialog({ icon:'plus',
     title:'เพิ่มร้านใหม่',
     sub:'เช่น ร้านน้ำปั่น — ข้อมูลจะแยกจากร้านเดิมสนิท',
     fields:[
@@ -3271,7 +3373,7 @@ function shopDialog(id){
   if(!adminOk(() => shopDialog(id))) return;
   const x = id ? store.shops.find(v => v.id === id) : db;
   if(!x) return;
-  openDialog({
+  openDialog({ icon:'edit',
     title:'แก้ไขร้าน', sub: shopTitle(x) || 'ใส่ชื่อร้านกับสาขา',
     fields:[
       {k:'shopName', label:'ชื่อร้าน', value: x.shopName || '', placeholder:'เช่น เครปป้าแดง', wide:true},
@@ -3307,7 +3409,7 @@ const BILLS_SHOWN = 6;          // โชว์บิลล่าสุดเท
 function allBillsDialog(){
   const key = dayKey();
   const bills = billsToday(key);
-  openDialog({
+  openDialog({ icon:'hist',
     title:'บิลทั้งหมดของวันนี้',
     sub:`${bills.length} บิล · ${thaiDate(key)} · รวม ฿${baht(sumDay(key).sale)}`,
     html:`<div class="bills">${bills.map(billRowHTML).join('')}</div>`
@@ -3392,7 +3494,7 @@ function billDetail(billId){
   const key = dayKey();
   const b = billsToday(key).find(x => x.bill === billId);
   if(!b) return;
-  openDialog({
+  openDialog({ icon:'cart',
     title: `บิล ${b.t}`,
     sub: `${b.qty} จาน · รวม ${baht(b.total)} บาท`,
     html: `<div class="list">${b.lines.map(l => `
@@ -3831,7 +3933,7 @@ function quickHTML(){
 
 function quickCustomize(){
   const picked = new Set(quickPicked());
-  openDialog({
+  openDialog({ icon:'dash',
     title:'ทางลัดบนหน้าแรก',
     sub:'ติ๊กอันที่อยากให้โผล่ เรียงตามลำดับในรายการนี้',
     html:`<div class="tops">${QUICK.map(([k,label,ic]) => `
@@ -3885,7 +3987,7 @@ function shiftWeek(step){
 function monthPick(){
   const months = [...new Set([monthKey(dayKey()), ...allMonths()])].sort().reverse();
   const cur = monthKey(dashDay);
-  openDialog({
+  openDialog({ icon:'today',
     title:'เลือกเดือน',
     sub:'แตะเดือนเพื่อกระโดดไปดูวันในเดือนนั้น',
     html:`<div class="tops">${months.map(mk => {
@@ -4198,7 +4300,7 @@ let saleDraft = null;
 
 function saleDialog(existing){
   if(!db.menus.length){
-    openDialog({ title:'ยังไม่มีเมนู', sub:'ใส่เมนูที่ขายก่อน แล้วค่อยมาบันทึกการขาย',
+    openDialog({ icon:'menu', title:'ยังไม่มีเมนู', sub:'ใส่เมนูที่ขายก่อน แล้วค่อยมาบันทึกการขาย',
       html:'<p style="margin:0;color:var(--ink-2)">ไปที่แท็บ <b>ตั้งค่า</b> แล้วกดปุ่ม <b>เพิ่ม</b> ในการ์ดเมนู เพื่อใส่ชื่อกับราคาขายก่อนครับ</p>' });
     return;
   }
@@ -4231,7 +4333,7 @@ function saleTotal(){
 function renderSaleDialog(){
   const m = findMenu(saleDraft.menuId) || db.menus[0];
   const tops = menuAddons(m);
-  openDialog({
+  openDialog({ icon:'cart',
     title: saleDraft.id ? 'แก้รายการขาย' : 'บันทึกการขาย',
     sub: saleDraft.oldName
       ? `เมนูเดิม "${saleDraft.oldName}" ไม่มีในร้านแล้ว — เลือกเมนูที่ใช้แทนด้านล่าง`
@@ -4297,7 +4399,7 @@ function commitSale(){
 
 /* ---------- บันทึกรายจ่าย ---------- */
 function expenseDialog(existing){
-  openDialog({
+  openDialog({ icon:'down',
     title: existing ? 'แก้รายจ่าย' : 'บันทึกรายจ่าย',
     sub: 'ซื้อของเข้าร้าน ค่าแก๊ส ค่าเดินทาง ฯลฯ',
     fields:[
@@ -4446,7 +4548,7 @@ function viewHist(){
 function openDay(key){
   const d = sumDay(key);
   const rows = entriesOf(key);
-  openDialog({
+  openDialog({ icon:'today',
     title: thaiDate(key, true),
     sub: `ขายได้ ${baht(d.sale)} · ซื้อของ ${baht(d.exp)} · เหลือ ${baht(d.net)} บาท`,
     html: `<div class="list">${rows.map(e => entryRow(e,false)).join('') || '<div class="empty">ไม่มีรายการ</div>'}</div>`
@@ -4514,7 +4616,7 @@ function dayMoneyDialog(key){
   const exps = (db.expenses||[]).filter(x => x.d === key)
                  .sort((a,b) => String(b.t||'').localeCompare(String(a.t||'')));
   const bills = billsToday(key);
-  openDialog({
+  openDialog({ icon:'today',
     title: thaiDate(key, true),
     sub: `${bills.length} บิล · รายจ่าย ${exps.length} รายการ`,
     html: `
@@ -4534,7 +4636,7 @@ function monthMoneyDialog(mk){
   const list = (db.expenses||[]).filter(x => monthKey(x.d) === mk)
                  .sort((a,b) => (b.d + (b.t||'')).localeCompare(a.d + (a.t||'')));
   const groups = expByNote(mk);
-  openDialog({
+  openDialog({ icon:'sum',
     title: 'รายรับ-รายจ่าย ' + thaiMonth(mk),
     sub: `บันทึกไว้ ${m.days} วัน · รายจ่าย ${list.length} รายการ`,
     html: `
@@ -4664,7 +4766,7 @@ function viewDash(){
 
 /* หน้าต่างกรอกยอดขายของทุกเมนูในทีเดียว */
 function editSales(){
-  openDialog({
+  openDialog({ icon:'hist',
     title:'ยอดขายต่อวัน',
     sub:'กะคร่าว ๆ ว่าแต่ละเมนูขายได้วันละกี่จาน',
     fields: db.menus.map(m => ({
@@ -4983,7 +5085,7 @@ function pickGroups(menuId){
   if(!adminOk(() => pickGroups(menuId))) return;
   const m = findMenu(menuId); if(!m) return;
   const picked = new Set(m.groupIds || []);
-  openDialog({
+  openDialog({ icon:'ing',
     title: 'เมนูนี้ใส่อะไรได้บ้าง',
     sub: esc(m.name || '(ไม่มีชื่อ)'),
     html: (db.groups||[]).length
@@ -5013,7 +5115,7 @@ function toggleMenuGroup(menuId, gid){
 /* ---------- ชุดไส้: สร้าง / เปลี่ยนชื่อ / ลบ ---------- */
 function groupDialog(g){
   if(!adminOk(() => groupDialog(g))) return;
-  openDialog({
+  openDialog({ icon:'ing',
     title: g ? 'เปลี่ยนชื่อชุด' : 'เพิ่มชุดไส้',
     sub: g ? '' : 'เช่น ไส้คาว · ไส้หวาน · ราดซอส (ฟรี)',
     fields: [{k:'name', label:'ชื่อชุด', type:'text', value: g ? g.name : '',
@@ -5057,7 +5159,7 @@ function groupEditor(gid){
         <span class="li-chev">${icon('chev',16)}</span>
       </div>
     </div>`).join('');
-  openDialog({
+  openDialog({ icon:'ing',
     title: esc(g.name),
     sub: `${g.items.length} อย่าง · แตะเพื่อแก้ชื่อหรือราคา`,
     html: `<div class="list">${rows || '<div class="empty" style="padding:18px">ยังไม่มีไส้ในชุดนี้</div>'}</div>`,
@@ -5071,7 +5173,7 @@ function groupItemDialog(gid, idx){
   if(!adminOk(() => groupItemDialog(gid, idx))) return;
   const g = findGroup(gid); if(!g) return;
   const cur = idx >= 0 ? g.items[idx] : null;
-  openDialog({
+  openDialog({ icon:'ing',
     title: cur ? 'แก้ไส้' : 'เพิ่มไส้',
     sub: `ในชุด ${g.name}`,
     fields: [

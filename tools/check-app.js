@@ -12,7 +12,7 @@ const stub = () => ({
   innerHTML:'', textContent:'', hidden:false, value:'', dataset:{}, className:'',
   addEventListener(){}, removeEventListener(){}, showModal(){}, close(){},
   querySelectorAll:()=>[], querySelector:()=>stub(), focus(){}, setAttribute(){},
-  classList:{toggle(){}, add(){}, remove(){}}, scrollIntoView(){}, replaceWith(){},
+  classList:{toggle(){}, add(){}, remove(){}}, scrollIntoView(){}, style:{setProperty(){},removeProperty(){}}, replaceWith(){},
   insertAdjacentHTML(){}, appendChild(){}
 });
 global.localStorage = { getItem: () => null, setItem: () => {} };

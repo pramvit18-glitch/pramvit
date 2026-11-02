@@ -13,7 +13,7 @@ const stub = () => {
     classList:{
       toggle(c,on){ const want = on === undefined ? !cls.has(c) : !!on; want ? cls.add(c) : cls.delete(c); return want; },
       add(c){cls.add(c)}, remove(c){cls.delete(c)}, contains:c=>cls.has(c) },
-    scrollIntoView(){}, replaceWith(){}, insertAdjacentHTML(){} };
+    scrollIntoView(){}, style:{setProperty(){},removeProperty(){}}, replaceWith(){}, insertAdjacentHTML(){} };
 };
 global.document = { body: stub(), getElementById: stub, querySelector: () => stub(), createElement: stub };
 global.window = { addEventListener(){}, scrollTo(){} };

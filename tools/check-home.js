@@ -10,7 +10,7 @@ const stub = () => ({ innerHTML:'', textContent:'', hidden:false, value:'', data
   addEventListener(){}, removeEventListener(){}, showModal(){}, close(){}, querySelectorAll:()=>[],
   querySelector:()=>stub(), focus(){}, setAttribute(){},
   classList:{toggle(){},add(){},remove(){},contains:()=>false},
-  scrollIntoView(){}, replaceWith(){}, insertAdjacentHTML(){} });
+  scrollIntoView(){}, style:{setProperty(){},removeProperty(){}}, replaceWith(){}, insertAdjacentHTML(){} });
 global.document = { body: stub(), getElementById: stub, querySelector: () => stub(), createElement: stub };
 global.window = { addEventListener(){}, scrollTo(){} };
 global.navigator = {};
