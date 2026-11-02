@@ -143,6 +143,25 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('ร้านปิดอยู่ ลูกค้าสั่งไม่ได้', (await cust2.textContent('#view')).includes('ร้านปิดอยู่'));
   push('ร้านปิดอยู่ ไม่มีแถบสั่งโผล่', await cust2.locator('#bar[hidden]').count() === 1);
 
+  /* ---------- หา URL ของที่เก็บจากชื่อโปรเจกต์ ---------- */
+  // เจ้าของร้านไม่ควรต้องรู้ว่า URL จริงมีชื่อโซนปนอยู่
+  // ดักคำขอที่ยิงไปหา Firebase แล้วตอบแทน จะได้ทดสอบโดยไม่ต้องมีเน็ตออกนอก
+  await seller.route('**/*.firebasedatabase.app/**', r =>
+    r.fulfill({ status: r.request().url().includes('asia-southeast1') ? 401 : 404, body:'{}' }));
+  await seller.route('**/*.firebaseio.com/**', r => r.fulfill({ status:404, body:'{}' }));
+
+  const okZone = 'https://pramvit-order-default-rtdb.asia-southeast1.firebasedatabase.app';
+  push('พิมพ์ชื่อโปรเจกต์เปล่า ๆ แล้วหา URL เจอ',
+    await seller.evaluate(() => resolveCloud('pramvit-order')) === okZone);
+  push('วางลิงก์หน้า console มา ก็ดึงชื่อโปรเจกต์ออกมาได้',
+    await seller.evaluate(() => resolveCloud('https://console.firebase.google.com/u/0/project/pramvit-order/overview')) === okZone);
+  push('กฎไม่ให้อ่าน (401) ก็ยังนับว่าที่เก็บมีอยู่จริง',
+    await seller.evaluate(u => liveCloud(u), okZone) === true);
+  push('ชื่อโปรเจกต์ที่ไม่มีจริง ตอบกลับว่าหาไม่เจอ',
+    await seller.evaluate(() => resolveCloud('ไม่มีโปรเจกต์นี้')) === '');
+  await seller.unroute('**/*.firebasedatabase.app/**');
+  await seller.unroute('**/*.firebaseio.com/**');
+
   /* ---------- เก็บกวาดออเดอร์เก่าทิ้งเอง ---------- */
   const DAY = 24*3600*1000, HR = 3600*1000;
   const put = async (id, o) => fetch(`${CLOUD}/s/${key}/orders/${id}.json`, {
@@ -191,6 +210,28 @@ const push = (name, v) => { ok.push([name, !!v]); };
     await helper.evaluate(() => localStorage.getItem('crepe-cloud')) === 'https://example.firebasedatabase.app');
   push('ลิงก์ร้านยังผูกเครื่องกับร้านนั้นเหมือนเดิม',
     await helper.evaluate(() => db.shopName) === 'ร้านสาขาสอง');
+
+  /* ---------- หน้าลูกค้าหา URL ของที่เก็บเองได้ ---------- */
+  // ลูกค้าเปิดลิงก์เปล่า ๆ (ไม่มี ?c=) ต้องหาที่เก็บเจอเองจากชื่อโปรเจกต์ที่ฝังไว้
+  const cust4 = await b.newPage({ viewport:{width:390,height:844} });
+  let probed = [];
+  await cust4.route('**/*-default-rtdb.*/**', r => {
+    probed.push(r.request().url());
+    // ให้โซนสิงคโปร์เป็นตัวจริง ชี้กลับมาที่เก็บจำลองของเรา
+    if(r.request().url().includes('asia-southeast1')){
+      const path = r.request().url().split('.app')[1] || '/.json';
+      return r.fulfill({ status:200, contentType:'application/json',
+                         headers:{'Access-Control-Allow-Origin':'*'}, body:'{}' , });
+    }
+    return r.fulfill({ status:404, body:'{}' });
+  });
+  await cust4.goto(`${APP}/order.html?s=${key}`);
+  await cust4.waitForTimeout(900);
+  push('หน้าลูกค้าหา URL ที่เก็บเองได้จากชื่อโปรเจกต์',
+    probed.some(u => u.includes('asia-southeast1')));
+  push('หาเจอแล้วจำไว้ ไม่ต้องหาซ้ำรอบหน้า',
+    (await cust4.evaluate(() => localStorage.getItem('crepe-order-base')) || '').includes('asia-southeast1'));
+  await cust4.unroute('**/*-default-rtdb.*/**');
 
   /* ---------- ลิงก์มั่ว ---------- */
   const cust3 = await b.newPage({ viewport:{width:390,height:844} });

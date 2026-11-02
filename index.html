@@ -1799,6 +1799,7 @@ const HUB = 'crepe-hub-v1';         // ของใหม่ เก็บได�
 
 // ที่เก็บออเดอร์กลาง (ดูหัวข้อ "ให้ลูกค้าสั่งเอง")
 // ต้องประกาศไว้บนสุด เพราะ applyShopLink() ที่รันตอนเปิดแอปก็ใช้ตัวนี้
+const CLOUD_PROJECT = 'pramvit-order';  // ชื่อโปรเจกต์ Firebase — ต้องตรงกับใน order.html
 const CLOUD_BASE = '';              // ค่าตั้งต้น — ต้องตรงกับใน order.html
 const CLOUD_KEY  = 'crepe-cloud';   // ที่เก็บที่ตั้งเองจากหน้าตั้งค่า (ของเครื่องนี้)
 
@@ -2144,6 +2145,45 @@ function cloudBase(){
 }
 const cloudReady = () => !!cloudBase();
 
+/* ---------- หา URL ของที่เก็บจาก "ชื่อโปรเจกต์" ให้เอง ----------
+   URL จริงของ Firebase มีชื่อโซนปนอยู่ด้วย เช่น
+     https://pramvit-order-default-rtdb.asia-southeast1.firebasedatabase.app
+   เจ้าของร้านไม่ควรต้องไปไล่หาเอง พิมพ์แค่ชื่อโปรเจกต์ก็พอ
+   แล้วให้แอปลองยิงดูทีละโซนว่าอันไหนมีอยู่จริง
+
+   ตอบ 200 = อ่านได้ · 401 = มีจริงแต่กฎไม่ให้อ่านตรงนั้น (ก็คือมีอยู่)
+   404 = ไม่มีที่เก็บตัวนี้ ลองโซนถัดไป */
+const RTDB_ZONES = ['asia-southeast1', '', 'us-central1', 'europe-west1'];
+const rtdbURL = (id, zone) =>
+  zone ? `https://${id}-default-rtdb.${zone}.firebasedatabase.app`
+       : `https://${id}-default-rtdb.firebaseio.com`;
+
+async function liveCloud(base){
+  try{
+    const res = await fetch(`${base}/.json?shallow=true`);
+    return res.status === 200 || res.status === 401;
+  }catch(e){ return false; }
+}
+
+// รับได้ทั้ง URL เต็ม ๆ และชื่อโปรเจกต์เปล่า ๆ — คืน URL ที่ใช้ได้จริง หรือ '' ถ้าหาไม่เจอ
+async function resolveCloud(input){
+  const raw = String(input || '').trim().replace(/\/+$/, '');
+  if(!raw) return '';
+
+  // ใส่ลิงก์หน้า console มา ก็ดึงชื่อโปรเจกต์ออกมาให้
+  const fromConsole = raw.match(/console\.firebase\.google\.com\/.*?\/project\/([\w-]+)/);
+  const id = fromConsole ? fromConsole[1]
+           : (/^https?:\/\//.test(raw) ? '' : raw.replace(/[^\w-]/g, ''));
+
+  if(!id) return (await liveCloud(raw)) ? raw : '';
+
+  for(const z of RTDB_ZONES){
+    const u = rtdbURL(id, z);
+    if(await liveCloud(u)) return u;
+  }
+  return '';
+}
+
 async function cloudReq(method, path, body){
   const base = cloudBase();
   if(!base) throw new Error('ยังไม่ได้ตั้งที่เก็บออเดอร์');
@@ -2398,7 +2438,8 @@ function orderRowHTML(o){
 function orderSetupDialog(){
   if(!adminOk(() => orderSetupDialog())) return;
   const on   = !!db.orderOn;
-  const base = cloudBase();
+  // ยังไม่เคยตั้ง ก็เติมชื่อโปรเจกต์ตั้งต้นไว้ให้ จะได้กดเปิดรับออเดอร์ได้เลย
+  const base = cloudBase() || CLOUD_PROJECT;
   const link = orderLink();
   openDialog({ icon:'cart',
     title:'ให้ลูกค้าสั่งเองได้',
@@ -2414,8 +2455,8 @@ function orderSetupDialog(){
         ต้นทุน วัตถุดิบ ค่าใช้จ่าย ยอดขายย้อนหลัง และกำไร <b>ไม่ถูกส่งออกไปไหนทั้งนั้น</b>
       </p>
       <div class="f">
-        <label for="cloudBox">ที่เก็บออเดอร์ (ได้จาก Firebase)</label>
-        <input type="text" id="cloudBox" value="${esc(base)}" placeholder="https://ชื่อโปรเจกต์.firebasedatabase.app">
+        <label for="cloudBox">ชื่อโปรเจกต์ Firebase (หรือ URL ของที่เก็บ)</label>
+        <input type="text" id="cloudBox" value="${esc(base)}" placeholder="เช่น pramvit-order">
       </div>
       ${on && link ? `<div class="f" style="margin-top:14px">
         <label for="orderLinkBox">ลิงก์สำหรับลูกค้า (เอาไปทำ QR ติดหน้าร้าน)</label>
@@ -2426,8 +2467,8 @@ function orderSetupDialog(){
       ${on ? `<p class="hint" style="margin:12px 0 0">ออเดอร์ที่จบแล้วถูกลบทิ้งให้เองหลังผ่านไป 12 ชั่วโมง
         ที่เก็บจึงไม่มีวันเต็ม · <button type="button" class="seeall" style="margin-top:8px"
         onclick="clearOldOrders()">ล้างออเดอร์เก่าเดี๋ยวนี้</button></p>` : ''}
-      <p class="hint" style="margin:12px 0 0">ยังไม่มีที่เก็บ? สร้างฟรีที่ console.firebase.google.com →
-        Realtime Database → Create Database แล้วเอา URL ที่ได้มาวางช่องบน</p>`,
+      <p class="hint" style="margin:12px 0 0">พิมพ์แค่<b>ชื่อโปรเจกต์</b>ก็พอ แอปจะหา URL เต็มให้เอง ·
+        ยังไม่มี? สร้างฟรีที่ console.firebase.google.com → Realtime Database → Create Database</p>`,
     foot: [
       {label:'ปิด', cls:'ghost', fn:'dlg.close()'},
       on ? {label:'คัดลอกลิงก์ลูกค้า', cls:'ghost', fn:'copyOrderLink()'} : null,
@@ -2449,10 +2490,17 @@ async function copyOrderLink(){
 
 async function toggleOrders(){
   const box = document.getElementById('cloudBox');
-  if(box){
-    const v = String(box.value || '').trim().replace(/\/+$/, '');
-    if(v && !/^https:\/\/[\w.-]+/.test(v)){ toast('ที่เก็บต้องขึ้นต้นด้วย https://'); return; }
-    try{ v ? localStorage.setItem(CLOUD_KEY, v) : localStorage.removeItem(CLOUD_KEY); }catch(e){}
+  if(box && !db.orderOn){
+    const typed = String(box.value || '').trim();
+    if(!typed){ toast('ใส่ชื่อโปรเจกต์ Firebase หรือ URL ของที่เก็บก่อนนะครับ'); return; }
+    toast('กำลังหาที่เก็บออเดอร์…');
+    const found = await resolveCloud(typed);
+    if(!found){
+      toast('หาที่เก็บไม่เจอ — เช็กชื่อโปรเจกต์ หรือสร้าง Realtime Database ก่อน');
+      return;
+    }
+    try{ localStorage.setItem(CLOUD_KEY, found); }catch(e){}
+    box.value = found;                       // โชว์ URL จริงที่หาเจอ จะได้ก๊อปไปใช้ที่อื่นได้
   }
 
   if(db.orderOn){

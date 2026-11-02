@@ -186,8 +186,11 @@
    ที่เก็บออเดอร์กลางคือ Firebase Realtime Database คุยกันผ่าน REST ธรรมดา
    จึงไม่ต้องโหลด SDK ไม่ต้องมี build step เหมือนกับแอปแม่ค้า */
 
-// ที่เก็บออเดอร์กลาง — เปลี่ยนตรงนี้ที่เดียวทั้งสองไฟล์
-const CLOUD_BASE = '';
+// ที่เก็บออเดอร์กลาง — ต้องตรงกับใน index.html
+// ใส่แค่ชื่อโปรเจกต์ Firebase ก็พอ เดี๋ยวหา URL เต็ม (ที่มีชื่อโซนปนอยู่) ให้เอง
+const CLOUD_PROJECT = 'pramvit-order';
+const CLOUD_BASE    = '';                  // ใส่ URL เต็มตรงนี้ได้ ถ้าไม่อยากให้ไปหาเอง
+const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจอไว้ ลูกค้าคนเดิมจะได้ไม่ต้องหาซ้ำ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
 // ไม่งั้นใครก็สร้างลิงก์ปลอมที่โชว์เมนูมั่ว ๆ ใต้ที่อยู่เว็บของร้านได้
@@ -195,7 +198,34 @@ const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 
 const qs    = new URLSearchParams(location.search);
 const SHOP  = (qs.get('s') || '').trim();
-const BASE  = ((isLocal && qs.get('c')) || CLOUD_BASE || '').replace(/\/+$/, '');
+let   BASE  = ((isLocal && qs.get('c')) || CLOUD_BASE || '').replace(/\/+$/, '');
+
+/* URL จริงของ Firebase มีชื่อโซนปนอยู่ เช่น
+     https://pramvit-order-default-rtdb.asia-southeast1.firebasedatabase.app
+   แทนที่จะฝังตายตัวแล้วพังถ้าร้านย้ายโซน ให้ลองยิงดูทีละโซนว่าอันไหนมีจริง
+   ตอบ 200 = อ่านได้ · 401 = มีจริงแต่กฎไม่ให้อ่านตรงนั้น · 404 = ไม่มี ลองโซนถัดไป
+   หาเจอแล้วจำไว้ในเครื่อง ลูกค้าคนเดิมเปิดรอบหน้าจะได้ไม่ต้องหาใหม่ */
+const RTDB_ZONES = ['asia-southeast1', '', 'us-central1', 'europe-west1'];
+
+async function findBase(){
+  if(BASE) return BASE;
+  try{ const c = localStorage.getItem(BASE_CACHE); if(c) return (BASE = c); }catch(e){}
+  if(!CLOUD_PROJECT) return '';
+
+  for(const z of RTDB_ZONES){
+    const u = z ? `https://${CLOUD_PROJECT}-default-rtdb.${z}.firebasedatabase.app`
+                : `https://${CLOUD_PROJECT}-default-rtdb.firebaseio.com`;
+    try{
+      const res = await fetch(`${u}/.json?shallow=true`);
+      if(res.status === 200 || res.status === 401){
+        BASE = u;
+        try{ localStorage.setItem(BASE_CACHE, u); }catch(e){}
+        return u;
+      }
+    }catch(e){}
+  }
+  return '';
+}
 
 const el  = id => document.getElementById(id);
 const n   = v => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
@@ -229,6 +259,7 @@ const SENT_KEY = 'crepe-order-sent-' + SHOP;
 start();
 
 async function start(){
+  await findBase();
   if(!SHOP || !BASE){
     el('shopName').textContent = 'ลิงก์ไม่ถูกต้อง';
     el('shopSub').textContent  = 'ลองสแกน QR ที่หน้าร้านอีกครั้ง';
