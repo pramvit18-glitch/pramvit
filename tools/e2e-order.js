@@ -110,6 +110,37 @@ const push = (name, v) => { ok.push([name, !!v]); };
   const got = await seller.evaluate(() => cloudOrders.length);
   push('ออเดอร์เด้งเข้าเครื่องแม่ค้า', got === 1);
 
+  /* เลขคิวต้องมาตั้งแต่ออเดอร์เข้า ไม่ต้องรอแม่ค้ากดรับ
+     แม่ค้าจะได้เรียก "คิวที่ 1" ได้ทันที และลูกค้าเห็นเลขของตัวเองเลย */
+  push('ออเดอร์ได้เลขคิวตั้งแต่เข้ามา ยังไม่ต้องกดรับ',
+    await seller.evaluate(() => n(cloudOrders[0].no)) === 1);
+  const cloudNo = await (await fetch(`${CLOUD}/s/${key}/orders.json`)).json();
+  push('เลขคิวถูกส่งขึ้นที่เก็บให้ลูกค้าเห็นด้วย',
+    Object.values(cloudNo).some(o => o.no === 1));
+
+  /* เครื่องถูกล้างข้อมูลกลางวัน ตัวนับย้อนกลับไป 0 แล้วแจกเลขซ้ำกับคิวที่ค้างอยู่
+     ลูกค้าสองคนได้เลขเดียวกัน เรียกคิวแล้วมาสองคน */
+  await fetch(`${CLOUD}/s/${key}/orders.json`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ at:Date.now(), total:30, status:'new',
+                           items:[{id:'m1', name:'ใบใหม่', qty:1, price:30, addons:[], total:30}] })
+  });
+  await seller.evaluate(() => { db.queueNo = 0; save(); });   // จำลองเครื่องที่โดนล้าง
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(800);
+  const nos = await seller.evaluate(() => cloudOrders.map(o => n(o.no)));
+  push('เครื่องโดนล้างข้อมูลกลางวัน ก็ไม่แจกเลขซ้ำ',
+    nos.length === new Set(nos).size && nos.every(x => x > 0));
+  push('ใบใหม่ได้เลขต่อจากของเดิม ไม่ย้อนกลับไป 1', Math.max(...nos) === 2);
+
+  // เก็บกวาดใบที่เพิ่งใส่เข้าไป ไม่ให้ไปกวนข้อถัดไป
+  await seller.evaluate(async () => {
+    const extra = cloudOrders.find(o => (o.items||[]).some(i => i.name === 'ใบใหม่'));
+    if(extra) await cloudReq('PATCH', `s/${db.orderKey}/orders`, { [extra.id]: null });
+  });
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(500);
+
   /* แดชบอร์ดต้องเหลือแค่แถบเล็ก ไม่ใช่การ์ดเต็มที่กินจอแรกทั้งจอ */
   await seller.evaluate(() => { tab = 'today'; render(); });
   await seller.waitForTimeout(300);
@@ -162,7 +193,9 @@ const push = (name, v) => { ok.push([name, !!v]); };
   /* ---------- แม่ค้ากดรับ ---------- */
   await seller.evaluate(async () => { await takeOrder(cloudOrders[0].id); });
   await seller.waitForTimeout(400);
-  push('กดรับแล้วได้เลขคิว 1', await seller.evaluate(() => db.queueNo) === 1);
+  // เลขของใบนี้ต้องไม่เปลี่ยนตอนกดรับ (ลูกค้าเห็นเลขไปแล้วตั้งแต่สั่ง)
+  push('กดรับแล้วยังเป็นคิวเดิม ไม่ออกเลขใหม่',
+    await seller.evaluate(() => n(cloudOrders[0].no)) === 1);
 
   await cust.evaluate(() => refreshMine());
   await cust.waitForTimeout(500);

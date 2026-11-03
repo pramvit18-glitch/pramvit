@@ -385,6 +385,13 @@
   .ord.cook .ord-no{background:var(--brand); color:#fff}
   .ord-m{flex:1; min-width:0}
   .ord-n{font-size:15px; font-weight:800; letter-spacing:-.01em; line-height:1.35}
+  /* ป้ายเลขคิวหน้าชื่อของ แม่ค้าจะได้เรียกลูกค้าถูกใบโดยไม่ต้องเพ่งหาเลขในวงกลม */
+  .ord-q{
+    display:inline-block; margin-right:7px; padding:1px 8px; border-radius:var(--r-pill);
+    background:var(--tint); color:var(--brand-d); font-size:12px; font-weight:800;
+    vertical-align:1px;
+  }
+  .ord.cook .ord-q{background:var(--brand); color:#fff}
   .ord-s{font-size:12.5px; color:var(--muted); font-weight:600; margin-top:2px; line-height:1.45}
   .ord-p{flex:0 0 auto; font-size:17px; font-weight:800; font-variant-numeric:tabular-nums}
   .ord-act{display:flex; gap:9px; margin-top:12px}
@@ -2343,6 +2350,10 @@ async function pollOrders(){
   }
   seenOrders = ids;
 
+  // ให้เลขตั้งแต่ออเดอร์เข้ามา ไม่ต้องรอแม่ค้ากดรับ
+  // แม่ค้าจะได้เรียก "คิวที่ 5" ได้ทันที และลูกค้าเห็นเลขของตัวเองเลยไม่ต้องรอลุ้น
+  await numberNewOrders(list);
+
   const changed = JSON.stringify(list) !== JSON.stringify(cloudOrders);
   cloudOrders = list;
   if(changed) render();
@@ -2392,6 +2403,30 @@ async function clearOldOrders(){
   toast(gone ? `ล้างออเดอร์เก่าไป ${gone} รายการ` : 'ไม่มีออเดอร์เก่าให้ล้าง');
 }
 
+/* แจกเลขให้ออเดอร์ที่ยังไม่มี เรียงตามเวลาที่เข้ามา
+   ถ้าส่งไม่ถึงก็คืนเลขกลับ จะได้ไม่มีเลขหายเป็นช่วง ๆ */
+async function numberNewOrders(list){
+  /* เครื่องถูกล้างข้อมูล สลับเครื่อง หรือเปิดจากลิงก์ร้านกลางวัน ตัวนับในเครื่องจะ
+     ย้อนกลับไปเริ่มที่ 0 แล้วแจกเลขซ้ำกับคิวที่ยังค้างอยู่ ลูกค้าสองคนได้เลขเดียวกัน
+     ยึดเลขสูงสุดที่เห็นในที่เก็บเป็นหลักก่อนเสมอ */
+  syncQueueDay();
+  const high = list.reduce((m, o) => Math.max(m, n(o.no)), 0);
+  if(high > n(db.queueNo)){ db.queueNo = high; save(); }
+
+  for(const o of list){
+    if(n(o.no)) continue;
+    const no = nextQueueNo();
+    save();
+    try{
+      await cloudReq('PATCH', `s/${db.orderKey}/orders/${o.id}`, { no });
+      o.no = no;
+    }catch(e){
+      db.queueNo = n(db.queueNo) - 1; save();
+      break;                     // เน็ตมีปัญหา รอบหน้าค่อยลองใหม่
+    }
+  }
+}
+
 // เสียงเตือนสั้น ๆ ไม่ต้องมีไฟล์เสียงให้แอปอ้วนขึ้น
 function beep(){
   try{
@@ -2408,9 +2443,13 @@ function beep(){
 }
 
 /* ---------- เลขคิว เริ่มนับ 1 ใหม่ทุกวัน ---------- */
-function nextQueueNo(){
+// ขึ้นวันใหม่แล้วเริ่มนับ 1 ใหม่
+function syncQueueDay(){
   const today = dayKey();
   if(db.queueDay !== today){ db.queueDay = today; db.queueNo = 0; }
+}
+function nextQueueNo(){
+  syncQueueDay();
   db.queueNo = n(db.queueNo) + 1;
   return db.queueNo;
 }
@@ -2418,7 +2457,7 @@ function nextQueueNo(){
 /* ---------- ปุ่มที่แม่ค้ากด ---------- */
 async function takeOrder(id){
   const o = cloudOrders.find(x => x.id === id); if(!o) return;
-  const no = nextQueueNo();
+  const no = n(o.no) || nextQueueNo();   // ปกติมีเลขตั้งแต่ตอนเข้ามาแล้ว
   save();
   try{ await cloudReq('PATCH', `s/${db.orderKey}/orders/${id}`, { status:'cook', no }); }
   catch(e){ toast('ส่งไม่ถึงลูกค้า เน็ตอาจหลุด'); return; }
@@ -2496,7 +2535,7 @@ function ordersBar(){
     <span class="obar-m">
       <span class="obar-t">${cloudOrders.length} ออเดอร์${
         fresh ? ` · ใหม่ ${fresh} ใบรอรับ` : ' · กำลังทำอยู่'}</span>
-      <span class="obar-s">${esc(what || 'ออเดอร์จากลูกค้า')}</span>
+      <span class="obar-s">${next.no ? `คิวที่ ${esc(String(next.no))} · ` : ''}${esc(what || 'ออเดอร์จากลูกค้า')}</span>
     </span>
     <span class="obar-go">ดู${icon('chev',15)}</span>
   </button>`;
@@ -2545,7 +2584,7 @@ function orderRowHTML(o){
   const tops = [...new Set(items.flatMap(it => (it.addons || []).map(a => a.name)))];
   const cook = o.status === 'cook';
   const bits = [
-    cook ? `คิวที่ ${esc(String(o.no || '?'))} · กำลังทำ` : 'ออเดอร์ใหม่ · รอรับ',
+    cook ? 'กำลังทำอยู่' : 'ออเดอร์ใหม่ · รอรับ',
     o.who  ? esc(o.who) : '',
     tops.length ? esc(tops.join(', ')) : '',
     o.note ? esc(o.note) : ''
@@ -2553,9 +2592,9 @@ function orderRowHTML(o){
 
   return `<div class="ord${cook ? ' cook' : ''}">
     <div class="ord-top">
-      <span class="ord-no">${cook ? esc(String(o.no || '?')) : '฿'}</span>
+      <span class="ord-no">${o.no ? esc(String(o.no)) : '–'}</span>
       <div class="ord-m">
-        <div class="ord-n">${what || '(ไม่มีรายการ)'}</div>
+        <div class="ord-n">${o.no ? `<span class="ord-q">คิวที่ ${esc(String(o.no))}</span>` : ''}${what || '(ไม่มีรายการ)'}</div>
         <div class="ord-s">${bits.join(' · ')}</div>
       </div>
       <b class="ord-p">${money(n(o.total))}</b>
