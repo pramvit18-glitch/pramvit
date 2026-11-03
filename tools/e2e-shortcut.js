@@ -1,0 +1,131 @@
+/* ทางลัดที่พาไปสั่งของ — เมนูลัดหน้าขาย · ขายดีบนแดชบอร์ด · ผลค้นหา
+   ทั้งสามเส้นต้องทำงานเหมือนกันเป๊ะ กดจริงในเบราว์เซอร์
+
+   สองบั๊กที่เคยเจอ (เจ้าของเจอเองกับตา):
+   1. กดเมนูลัด -> เลือกไส้ -> กดกากบาท แล้วโผล่หน้าต่าง "สั่งสินค้า"
+      ที่แม่ค้าไม่ได้สั่งให้เปิด ต้องกดปิดอีกรอบ แถมเมนูที่ยกเลิกไปยังค้างในบิล
+   2. กดขายดีบนแดชบอร์ด/ผลค้นหา -> เลือกไส้ -> กด "เสร็จแล้ว" แล้ว
+      **กล่องไม่ปิด ค้างอยู่อย่างนั้น** เพราะ orderOpen เป็น false
+      (สองเส้นนั้นเรียก tapMenu() ตรง ๆ โดยไม่เปิดหน้าต่างสั่งสินค้าก่อน) */
+
+const { chromium } = require('playwright');
+const APP = 'http://127.0.0.1:8787';
+
+const ok = [];
+const push = (name, v) => ok.push([name, !!v]);
+
+const seed = () => {
+  const d = new Date();
+  const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  localStorage.setItem('crepe-hub-v1', JSON.stringify({shops:[{
+    id:'sh1', shopName:'ร้านเครปทดสอบ', shopOpen:1,
+    groups:[{id:'g1', name:'ไส้คาว', items:[{id:'a1',name:'ไส้กรอก',price:5}]}],
+    menus:[{id:'m1', name:'เครปกรอบ', price:15, groupIds:['g1'], items:[]}],
+    ingredients:[], expenses:[],
+    sales:[{id:'s1',bill:'b1',d:k,t:'10:00',menuId:'m1',name:'เครปกรอบ',qty:3,addons:[],total:45}],
+    fixed:{rent:0,electric:0,gas:0,water:0,other:0,days:26,labor:0}
+  }], active:'sh1'}));
+};
+
+const state = pg => pg.evaluate(() => ({
+  dlgOpen: dlg.open,
+  title: (document.querySelector('#dlg h3') || {}).textContent || '',
+  orderOpen,
+  lines: order ? order.lines.length : null,
+  tab
+}));
+
+(async () => {
+  const b = await chromium.launch({ args:['--no-sandbox'] });
+
+  async function fresh(){
+    const pg = await b.newPage({ viewport:{width:390,height:844} });
+    pg.on('pageerror', e => push('สคริปต์ตาย: ' + e.message.slice(0,50), false));
+    await pg.goto(APP + '/index.html');
+    await pg.evaluate(seed);
+    await pg.reload();
+    await pg.waitForTimeout(800);
+    return pg;
+  }
+
+  // ทางเข้าทั้งสามเส้น ชื่อ + วิธีกด
+  const ways = [
+    ['เมนูลัดหน้าขาย', async pg => {
+      await pg.evaluate(() => go('sale'));
+      await pg.waitForTimeout(500);
+      await pg.locator('#view .qmenu-b').first().click();
+    }],
+    ['ขายดีบนแดชบอร์ด', async pg => {
+      await pg.evaluate(() => go('today'));
+      await pg.waitForTimeout(500);
+      await pg.locator('.hil-b:not([disabled])').first().click();
+    }],
+    ['ผลค้นหาเมนู', async pg => {
+      await pg.evaluate(() => go('today'));
+      await pg.waitForTimeout(400);
+      await pg.locator('#searchQ').fill('เครปกรอบ');
+      await pg.waitForTimeout(600);
+      await pg.locator('[onclick^="searchMenu"]').first().click();
+    }]
+  ];
+
+  for(const [name, tap] of ways){
+    /* ---------- กดกากบาท = ยกเลิก ต้องกลับหน้าขาย ไม่เหลืออะไรค้าง ---------- */
+    let pg = await fresh();
+    await tap(pg);
+    await pg.waitForTimeout(1100);
+    let s = await state(pg);
+    push(`${name}: กดแล้วได้กล่องเลือกไส้`, s.dlgOpen && s.title.includes('เลือกไส้'));
+    push(`${name}: หน้าต่างสั่งสินค้าเปิดรออยู่ข้างหลัง`, s.orderOpen === true);
+
+    await pg.locator('#dlg .dlg-x').click();
+    await pg.waitForTimeout(1100);
+    s = await state(pg);
+    push(`${name}: กากบาทแล้วปิดจริง ไม่โผล่หน้าต่างสั่งสินค้า`, s.dlgOpen === false);
+    push(`${name}: ยกเลิกแล้วของไม่ค้างอยู่ในบิล`, s.lines === null || s.lines === 0);
+    push(`${name}: ยกเลิกแล้วอยู่ที่หน้าขาย`, s.tab === 'sale');
+    await pg.close();
+
+    /* ---------- กด "เสร็จแล้ว" = ไปต่อที่หน้าต่างสั่งสินค้า ---------- */
+    pg = await fresh();
+    await tap(pg);
+    await pg.waitForTimeout(1100);
+    const chip = pg.locator('#dlg .tops .top').first();
+    if(await chip.count()) { await chip.click(); await pg.waitForTimeout(300); }
+    await pg.locator('#dlg button', { hasText:'เสร็จแล้ว' }).click();
+    await pg.waitForTimeout(1100);
+    s = await state(pg);
+    push(`${name}: กดเสร็จแล้ว กล่องเลือกไส้ต้องไม่ค้าง`, !s.title.includes('เลือกไส้'));
+    push(`${name}: กดเสร็จแล้วไปต่อที่หน้าต่างสั่งสินค้า`, s.dlgOpen && s.title.includes('สั่งสินค้า'));
+    push(`${name}: ของที่เลือกอยู่ในบิลจริง`, s.lines === 1);
+    push(`${name}: ไส้ที่ติ๊กไว้ติดไปด้วย`,
+      await pg.evaluate(() => !!(order && order.lines[0] && (order.lines[0].addons||[]).length)));
+    await pg.close();
+  }
+
+  /* ---------- ในหน้าต่างสั่งสินค้าเอง ยกเลิกต้องกลับมาที่หน้าต่างนั้น ----------
+     อันนี้ **ไม่ใช่บั๊ก** แม่ค้าอยู่ในหน้าต่างนั้นอยู่แล้ว ปิดกล่องไส้ก็ต้องเห็นบิลต่อ
+     ถ้าไปปิดหมดเลยจะเสียบิลที่กำลังทำอยู่ ซึ่งแย่กว่า */
+  const pg = await fresh();
+  await pg.evaluate(() => go('sale'));
+  await pg.waitForTimeout(500);
+  await pg.locator('#view .orderbtn').click();
+  await pg.waitForTimeout(1100);
+  await pg.locator('#dlg .posrow').first().click();
+  await pg.waitForTimeout(1100);
+  let s2 = await state(pg);
+  push('ในหน้าต่างสั่งสินค้า: แตะเมนูแล้วได้กล่องเลือกไส้', s2.title.includes('เลือกไส้'));
+  await pg.locator('#dlg .dlg-x').click();
+  await pg.waitForTimeout(1100);
+  s2 = await state(pg);
+  push('ในหน้าต่างสั่งสินค้า: ยกเลิกแล้วกลับมาที่บิล ไม่ปิดทิ้งทั้งหมด',
+    s2.dlgOpen && s2.title.includes('สั่งสินค้า'));
+  push('ในหน้าต่างสั่งสินค้า: บิลที่ทำค้างไว้ยังอยู่', s2.lines === 1);
+  await pg.close();
+
+  await b.close();
+  let bad = 0;
+  ok.forEach(([n, v]) => { console.log(`  ${v ? '✓' : '✗'} ${n}`); if(!v) bad++; });
+  console.log(bad ? `\n  ตก ${bad} ข้อ\n` : '\n  ผ่านทุกข้อ\n');
+  process.exit(bad ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(1); });

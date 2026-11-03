@@ -4299,7 +4299,7 @@ const orderTotal = () => (order ? order.lines : []).reduce((s,l) => s + lineTota
 const orderCount = () => (order ? order.lines : []).reduce((s,l) => s + n(l.qty), 0);
 
 // กดเมนู: ถ้าบรรทัดล่าสุดเป็นเมนูเดียวกันและยังไม่ใส่ท็อปปิ้ง ให้บวกจำนวนแทนการเพิ่มบรรทัดใหม่
-function tapMenu(id){
+function tapMenu(id, fromQuick){
   const m = findMenu(id); if(!m || !order) return;
   const tops = menuAddons(m);
 
@@ -4315,7 +4315,7 @@ function tapMenu(id){
   const line = { lid: uid(), menuId:id, name:m.name, price:n(m.price), qty:1, addons:[] };
   order.lines.push(line);
   repaintOrder();
-  if(tops.length) lineAddons(line.lid);
+  if(tops.length) lineAddons(line.lid, fromQuick);
 }
 
 // ไส้ของจานนี้ตรงกับอีกบรรทัดเป๊ะไหม — ใช้ชื่อไส้ที่เรียงแล้วเทียบ
@@ -4341,7 +4341,7 @@ function lineQty(lid, v){
 function delLine(lid){ order.lines = order.lines.filter(x => x.lid !== lid); repaintOrder(); }
 
 // ใส่ท็อปปิ้งให้บรรทัดนั้น
-function lineAddons(lid){
+function lineAddons(lid, fromQuick){
   const l = order.lines.find(x => x.lid === lid); if(!l) return;
   const m = findMenu(l.menuId);
   const tops = menuAddons(m);
@@ -4355,7 +4355,16 @@ function lineAddons(lid){
     title:'เลือกไส้ / ท็อปปิ้ง',
     sub: topSumText(l),
     html: topsHTML(tops, new Set((l.addons||[]).map(a => a.name)), lid),
-    onDismiss: () => { mergeSameLine(lid); if(orderOpen) drawOrderDialog(); },
+    /* กากบาท / Esc = ยกเลิก
+       มาจากทางลัด: ต้องกลับไปหน้าขายเลย และของที่เพิ่งกดต้องไม่ค้างอยู่ในบิล
+       เดิมโผล่หน้าต่าง "สั่งสินค้า" ที่แม่ค้าไม่ได้สั่งให้เปิด ต้องกดปิดอีกรอบ
+       แถมเมนูที่เพิ่งยกเลิกไปก็ยังนอนอยู่ในบิล (เจ้าของเจอเองกับตา)
+       มาจากในหน้าต่างสั่งสินค้าอยู่แล้ว: กลับไปที่นั่นเหมือนเดิม ถูกแล้ว */
+    onDismiss: () => {
+      if(fromQuick){ order = null; orderOpen = false; render(); return; }
+      mergeSameLine(lid);
+      if(orderOpen) drawOrderDialog();
+    },
     foot:[{label:'เสร็จแล้ว', cls:'primary wide', fn:`doneAddons('${lid}')`}]
   });
   l._draw = draw;
@@ -4805,9 +4814,17 @@ function viewPOS(){
 }
 
 // กดเมนูจากหน้าขาย = เปิดบิลใหม่พร้อมใส่เมนูนั้นให้เลย ไม่ต้องเปิดหน้าต่างแล้วค่อยหาเมนูอีกรอบ
+/* ทางลัดทุกเส้นที่พามาสั่งของ — เมนูลัดหน้าขาย · ขายดีบนแดชบอร์ด · ผลค้นหา
+   ต้องเข้าทางเดียวกันหมด: ไปหน้าขาย → เปิดหน้าต่างสั่งสินค้า → ค่อยเลือกไส้
+
+   เดิม hilTap กับ searchMenu เรียก tapMenu() ตรง ๆ โดยไม่เปิดหน้าต่างสั่งสินค้า
+   orderOpen เลยเป็น false ทั้งที่กล่องเลือกไส้เปิดอยู่ ผลคือ **กด "เสร็จแล้ว"
+   แล้วกล่องไม่ปิด ค้างอยู่อย่างนั้น** เพราะ repaintOrder() ไปวาดหน้าข้างหลังแทน
+   แม่ค้าต้องกดกากบาทเอง แล้วของที่เลือกไว้ก็หายไปเงียบ ๆ */
 function posQuick(id){
+  if(tab !== 'sale') go('sale');
   openOrderDialog();
-  if(orderOpen) tapMenu(id);
+  if(orderOpen) tapMenu(id, true);     // true = มาจากทางลัด
 }
 
 function billDetail(billId){
@@ -5299,7 +5316,7 @@ function hiliteHTML(){
         <span class="hil-n">${esc(m.name || '(ไม่มีชื่อ)')}</span>
       </button>`).join('')}</div>`;
 }
-function hilTap(id){ go('sale'); tapMenu(id); }
+function hilTap(id){ posQuick(id); }
 
 /* ---------- ค้นหา ---------- */
 function runSearch(v){
@@ -5362,7 +5379,7 @@ function searchHTML(){
       </div>`).join(''))}
   </div>`;
 }
-function searchMenu(id){ clearSearch(); go('sale'); tapMenu(id); }
+function searchMenu(id){ clearSearch(); posQuick(id); }
 
 /* ---------- วาดส่วนบนของหน้าแรกใหม่ ---------- */
 function renderHome(){
