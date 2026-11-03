@@ -403,6 +403,13 @@
   .ord.cook .ord-q{background:var(--brand); color:#fff}
   .ord-s{font-size:12.5px; color:var(--muted); font-weight:600; margin-top:2px; line-height:1.45}
   .ord-p{flex:0 0 auto; font-size:17px; font-weight:800; font-variant-numeric:tabular-nums}
+  /* ป้าย "ลูกค้าแจ้งว่าโอนแล้ว" — เขียวอ่อน ไม่ใช่เขียวเข้มแบบยืนยันแล้ว
+     เพราะแอปยังเช็กเงินเข้าเองไม่ได้ แม่ค้าต้องเปิดแอปธนาคารดูเอง */
+  .ord-paid{
+    display:inline-flex; align-items:center; gap:5px; margin-top:6px;
+    background:var(--good-bg); color:var(--good-ink); border-radius:var(--r-pill);
+    padding:3px 10px 4px; font-size:11.5px; font-weight:800; line-height:1.4;
+  }
   .ord-act{display:flex; gap:9px; margin-top:12px}
   .ord-act .btn{flex:0 0 auto}
   .ord-act .btn.primary, .ord-act .btn.wide{flex:1}
@@ -2345,6 +2352,9 @@ function menuForCustomers(){
     open:   !!db.shopOpen,     // ร้านเปิดขายอยู่ไหม
     taking: !!db.orderOn,      // รับออเดอร์ผ่านหน้าลูกค้าอยู่ไหม (คนละเรื่องกับร้านเปิด)
     at:     Date.now(),
+    /* เบอร์พร้อมเพย์ — ต้องขึ้นไปด้วย ไม่งั้นมือถือลูกค้าสร้าง QR ไม่ได้
+       นี่คือข้อมูลชิ้นเดียวที่ "เป็นของเจ้าของ" ที่ยอมให้ขึ้นคลาวด์ นอกนั้นยังห้ามเหมือนเดิม */
+    payId:  String(db.payId || ''),
     menus:  db.menus.map(m => ({
       id: m.id, name: String(m.name || ''), price: n(m.price),
       incl: n(m.incl), extraTop: n(m.extraTop),   // โควตาไส้ ต้องตรงกับฝั่งร้าน
@@ -2841,12 +2851,20 @@ function orderRowHTML(o){
     o.note ? esc(o.note) : ''
   ].filter(Boolean);
 
+  /* ลูกค้ากด "จ่ายแล้ว" มาเอง — **แอปเช็กเงินเข้าแทนไม่ได้**
+     ป้ายนี้บอกแค่ว่าลูกค้าแจ้งว่าจ่าย แม่ค้าต้องเปิดแอปธนาคารดูเองก่อนลงมือทอด
+     เขียนให้ชัดว่า "แจ้งว่า" ไม่ใช่ "จ่ายแล้ว" เฉย ๆ จะได้ไม่เผลอเชื่อ */
+  const paidTag = o.paid
+    ? `<span class="ord-paid">${icon('check',13)} ลูกค้าแจ้งว่าโอนแล้ว ${money(n(o.total))} · เช็กแอปธนาคารก่อนนะ</span>`
+    : '';
+
   return `<div class="ord${cook ? ' cook' : ''}">
     <div class="ord-top">
       <span class="ord-no">${o.no ? esc(String(o.no)) : '–'}</span>
       <div class="ord-m">
         <div class="ord-n">${o.no ? `<span class="ord-q">คิวที่ ${esc(String(o.no))}</span>` : ''}${what || '(ไม่มีรายการ)'}</div>
         <div class="ord-s">${bits.join(' · ')}</div>
+        ${paidTag}
       </div>
       <b class="ord-p">${money(n(o.total))}</b>
     </div>
@@ -2924,6 +2942,12 @@ function orderSetupDialog(){
         <label for="cloudBox">ชื่อโปรเจกต์ Firebase (หรือ URL ของที่เก็บ)</label>
         <input type="text" id="cloudBox" value="${esc(base)}" placeholder="เช่น pramvit-order">
       </div>
+      <div class="f" style="margin-top:14px">
+        <label for="payBox">เบอร์พร้อมเพย์ที่ให้ลูกค้าโอน (เว้นว่าง = จ่ายตอนมารับของอย่างเดียว)</label>
+        <input type="tel" inputmode="numeric" id="payBox" value="${esc(db.payId || '')}"
+               placeholder="เช่น 0812345678 หรือเลขบัตรประชาชน" onchange="setPayId(this.value)">
+      </div>
+      <p class="hint" style="margin:8px 0 0">${payIdHint()}</p>
       ${on && link ? `<div class="f" style="margin-top:14px">
         <label for="orderLinkBox">ลิงก์สำหรับลูกค้า (เอาไปทำ QR ติดหน้าร้าน)</label>
         <textarea id="orderLinkBox" readonly rows="3"
@@ -2966,6 +2990,29 @@ async function turnOnNotify(){
   const ok = await askNotifyOK();
   toast(ok ? 'เปิดแถบแจ้งเตือนแล้ว' : 'ยังไม่ได้เปิด — ลองอีกทีหรือเปิดที่ตั้งค่าเครื่อง');
   orderSetupDialog();
+}
+
+/* เบอร์พร้อมเพย์ที่จะเอาไปทำ QR ให้ลูกค้าสแกนจ่าย
+   **เลขนี้ขึ้นคลาวด์ไปกับใบเมนู** เพราะต้องให้มือถือลูกค้าสร้าง QR ได้
+   ใครมีลิงก์ร้านก็เห็นเลขนี้ได้ (และเห็นชื่อบัญชีตอนกรอกในแอปธนาคาร)
+   เจ้าของรับทราบแล้ว — ถ้าไม่อยากให้ขึ้น เว้นช่องนี้ว่างไว้ ลูกค้าจะจ่ายตอนมารับของอย่างเดียว */
+function setPayId(v){
+  const d = String(v || '').replace(/\D/g, '');
+  db.payId = d; save();
+  publishMenuSoon();
+  render();
+  toast(d ? 'บันทึกเบอร์พร้อมเพย์แล้ว — ลูกค้าสแกนจ่ายก่อนส่งออเดอร์ได้'
+          : 'เอาพร้อมเพย์ออกแล้ว — ลูกค้าจะจ่ายตอนมารับของอย่างเดียว');
+}
+
+// บอกตรง ๆ ว่าเลขที่กรอกถูกอ่านเป็นอะไร จะได้รู้ทันทีถ้าพิมพ์ผิด
+function payIdHint(){
+  const d = String(db.payId || '').replace(/\D/g, '');
+  if(!d) return 'ยังไม่ได้ใส่ — ลูกค้าจะเห็นแค่ "จ่ายตอนมารับของ" ไม่มี QR ให้สแกน';
+  if(d.length === 13) return `อ่านเป็น <b>เลขบัตรประชาชน/ผู้เสียภาษี</b> ${esc(d)} · บัญชีนี้ต้องผูกพร้อมเพย์ไว้แล้ว`;
+  if(d.length === 15) return `อ่านเป็น <b>เลขกระเป๋าเงิน</b> ${esc(d)}`;
+  if(d.length === 10 || d.length === 11) return `อ่านเป็น <b>เบอร์มือถือ</b> ${esc(d)} · บัญชีนี้ต้องผูกพร้อมเพย์ไว้แล้ว`;
+  return `<b>เลขดูแปลก ๆ (${d.length} หลัก)</b> เบอร์มือถือต้อง 10 หลัก เลขบัตรประชาชน 13 หลัก — เช็กอีกทีนะครับ`;
 }
 
 async function copyOrderLink(){

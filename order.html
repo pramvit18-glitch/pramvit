@@ -270,6 +270,17 @@
   .dlg-foot .btn.primary{flex:1.5}
   .dlg-foot .btn.ghost{flex:0 1 auto; padding-left:18px; padding-right:18px}
 
+  /* ---------- หน้าสแกนจ่าย ----------
+     QR เป็น SVG วาดในเครื่อง ไม่โหลดรูปจากที่ไหน ขยายแล้วไม่แตก
+     เบอร์พร้อมเพย์ไม่เคยถูกส่งออกไปให้ใครนอกจากขึ้นคลาวด์ของร้านเอง */
+  .paywrap{text-align:center; padding:4px 0 2px}
+  .payqr{display:block; margin:0 auto; border-radius:var(--r); background:#fff}
+  .payamt{
+    display:block; margin-top:12px; font-size:30px; font-weight:800;
+    letter-spacing:-.03em; color:var(--ink); font-variant-numeric:tabular-nums;
+  }
+  .paytip{display:block; margin-top:4px; font-size:12.5px; color:var(--muted); font-weight:700}
+
   /* ---------- ภาพเตาเครปกำลังทำ ---------- */
   .cookwrap{text-align:center; padding:8px 0 2px}
   .cookwrap span{
@@ -480,7 +491,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v115';
+const PAGE_VER = 'crepe-cost-v117';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -621,6 +632,7 @@ const SVG = {
   plus:'<path d="M12 5v14M5 12h14"/>',
   chev:'<path d="m9 5 7 7-7 7"/>',
   x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  qr:'<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h.01"/>',
   alert:'<path d="M12 9v5"/><path d="M12 17.5h.01"/><path d="M10.3 3.9 2.6 17.1A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.9L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
   trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   today:'<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/>',
@@ -645,6 +657,269 @@ function initial(name){
   if(!t) return '?';
   const m = t.match(/[^\sเ-ไ]/);
   return (m ? m[0] : t[0]);
+}
+
+/* ===================== QR พร้อมเพย์ =====================
+   โค้ดสองก้อนนี้ถูกพิสูจน์แล้วก่อนเอามาใส่ (ดู tools/e2e-pay.js):
+   - ตัวสร้างข้อมูล เทียบกับไลบรารี promptpay-qr ตรงกัน 88/88 เคส
+   - ตัววาด QR สร้างแล้วอ่านกลับด้วยตัวอ่าน QR จริง ตรงเป๊ะทุกเคส
+   **แก้ตรงนี้แล้วต้องรัน tools/e2e-pay.js ใหม่เสมอ** เพราะเป็นเรื่องเงิน
+
+/* สร้างข้อมูลใน QR พร้อมเพย์ (มาตรฐาน EMVCo)
+   โครงสร้างคือ รหัสฟิลด์(2) + ความยาว(2) + ค่า ต่อกันไปเรื่อย ๆ ปิดท้ายด้วยรหัสตรวจสอบ */
+function ppPayload(id, amount){
+  const f = (tag, v) => tag + String(v.length).padStart(2,'0') + v;
+  const d = String(id || '').replace(/\D/g, '');
+  if(!d) return '';
+
+  // 13 หลัก = เลขบัตรประชาชน/เลขผู้เสียภาษี · 15 หลัก = เลขกระเป๋าเงิน · นอกนั้นถือเป็นเบอร์มือถือ
+  const target = d.length === 13 ? f('02', d)
+               : d.length === 15 ? f('03', d)
+               // เบอร์มือถือ: เอา 9 ตัวท้ายเสมอ แล้วเติมรหัสประเทศ
+               // (ตัด 0 นำหน้าออกเอง และกันกรณีพิมพ์มาเป็น 66xxxxxxxxx อยู่แล้วไม่ให้เติมซ้ำ)
+               : f('01', '0066' + d.slice(-9));
+
+  const amt = Number(amount);
+  const hasAmt = Number.isFinite(amt) && amt > 0;
+
+  let s = f('00','01')
+        + f('01', hasAmt ? '12' : '11')          // 12 = ใช้ครั้งเดียว (มียอด) · 11 = ใช้ซ้ำได้
+        + f('29', f('00','A000000677010111') + target)
+        + f('58','TH')
+        + f('53','764')                           // สกุลเงินบาท
+        + (hasAmt ? f('54', amt.toFixed(2)) : '')
+        + '6304';
+  return s + crc16(s);
+}
+
+// CRC-16/CCITT-FALSE — ตั้งต้น 0xFFFF ไม่กลับบิต ไม่ xor ท้าย
+function crc16(s){
+  let c = 0xFFFF;
+  for(let i = 0; i < s.length; i++){
+    c ^= s.charCodeAt(i) << 8;
+    for(let k = 0; k < 8; k++) c = (c & 0x8000) ? ((c << 1) ^ 0x1021) & 0xFFFF : (c << 1) & 0xFFFF;
+  }
+  return c.toString(16).toUpperCase().padStart(4,'0');
+}
+
+/* ตัววาด QR ขั้นต่ำ — โหมดตัวอักษร-ตัวเลข (alphanumeric) ระดับกันพลาด M
+   พอสำหรับ QR พร้อมเพย์ ซึ่งมีแต่ 0-9 A-Z และจุด ทั้งหมดอยู่ในชุดนี้
+   เขียนเองเพราะโปรเจกต์ห้ามมี dependency — แต่ต้องพิสูจน์ด้วยการอ่านกลับ */
+
+const AL = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:';
+
+// [กันพลาดต่อบล็อก, บล็อกกลุ่ม1, ข้อมูลต่อบล็อก1, บล็อกกลุ่ม2, ข้อมูลต่อบล็อก2]
+const EC_M = {
+  1:[10,1,16,0,0], 2:[16,1,28,0,0], 3:[26,1,44,0,0], 4:[18,2,32,0,0], 5:[24,2,43,0,0],
+  6:[16,4,27,0,0], 7:[18,4,31,0,0], 8:[22,2,38,2,39], 9:[22,3,36,2,37], 10:[26,4,43,1,44]
+};
+const CAP_M = {1:20,2:38,3:61,4:90,5:122,6:154,7:178,8:221,9:262,10:311};
+const ALIGN = {1:[],2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],7:[6,22,38],8:[6,24,42],9:[6,26,46],10:[6,28,50]};
+const VERINFO = {7:0x07C94, 8:0x085BC, 9:0x09A99, 10:0x0A4D3};
+const FMT_M = [0x5412,0x5125,0x5E7C,0x5B4B,0x45F9,0x40CE,0x4F97,0x4AA0];
+
+// ---------- GF(256) สำหรับ Reed-Solomon ----------
+const EXP = new Uint8Array(512), LOG = new Uint8Array(256);
+(function(){ let x = 1;
+  for(let i = 0; i < 255; i++){ EXP[i] = x; LOG[x] = i; x <<= 1; if(x & 0x100) x ^= 0x11D; }
+  for(let i = 255; i < 512; i++) EXP[i] = EXP[i-255];
+})();
+const mul = (a,b) => (a && b) ? EXP[LOG[a] + LOG[b]] : 0;
+
+function rsPoly(n){
+  let p = [1];
+  for(let i = 0; i < n; i++){
+    const q = [...p, 0];
+    for(let j = 0; j < p.length; j++) q[j+1] ^= mul(p[j], EXP[i]);
+    p = q;
+  }
+  return p;
+}
+function rsEncode(data, n){
+  const gen = rsPoly(n), out = new Array(n).fill(0);
+  for(const d of data){
+    const f = d ^ out[0];
+    out.shift(); out.push(0);
+    if(f) for(let i = 0; i < n; i++) out[i] ^= mul(gen[i+1], f);
+  }
+  return out;
+}
+
+// ---------- ข้อมูล -> codewords ----------
+function bitsOf(text, ver){
+  let b = '0010';                                   // โหมด alphanumeric
+  const cnt = ver <= 9 ? 9 : 11;
+  b += text.length.toString(2).padStart(cnt, '0');
+  for(let i = 0; i < text.length; i += 2){
+    const a = AL.indexOf(text[i]);
+    if(i + 1 < text.length) b += (a * 45 + AL.indexOf(text[i+1])).toString(2).padStart(11,'0');
+    else                    b += a.toString(2).padStart(6,'0');
+  }
+  return b;
+}
+function codewords(text, ver){
+  const [ecn, g1, d1, g2, d2] = EC_M[ver];
+  const total = g1*d1 + g2*d2;
+  let b = bitsOf(text, ver);
+  b += '0'.repeat(Math.min(4, total*8 - b.length));          // ตัวปิดท้าย
+  b += '0'.repeat((8 - b.length % 8) % 8);                   // เติมให้ครบไบต์
+  const pads = ['11101100','00010001'];
+  for(let i = 0; b.length < total*8; i++) b += pads[i % 2];
+
+  const all = [];
+  for(let i = 0; i < b.length; i += 8) all.push(parseInt(b.slice(i, i+8), 2));
+
+  const blocks = [], ecs = [];
+  let p = 0;
+  for(let i = 0; i < g1; i++){ const d = all.slice(p, p+d1); p += d1; blocks.push(d); ecs.push(rsEncode(d, ecn)); }
+  for(let i = 0; i < g2; i++){ const d = all.slice(p, p+d2); p += d2; blocks.push(d); ecs.push(rsEncode(d, ecn)); }
+
+  const out = [];
+  const maxD = Math.max(d1, d2);
+  for(let i = 0; i < maxD; i++) for(const blk of blocks) if(i < blk.length) out.push(blk[i]);
+  for(let i = 0; i < ecn; i++) for(const e of ecs) out.push(e[i]);
+  return out;
+}
+
+// ---------- วางลงตาราง ----------
+function build(text){
+  let ver = 0;
+  for(let v = 1; v <= 10; v++) if(text.length <= CAP_M[v]) { ver = v; break; }
+  if(!ver) throw new Error('ข้อความยาวเกินไป');
+
+  const n = ver * 4 + 17;
+  const m = Array.from({length:n}, () => new Array(n).fill(null));   // null = ยังว่าง
+  const res = Array.from({length:n}, () => new Array(n).fill(false)); // ช่องที่จองไว้
+
+  const put = (r,c,v) => { m[r][c] = v; res[r][c] = true; };
+
+  // ตาสามมุม + เส้นคั่น
+  const finder = (R,C) => {
+    for(let r = -1; r <= 7; r++) for(let c = -1; c <= 7; c++){
+      const rr = R+r, cc = C+c;
+      if(rr < 0 || cc < 0 || rr >= n || cc >= n) continue;
+      const on = (r >= 0 && r <= 6 && (c === 0 || c === 6)) ||
+                 (c >= 0 && c <= 6 && (r === 0 || r === 6)) ||
+                 (r >= 2 && r <= 4 && c >= 2 && c <= 4);
+      put(rr, cc, on);
+    }
+  };
+  finder(0,0); finder(0,n-7); finder(n-7,0);
+
+  // เส้นจังหวะ
+  for(let i = 8; i < n-8; i++){ put(6, i, i % 2 === 0); put(i, 6, i % 2 === 0); }
+
+  // ตาเล็กกลางตาราง
+  for(const r of ALIGN[ver]) for(const c of ALIGN[ver]){
+    if((r <= 8 && c <= 8) || (r <= 8 && c >= n-9) || (r >= n-9 && c <= 8)) continue;
+    for(let dr = -2; dr <= 2; dr++) for(let dc = -2; dc <= 2; dc++)
+      put(r+dr, c+dc, Math.max(Math.abs(dr), Math.abs(dc)) !== 1);
+  }
+
+  // จุดดำบังคับ + จองที่สำหรับข้อมูลรูปแบบ
+  put(n-8, 8, true);
+  for(let i = 0; i < 9; i++){ if(m[8][i] === null) put(8,i,false); if(m[i][8] === null) put(i,8,false); }
+  for(let i = 0; i < 8; i++){ if(m[8][n-1-i] === null) put(8,n-1-i,false); if(m[n-1-i][8] === null) put(n-1-i,8,false); }
+  if(ver >= 7) for(let i = 0; i < 18; i++){
+    const r = Math.floor(i/3), c = i % 3;
+    put(r, n-11+c, false); put(n-11+c, r, false);
+  }
+
+  // ใส่ข้อมูลแบบงูเลื้อยจากขวาล่าง
+  const cw = codewords(text, ver);
+  let bit = 0, up = true;
+  const bits = cw.map(x => x.toString(2).padStart(8,'0')).join('');
+  for(let c = n-1; c > 0; c -= 2){
+    if(c === 6) c--;                       // ข้ามคอลัมน์เส้นจังหวะ
+    for(let i = 0; i < n; i++){
+      const r = up ? n-1-i : i;
+      for(const cc of [c, c-1]){
+        if(res[r][cc]) continue;
+        m[r][cc] = bit < bits.length ? bits[bit] === '1' : false;
+        bit++;
+      }
+    }
+    up = !up;
+  }
+  return { m, n, ver, res };
+}
+
+// ---------- หน้ากาก ----------
+const MASK = [
+  (r,c) => (r+c) % 2 === 0,
+  (r,c) => r % 2 === 0,
+  (r,c) => c % 3 === 0,
+  (r,c) => (r+c) % 3 === 0,
+  (r,c) => (Math.floor(r/2) + Math.floor(c/3)) % 2 === 0,
+  (r,c) => (r*c) % 2 + (r*c) % 3 === 0,
+  (r,c) => ((r*c) % 2 + (r*c) % 3) % 2 === 0,
+  (r,c) => ((r+c) % 2 + (r*c) % 3) % 2 === 0
+];
+
+function penalty(g, n){
+  let p = 0;
+  // 1) ช่วงเดียวกันยาว 5+
+  for(let i = 0; i < n; i++){
+    for(const line of [g[i], g.map(row => row[i])]){
+      let run = 1;
+      for(let j = 1; j < n; j++){
+        if(line[j] === line[j-1]) run++;
+        else { if(run >= 5) p += 3 + (run-5); run = 1; }
+      }
+      if(run >= 5) p += 3 + (run-5);
+    }
+  }
+  // 2) บล็อก 2x2 สีเดียวกัน
+  for(let r = 0; r < n-1; r++) for(let c = 0; c < n-1; c++)
+    if(g[r][c] === g[r][c+1] && g[r][c] === g[r+1][c] && g[r][c] === g[r+1][c+1]) p += 3;
+  // 3) ลายคล้ายตามุม
+  const pat1 = [1,0,1,1,1,0,1,0,0,0,0], pat2 = [0,0,0,0,1,0,1,1,1,0,1];
+  const hit = (line, s) => pat1.every((v,k) => (line[s+k]?1:0) === v) || pat2.every((v,k) => (line[s+k]?1:0) === v);
+  for(let i = 0; i < n; i++){
+    const row = g[i], col = g.map(r2 => r2[i]);
+    for(let s = 0; s + 11 <= n; s++){ if(hit(row,s)) p += 40; if(hit(col,s)) p += 40; }
+  }
+  // 4) สัดส่วนดำ-ขาว
+  let dark = 0;
+  for(let r = 0; r < n; r++) for(let c = 0; c < n; c++) if(g[r][c]) dark++;
+  p += Math.floor(Math.abs(dark*100/(n*n) - 50) / 5) * 10;
+  return p;
+}
+
+function qr(text){
+  const { m, n, ver, res } = build(text);
+  let best = null;
+  for(let k = 0; k < 8; k++){
+    const g = m.map((row,r) => row.map((v,c) => res[r][c] ? v : (v !== MASK[k](r,c))));
+    // ใส่ข้อมูลรูปแบบ
+    const f = FMT_M[k];
+    for(let i = 0; i <= 5; i++){ g[8][i] = !!(f >> (14-i) & 1); g[i][8] = !!(f >> i & 1); }
+    g[8][7] = !!(f >> 8 & 1); g[8][8] = !!(f >> 7 & 1); g[7][8] = !!(f >> 6 & 1);
+    for(let i = 0; i <= 7; i++) g[n-1-i][8] = !!(f >> i & 1);
+    for(let i = 0; i <= 7; i++) g[8][n-1-i] = !!(f >> (14-i) & 1);
+    g[n-8][8] = true;
+    if(ver >= 7){
+      const v = VERINFO[ver];
+      for(let i = 0; i < 18; i++){
+        const b = !!(v >> i & 1), r = Math.floor(i/3), c = i % 3;
+        g[r][n-11+c] = b; g[n-11+c][r] = b;
+      }
+    }
+    const s = penalty(g, n);
+    if(!best || s < best.s) best = { s, g };
+  }
+  return best.g;
+}
+
+// วาดตาราง QR เป็น SVG — ไม่ต้องใช้ canvas ไม่ต้องโหลดรูป ขยายแล้วไม่แตก
+function qrSVG(text, px){
+  const g = qr(text), n = g.length, q = 4, size = n + q*2;
+  let d = '';
+  for(let r = 0; r < n; r++) for(let c = 0; c < n; c++)
+    if(g[r][c]) d += `M${c+q} ${r+q}h1v1h-1z`;
+  return `<svg class="payqr" viewBox="0 0 ${size} ${size}" width="${px}" height="${px}"
+     shape-rendering="crispEdges" role="img" aria-label="QR พร้อมเพย์">
+    <rect width="${size}" height="${size}" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
 }
 
 /* ---------- คุยกับที่เก็บออเดอร์ ---------- */
@@ -1013,36 +1288,98 @@ function goSend(){
         <textarea id="note" rows="2" maxlength="120" placeholder="เช่น ไม่เอาผัก เผ็ดน้อย"></textarea>
       </div>
     </div>
-    <div class="dlg-foot">
-      <button type="button" class="btn ghost" onclick="dlg.close()">ย้อนกลับ</button>
-      <button type="button" class="btn primary" id="sendBtn" onclick="send()">ส่งเลย</button>
-    </div>`;
+    ${canPay()
+      ? `<div class="dlg-foot">
+           <button type="button" class="btn ghost" id="laterBtn" onclick="send(false)">จ่ายตอนมารับ</button>
+           <button type="button" class="btn primary" id="payBtn" onclick="goPay()">${icon('qr',16)} สแกนจ่ายเลย</button>
+         </div>`
+      : `<div class="dlg-foot">
+           <button type="button" class="btn ghost" onclick="dlg.close()">ย้อนกลับ</button>
+           <button type="button" class="btn primary" id="sendBtn" onclick="send(false)">ส่งเลย</button>
+         </div>`}`;
   openSheet();
 }
 
-async function send(){
-  const btn = el('sendBtn');
+// ร้านใส่เบอร์พร้อมเพย์ไว้ไหม ถ้าไม่ใส่ก็มีแค่ทางจ่ายตอนมารับของ
+const canPay = () => !!String((menu && menu.payId) || '').replace(/\D/g, '');
+
+/* หน้าสแกนจ่าย — โชว์ QR ที่ใส่ยอดมาให้แล้ว ลูกค้าไม่ต้องพิมพ์เลขเอง
+   ชื่อกับหมายเหตุที่พิมพ์ไว้ต้องเก็บก่อนวาดใหม่ ไม่งั้นหายตอนเปลี่ยนหน้า */
+let payDraft = null;
+
+function goPay(){
+  payDraft = {
+    who:  (el('who').value  || '').trim().slice(0, 20),
+    note: (el('note').value || '').trim().slice(0, 120)
+  };
+  const total = cartTotal();
+  const code  = ppPayload(menu.payId, total);
+  el('sheet').innerHTML = `
+    <div class="dlg-grip"></div>
+    <div class="dlg-head">
+      <span class="ic-tile">${icon('qr',18)}</span>
+      <div class="dlg-head-t">
+        <h3>สแกนจ่าย ฿${baht(total)}</h3>
+        <p>พร้อมเพย์ · ยอดใส่มาให้แล้ว ไม่ต้องพิมพ์เอง</p>
+      </div>
+      <button type="button" class="dlg-x" onclick="backToSend()" aria-label="ย้อนกลับ">${icon('x',16)}</button>
+    </div>
+    <div class="dlg-body">
+      <div class="paywrap">
+        ${qrSVG(code, 232)}
+        <b class="payamt">฿${baht(total)}</b>
+        <span class="paytip">เปิดแอปธนาคาร → สแกน QR → ยอดจะขึ้นเอง</span>
+      </div>
+      <div class="note warn">${icon('alert',17)}<span>
+        <b>โอนเสร็จแล้วค่อยกดปุ่มข้างล่าง</b> ทางร้านจะเช็กยอดในแอปธนาคารก่อนเริ่มทำ
+      </span></div>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn ghost" onclick="backToSend()">ย้อนกลับ</button>
+      <button type="button" class="btn primary" id="sendBtn" onclick="send(true)">โอนแล้ว · ส่งออเดอร์</button>
+    </div>`;
+  // กล่องเดิมเปิดอยู่แล้ว แค่เปลี่ยนเนื้อข้างใน ไม่ต้องเล่นภาพเลื่อนซ้ำ
+}
+
+// กลับไปหน้ากรอกชื่อ โดยคงสิ่งที่พิมพ์ไว้
+function backToSend(){
+  goSend();
+  if(payDraft){
+    if(el('who'))  el('who').value  = payDraft.who;
+    if(el('note')) el('note').value = payDraft.note;
+  }
+}
+
+async function send(paid){
+  const btn = el('sendBtn') || el('laterBtn');
   if(!btn || btn.disabled) return;
+  const label = btn.textContent;
   btn.disabled = true; btn.textContent = 'กำลังส่ง…';
+
+  // มาจากหน้า QR ช่องกรอกไม่อยู่บนจอแล้ว ต้องใช้ที่เก็บไว้ตอนกดสแกนจ่าย
+  const who  = el('who')  ? (el('who').value  || '').trim().slice(0, 20)  : (payDraft ? payDraft.who  : '');
+  const note = el('note') ? (el('note').value || '').trim().slice(0, 120) : (payDraft ? payDraft.note : '');
 
   const body = {
     at: Date.now(),
     items: cart.map(c => ({ id:c.id, name:c.name, qty:c.qty, price:c.price, addons:c.addons, total:c.total })),
     total: cartTotal(),
-    who: (el('who').value || '').trim().slice(0, 20),
-    note: (el('note').value || '').trim().slice(0, 120),
-    status: 'new'
+    who, note,
+    status: 'new',
+    // ลูกค้าแจ้งเองว่าโอนแล้ว — ร้านยังต้องเช็กแอปธนาคารก่อนอยู่ดี
+    paid: !!paid
   };
 
   try{
     const res = await cloud('POST', `s/${SHOP}/orders`, body);
-    sentList.push({ id: res.name, at: body.at });   // ต่อท้าย ไม่ทับของเดิม
+    sentList.push({ id: res.name, at: body.at, paid: !!paid });   // ต่อท้าย ไม่ทับของเดิม
     saveSent();
     cart = [];
+    payDraft = null;
     el('dlg').close();
     watchMine();
   }catch(e){
-    btn.disabled = false; btn.textContent = 'ส่งเลย';
+    btn.disabled = false; btn.textContent = label;
     alert('ส่งไม่สำเร็จ เน็ตอาจหลุด ลองกดส่งอีกครั้งนะครับ');
   }
 }
@@ -1205,7 +1542,7 @@ function queueCard(o){
           <span class="li-p">฿${baht(it.total)}</span>
         </div>`).join('')}
     </div>
-    <div class="sumrow"><span>รวม · จ่ายตอนมารับของ</span><b>฿${baht(o.total)}</b></div>` : ''}
+    <div class="sumrow"><span>${o && o.paid ? 'รวม · แจ้งว่าโอนแล้ว' : 'รวม · จ่ายตอนมารับของ'}</span><b>฿${baht(o.total)}</b></div>` : ''}
   </div>`;
 }
 
