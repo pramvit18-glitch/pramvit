@@ -326,6 +326,51 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('หน้าคิวโชว์ออเดอร์ครบทุกใบ',
     await cust.locator('#view .qbig').count() === 2);
 
+  /* ---------- เลขคิวต้องไม่หายเป็นช่วง ----------
+     เจ้าของเจอเอง: กดล้างออเดอร์วันนี้ แล้วลูกค้าสั่งเข้ามา ได้ "คิวที่ 2"
+     คิวที่ 1 หายไปเฉย ๆ
+
+     สาเหตุ: แอปถามที่เก็บทุก 5 วิ และยังถามเพิ่มตอนกลับมาดูจอกับตอนล้างออเดอร์
+     ถ้าเน็ตช้าจนรอบก่อนยังไม่จบ สองรอบจะเห็นออเดอร์ใบเดียวกันที่ยังไม่มีเลข
+     แล้วต่างคนต่างแจกเลข รอบแรกแจก 1 รอบสองแจก 2 ตัวหลังเขียนทับ */
+  const qKey = await seller.evaluate(() => db.orderKey);
+  await seller.evaluate(async () => {
+    // ล้างให้เกลี้ยงแล้วคืนเลขคิวเป็น 0 เหมือนกดปุ่ม "ล้างออเดอร์วันนี้"
+    const d = await cloudReq('GET', `s/${db.orderKey}/orders`);
+    const patch = {}; Object.keys(d || {}).forEach(k => patch[k] = null);
+    if(Object.keys(patch).length) await cloudReq('PATCH', `s/${db.orderKey}/orders`, patch);
+    db.queueDay = dayKey(); db.queueNo = 0; save();
+    cloudOrders = []; seenOrders = null;
+    await pollOrders();
+  });
+  await seller.waitForTimeout(500);
+  push('ล้างออเดอร์แล้ว เลขคิวกลับไปเริ่มที่ 0', await seller.evaluate(() => n(db.queueNo)) === 0);
+
+  // ลูกค้าสั่งเข้ามาหนึ่งใบ แล้วแอปถามสองรอบซ้อนกัน (เหมือนเน็ตช้าของจริง)
+  await fetch(`${CLOUD}/s/${qKey}/orders.json`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ at: Date.now(), status:'new', total: 15,
+      items:[{ id:'m1', name:'เครปกรอบ', qty:1, price:15, addons:[], total:15 }] })
+  });
+  await seller.evaluate(() => { pollOrders(); pollOrders(); });   // ซ้อนกัน ไม่รอกัน
+  await seller.waitForTimeout(1500);
+
+  const qAfter = Object.values(await (await fetch(`${CLOUD}/s/${qKey}/orders.json`)).json() || {})
+                       .map(o => o.no);
+  push('ถามซ้อนกันแล้วลูกค้าคนแรกยังได้ "คิวที่ 1"', qAfter.length === 1 && qAfter[0] === 1);
+  push('ถามซ้อนกันแล้วตัวนับไม่กระโดด', await seller.evaluate(() => n(db.queueNo)) === 1);
+  push('ไม่มีเลขคิวซ้ำกัน', new Set(qAfter).size === qAfter.length);
+
+  // เก็บกวาดให้เส้นทางข้างล่างเริ่มจากของสะอาด
+  await seller.evaluate(async () => {
+    const d = await cloudReq('GET', `s/${db.orderKey}/orders`);
+    const patch = {}; Object.keys(d || {}).forEach(k => patch[k] = null);
+    if(Object.keys(patch).length) await cloudReq('PATCH', `s/${db.orderKey}/orders`, patch);
+    db.queueNo = 0; save(); cloudOrders = []; seenOrders = null;
+    await pollOrders();
+  });
+  await seller.waitForTimeout(500);
+
   /* ---------- ที่เก็บออเดอร์ปฏิเสธ (กฎ Firebase หมดอายุ) ----------
      เคสจริงที่อันตรายที่สุด: กฎ "โหมดทดสอบ" หมดอายุ 30 วัน แล้วปิดทุกทางเอง
      โค้ดเดิมกลืน error ทิ้งหมด ออเดอร์เลยเงียบหายโดยไม่มีอะไรเตือน

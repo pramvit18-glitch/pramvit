@@ -2468,8 +2468,23 @@ function nagNewOrders(){
   beep(); ringBell();
 }
 
+/* กันไม่ให้ถามซ้อนกัน — **เคยทำเลขคิวหายมาแล้ว**
+   แอปถามทุก 5 วิ และยังถามเพิ่มตอนกลับมาดูจอ กับตอนล้างออเดอร์
+   ถ้าเน็ตช้าจนรอบก่อนยังไม่จบ สองรอบจะเห็นออเดอร์ใบเดียวกันที่ยังไม่มีเลข
+   แล้วต่างคนต่างแจกเลขให้ รอบแรกแจก 1 รอบสองแจก 2 ตัวหลังเขียนทับ
+   ผลคือลูกค้าคนแรกของวันได้ "คิวที่ 2" แล้วคิวที่ 1 หายไปเฉย ๆ
+   (เจ้าของเจอเองหลังกดล้างออเดอร์วันนี้) */
+let polling = false;
+
 async function pollOrders(){
   if(!db.orderOn || !cloudReady() || !db.orderKey) return;
+  if(polling) return;                 // รอบก่อนยังไม่จบ ข้ามไปก่อน เดี๋ยวรอบหน้าค่อยถาม
+  polling = true;
+  try{ await pollOnce(); }
+  finally{ polling = false; }         // ต้องปลดทุกกรณี ไม่งั้นค้างแล้วเลิกถามถาวร
+}
+
+async function pollOnce(){
   let data;
   try{ data = await cloudReq('GET', `s/${db.orderKey}/orders`); }
   catch(e){
