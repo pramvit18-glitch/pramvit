@@ -452,7 +452,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v103';
+const PAGE_VER = 'crepe-cost-v104';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -637,6 +637,7 @@ let sentList = [];        // [{id, at}] ออเดอร์ที่ส่ง�
 let mineMap = {};         // {id: ออเดอร์ที่อ่านกลับมาจากที่เก็บ}
 let mode = 'menu';        // 'menu' = กำลังเลือกของ · 'queue' = กำลังดูคิวของตัวเอง
 let poll = null;
+let goneNote = 0;         // ทางร้านเพิ่งเอาออเดอร์ออกไปกี่ใบ — บอกลูกค้าครั้งเดียวพอ
 
 const SENT_KEY = 'crepe-order-sent-' + SHOP;
 const KEEP_MS  = 6*3600*1000;   // จำออเดอร์ของตัวเองไว้ 6 ชม. (ตรงกับที่ฝั่งร้านลบทิ้ง)
@@ -722,6 +723,7 @@ function draw(){
   el('foot').hidden = false;
   mode = 'menu';
   el('view').innerHTML = `
+    ${goneNoteHTML()}
     ${myOrdersBanner()}
     <div class="card">
       ${cardHead('menu', 'เลือกของที่อยากได้', 'แตะที่เมนู แล้วเลือกไส้กับจำนวน')}
@@ -881,6 +883,7 @@ function bump(d){
 }
 
 function addToCart(){
+  goneNote = 0;            // สั่งของใหม่แล้ว ข้อความ "ร้านเอาออเดอร์ออก" หมดหน้าที่
   const m = menu.menus[edit.mi];
   const addons = [...edit.picked].map(nm => ({ name:nm, price:n(findAddon(nm).price) }));
   const each = n(m.price) + addons.reduce((s,a) => s + a.price, 0);
@@ -986,8 +989,33 @@ async function refreshMine(){
       mineMap[x.id] = o || { status:'gone', at:x.at };
     }catch(e){}
   }
+  /* ออเดอร์ที่ทางร้านลบทิ้ง ให้หายออกจากรายการของลูกค้าไปเลย
+     เคยโชว์เป็นการ์ด "ออเดอร์นี้ถูกยกเลิกแล้ว" ทีละใบ พอแม่ค้ากดล้างออเดอร์ทั้งวัน
+     ลูกค้าได้การ์ดซ้ำ ๆ เรียงยาวเต็มจอ เลื่อนเท่าไหร่ก็ไม่หมด อ่านไม่รู้เรื่องเลย
+     ตอนนี้เอาออกเงียบ ๆ แล้วบอกเป็นข้อความบรรทัดเดียวแทน */
+  const gone = sentList.filter(x => mineMap[x.id] && mineMap[x.id].status === 'gone');
+  if(gone.length){
+    gone.forEach(x => { delete mineMap[x.id]; });
+    sentList = sentList.filter(x => !gone.includes(x));
+    saveSent();
+    goneNote += gone.length;
+  }
+
+  // ไม่เหลือออเดอร์สักใบ = พากลับไปหน้าเลือกของ ไม่ใช่ค้างอยู่หน้าคิวเปล่า ๆ
+  if(!sentList.length){ clearInterval(poll); backToMenu(); return; }
+
   if(mode === 'queue') drawMine(); else draw();
   if(!liveOrders().length) clearInterval(poll);
+}
+
+/* ข้อความบอกว่าทางร้านเอาออเดอร์ออก — บรรทัดเดียว ไม่ว่าจะโดนลบไปกี่ใบ
+   ค้างไว้จนกว่าลูกค้าจะสั่งของใหม่ จะได้ไม่พลาดอ่าน */
+function goneNoteHTML(){
+  if(!goneNote) return '';
+  return `<div class="card">
+    <div class="note">${icon('x',17)}<span>ทางร้านเอาออเดอร์ของคุณออกไปแล้ว${
+      goneNote > 1 ? ` ${goneNote} ใบ` : ''} ถ้ายังอยากได้ กดสั่งใหม่ได้เลยครับ</span></div>
+  </div>`;
 }
 
 const STEPS = [['new','ส่งแล้ว'], ['cook','กำลังทำ'], ['done','รับได้เลย']];
@@ -1003,6 +1031,7 @@ function drawMine(){
                  : ['ขอบคุณที่แวะมานะครับ',   ''];
 
   el('view').innerHTML = `
+    ${goneNoteHTML()}
     <div class="card rise">
       <div class="empty thanks">
         <div class="empty-ic">${icon(done ? 'check' : 'cart', 46)}</div>
@@ -1047,13 +1076,6 @@ function cookScene(){
 // การ์ดของออเดอร์หนึ่งใบ — เลขคิว ขั้นตอน และรายการที่สั่ง
 function queueCard(o){
   const st = (o && o.status) || 'new';
-
-  if(st === 'gone'){
-    return `<div class="card">
-      ${cardHead('x', 'ออเดอร์นี้ถูกยกเลิกแล้ว', 'สอบถามที่ร้านได้เลยครับ')}
-      <div class="note">${icon('store',17)}<span>ทางร้านเอาออเดอร์นี้ออกไปแล้วครับ ถ้ายังอยากได้ กดสั่งใหม่ได้เลย</span></div>
-    </div>`;
-  }
 
   if(st === 'rej'){
     return `<div class="card">

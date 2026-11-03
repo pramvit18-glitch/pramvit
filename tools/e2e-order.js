@@ -347,15 +347,27 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('ลบออเดอร์แล้ว **ไม่ถูกนับเป็นยอดขาย**',
     await seller.evaluate(() => (db.sales||[]).length) === salesWas);
 
-  // ลูกค้าต้องรู้ด้วย ไม่ใช่ค้างหมุนรอไม่มีวันจบ
+  /* ลูกค้าต้องรู้ด้วย ไม่ใช่ค้างหมุนรอไม่มีวันจบ
+     แต่ต้อง **ไม่** โชว์เป็นการ์ดค้างไว้ทีละใบ
+     เคยทำแบบนั้นแล้วพอแม่ค้าล้างออเดอร์ทั้งวัน ลูกค้าได้การ์ด "ถูกยกเลิกแล้ว"
+     ซ้ำ ๆ เรียงยาวเต็มจอ เลื่อนเท่าไหร่ก็ไม่หมด */
+  const cardsWas = await cust.locator('#view .qbig').count();
   await cust.evaluate(() => refreshMine());
-  await cust.waitForTimeout(600);
+  await cust.waitForTimeout(700);
   const goneTxt = await cust.textContent('#view');
-  push('ลูกค้าเห็นว่าออเดอร์ถูกยกเลิก ไม่ค้างรอเก้อ', goneTxt.includes('ถูกยกเลิกแล้ว'));
+  push('ลูกค้ารู้ว่าทางร้านเอาออเดอร์ออก', goneTxt.includes('เอาออเดอร์ของคุณออกไปแล้ว'));
+  push('บอกครั้งเดียว ไม่ขึ้นการ์ดซ้ำ ๆ',
+    (goneTxt.match(/เอาออเดอร์ของคุณออกไปแล้ว/g) || []).length === 1);
+  push('ออเดอร์ที่ถูกลบหายออกจากรายการของลูกค้าเลย',
+    await cust.evaluate(() => sentList.length) === 1);
+  push('การ์ดคิวลดลงจริง ไม่ใช่เพิ่มการ์ดยกเลิกเข้ามาแทน',
+    await cust.locator('#view .qbig').count() === cardsWas - 1);
   push('ออเดอร์ที่ถูกลบ ไม่นับว่ายังค้างอยู่',
     await cust.evaluate(() => liveOrders().length) === 0);
   push('ออเดอร์ที่ถูกลบ ไม่มีจุดเด้งค้างอยู่',
     await cust.locator('#view .qbig .dots').count() === 0);
+  push('ออเดอร์ที่ถูกลบ ไม่กลับมาอีกตอนถามรอบหน้า',
+    await cust.evaluate(async () => { await refreshMine(); return sentList.length; }) === 1);
 
   /* ---------- ล้างออเดอร์วันนี้ทีเดียวทั้งหมด ---------- */
   // สั่งใหม่หนึ่งใบไว้ให้มีของให้ล้าง
@@ -398,6 +410,23 @@ const push = (name, v) => { ok.push([name, !!v]); };
   // ข้อสำคัญที่สุด: เงินต้องไม่หายไปกับการล้าง
   push('ล้างออเดอร์แล้ว **ยอดขายที่รับเงินไปแล้วยังอยู่ครบ**',
     await seller.evaluate(() => (db.sales||[]).length) === salesBefore && salesBefore > 0);
+
+  /* ล้างทั้งวันแล้ว ใบที่ลูกค้ายังรออยู่ต้องหายจากเครื่องลูกค้าด้วย
+     ส่วนใบที่รับของไปแล้ว (done) ยังค้างอยู่ได้ — ตั้งใจ
+     แอปเลิกถามที่เก็บเรื่องใบที่จบแล้ว เพื่อไม่เปลืองโควตาฟรี
+     และการ์ด "ของเสร็จแล้ว ขอบคุณที่อุดหนุน" ก็ไม่ใช่ขยะที่ต้องรีบเอาออก */
+  await cust.evaluate(() => refreshMine());
+  await cust.waitForTimeout(800);
+  push('ล้างออเดอร์แล้ว ใบที่ลูกค้ายังรออยู่หายจากเครื่องลูกค้า',
+    await cust.evaluate(() => sentList.length) === 1);
+  push('ล้างออเดอร์แล้ว ใบที่เหลือคือใบที่รับของไปแล้ว ไม่ใช่ใบค้าง',
+    await cust.evaluate(() => mineMap[sentList[0].id].status) === 'done');
+  push('ล้างออเดอร์แล้ว ไม่มีการ์ดยกเลิกโผล่มาแทน',
+    !(await cust.textContent('#view')).includes('ถูกยกเลิกแล้ว'));
+  push('ล้างออเดอร์แล้ว ไม่มีจุดเด้งค้างรอเก้อ',
+    await cust.locator('#view .qbig .dots').count() === 0);
+  push('ยังมีข้อความบอกว่าร้านเอาออเดอร์ออก',
+    (await cust.textContent('#view')).includes('เอาออเดอร์ของคุณออกไปแล้ว'));
 
   // หน้าออเดอร์ตอนว่าง ก็ต้องยังกดล้างได้
   await seller.evaluate(() => go('orders'));
