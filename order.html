@@ -452,7 +452,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v111';
+const PAGE_VER = 'crepe-cost-v112';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -777,10 +777,31 @@ function myOrdersBanner(){
   </button>`;
 }
 
+/* ===================== ค่าไส้ของจานหนึ่ง =====================
+   **ต้องตรงกับ addonCost() ใน index.html เป๊ะ** ไม่งั้นลูกค้าเห็นราคาหนึ่ง
+   ร้านเก็บอีกราคาหนึ่ง แล้วไปเถียงกันหน้าร้านตอนมารับของ
+
+   เมนูที่ตั้ง "รวมไส้กี่อย่าง" ไว้ (เช่น โตเกียว 2 ไส้) คิดแบบโควตา
+   ไส้ในโควตาฟรี เกินมาคิดอันละ extraTop · ไม่ใช้ราคาต่อไส้
+   เมนูที่ไม่ได้ตั้ง (เช่น เครป) คิดราคาต่อไส้เหมือนเดิม */
+function addonCost(m, addons){
+  const list = addons || [];
+  const incl = n(m && m.incl);
+  if(incl > 0) return Math.max(0, list.length - incl) * n(m && m.extraTop);
+  return list.reduce((s, a) => s + n(a.price), 0);
+}
+function addonOver(m, addons){
+  const incl = n(m && m.incl);
+  return incl > 0 ? Math.max(0, (addons || []).length - incl) : 0;
+}
+
 function addonText(m){
   const gs = m.groups || [];
   if(!gs.length) return 'ไม่มีไส้ให้เลือก';
   const total = gs.reduce((s,g) => s + (g.items||[]).length, 0);
+  // เมนูโควตาต้องบอกตั้งแต่หน้ารายการ ลูกค้าจะได้ไม่เข้าใจผิดว่าเลือกฟรีไม่อั้น
+  if(n(m.incl) > 0)
+    return `ราคานี้รวมไส้ ${n(m.incl)} อย่าง · เกินอันละ ${baht(m.extraTop)} บาท`;
   return `เลือกไส้ได้ ${total} อย่าง`;
 }
 
@@ -838,7 +859,7 @@ function drawSheet(){
           ${(g.items||[]).map(it => `
             <button type="button" class="top${edit.picked.has(it.name) ? ' on' : ''}"
                     onclick="tog('${jsq(it.name)}', this)">
-              ${esc(it.name)}${n(it.price) ? ` <b>+${baht(it.price)}</b>` : ''}
+              ${esc(it.name)}${n(m.incl) > 0 || !n(it.price) ? '' : ` <b>+${baht(it.price)}</b>`}
             </button>`).join('')}
         </div>`).join('')
       : `<div class="note">${icon('menu',17)}<span>เมนูนี้ไม่มีไส้ให้เลือก กดใส่ตะกร้าได้เลย</span></div>`}
@@ -856,10 +877,23 @@ function drawSheet(){
 }
 
 function sheetSub(){
+  const m = menu.menus[edit.mi];
   const picked = [...edit.picked];
-  if(!picked.length) return 'แตะเลือกไส้ที่อยากได้ เลือกได้หลายอย่าง';
-  const extra = picked.reduce((s, nm) => s + n(findAddon(nm).price), 0);
-  return picked.join(' · ') + (extra ? ` · +${baht(extra)} บาท` : '');
+  const incl = n(m.incl);
+
+  if(!picked.length)
+    return incl > 0
+      ? `ราคานี้รวมไส้ ${incl} อย่าง · เกินคิดเพิ่มอันละ ${baht(m.extraTop)} บาท`
+      : 'แตะเลือกไส้ที่อยากได้ เลือกได้หลายอย่าง';
+
+  const list  = picked.map(nm => ({ name:nm, price:n(findAddon(nm).price) }));
+  const extra = addonCost(m, list);
+  const over  = addonOver(m, list);
+  const tail  = incl > 0
+    ? ` · เลือก ${picked.length} จาก ${incl}` +
+      (over ? ` · เกิน ${over} อย่าง +${baht(extra)} บาท` : ' · ยังไม่เกิน')
+    : (extra ? ` · +${baht(extra)} บาท` : '');
+  return picked.join(' · ') + tail;
 }
 
 function findAddon(name){
@@ -886,7 +920,7 @@ function addToCart(){
   goneNote = 0;            // สั่งของใหม่แล้ว ข้อความ "ร้านเอาออเดอร์ออก" หมดหน้าที่
   const m = menu.menus[edit.mi];
   const addons = [...edit.picked].map(nm => ({ name:nm, price:n(findAddon(nm).price) }));
-  const each = n(m.price) + addons.reduce((s,a) => s + a.price, 0);
+  const each = n(m.price) + addonCost(m, addons);   // สูตรเดียวกับฝั่งร้าน
   // id ติดไปด้วย เพื่อให้ฝั่งแม่ค้าผูกกลับเข้าเมนูเดิมได้ตอนบันทึกเป็นยอดขาย
   cart.push({ id:m.id, name:m.name, qty:edit.qty, price:n(m.price), addons, total: each * edit.qty });
   el('dlg').close();

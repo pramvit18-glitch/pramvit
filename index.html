@@ -2338,6 +2338,7 @@ function menuForCustomers(){
     at:     Date.now(),
     menus:  db.menus.map(m => ({
       id: m.id, name: String(m.name || ''), price: n(m.price),
+      incl: n(m.incl), extraTop: n(m.extraTop),   // โควตาไส้ ต้องตรงกับฝั่งร้าน
       groups: (m.groupIds || []).map(id => findGroup(id)).filter(Boolean).map(g => ({
         name: String(g.name || ''),
         items: (g.items || []).map(it => ({ name: String(it.name || ''), price: n(it.price) }))
@@ -4014,7 +4015,11 @@ function menuDialog(m){
       {k:'name', label:'ชื่อเมนู', type:'text', value:m?.name ?? '', placeholder:'เช่น เครปกรอบ นูเทลล่า', wide:true},
       {k:'cat', label:'หมวด (เช่น เครป โตเกียว)', type:'text', value: m ? menuCat(m) : '', wide:true},
       {k:'price', label:'ราคาขาย (บาท)', type:'number', value:m?.price ?? ''},
-      {k:'qtyPerDay', label:'ขายได้วันละ (จาน)', type:'number', value:m?.qtyPerDay ?? ''}
+      {k:'qtyPerDay', label:'ขายได้วันละ (จาน)', type:'number', value:m?.qtyPerDay ?? ''},
+      // สองช่องนี้สำหรับเมนูแบบ "โตเกียว 2 ไส้" ที่จำนวนไส้คือตัวกำหนดราคา
+      // เครปที่คิดราคาต่อไส้อยู่แล้ว เว้นว่างไว้ ไม่ต้องกรอก
+      {k:'incl', label:'ราคานี้รวมไส้กี่อย่าง (เว้นว่าง = ไม่จำกัด)', type:'number', value:m?.incl ?? ''},
+      {k:'extraTop', label:'ไส้ที่เกินคิดเพิ่มอันละ (บาท)', type:'number', value:m?.extraTop ?? ''}
     ],
     extra: groupPickerHTML(),
     live: m ? (v => {
@@ -4024,10 +4029,13 @@ function menuDialog(m){
     }) : null,
     check: v => !v.name.trim() ? 'ยังไม่ได้ใส่ชื่อเมนู'
               : v.price < 0 ? 'ราคาติดลบไม่ได้'
-              : v.qtyPerDay < 0 ? 'จำนวนจานติดลบไม่ได้' : null,
+              : v.qtyPerDay < 0 ? 'จำนวนจานติดลบไม่ได้'
+              : v.incl < 0 ? 'จำนวนไส้ติดลบไม่ได้'
+              : v.extraTop < 0 ? 'ค่าไส้เพิ่มติดลบไม่ได้' : null,
     save: v => {
       const data = {name:v.name.trim(), cat:(v.cat||'').trim(), price:v.price,
-                    qtyPerDay:v.qtyPerDay, groupIds:[...menuDraftGroups]};
+                    qtyPerDay:v.qtyPerDay, incl:v.incl, extraTop:v.extraTop,
+                    groupIds:[...menuDraftGroups]};
       if(m) Object.assign(m, data);
       else db.menus.push(Object.assign({id:uid(), items:[]}, data));
       const gs = menuDraftGroups.size;
@@ -4294,7 +4302,31 @@ function clearBill(){
   repaintOrder();
   if(had) toast('ล้างบิลแล้ว');
 }
-const lineTotal = l => (n(l.price) + (l.addons||[]).reduce((s,a) => s + n(a.price), 0)) * n(l.qty);
+/* ===================== ค่าไส้ของจานหนึ่ง =====================
+   มีสองแบบ แล้วแต่ว่าเมนูนั้นตั้ง "รวมไส้กี่อย่าง" ไว้หรือเปล่า
+
+   A) ตั้งไว้ (เช่น โตเกียว 2 ไส้ ฿10) = คิดแบบโควตา
+      ไส้ในโควตาฟรีเพราะรวมอยู่ในราคาแล้ว เกินมาคิดอันละ m.extraTop บาท
+      **ไม่ใช้ราคาต่อไส้ของเมนูนี้** ไม่งั้นจะเก็บซ้ำสองเด้ง
+
+   B) ไม่ได้ตั้ง (เช่น เครป ไส้กรอก +5 ไข่ +10) = คิดราคาต่อไส้เหมือนเดิม
+
+   ทุกจุดที่คิดเงิน (บิลหน้าร้าน · แก้ยอดขายย้อนหลัง · หน้าลูกค้า) ต้องใช้สูตรนี้
+   ถ้าแยกกันคิด เดี๋ยวได้ราคาคนละอย่างระหว่างที่ลูกค้าเห็นกับที่ร้านเก็บ */
+function addonCost(m, addons){
+  const list = addons || [];
+  const incl = n(m && m.incl);
+  if(incl > 0) return Math.max(0, list.length - incl) * n(m && m.extraTop);
+  return list.reduce((s, a) => s + n(a.price), 0);
+}
+
+// ไส้ที่เกินโควตา — ใช้บอกแม่ค้ากับลูกค้าว่าเกินมากี่อย่าง
+function addonOver(m, addons){
+  const incl = n(m && m.incl);
+  return incl > 0 ? Math.max(0, (addons || []).length - incl) : 0;
+}
+
+const lineTotal = l => (n(l.price) + addonCost(findMenu(l.menuId), l.addons)) * n(l.qty);
 const orderTotal = () => (order ? order.lines : []).reduce((s,l) => s + lineTotal(l), 0);
 const orderCount = () => (order ? order.lines : []).reduce((s,l) => s + n(l.qty), 0);
 
@@ -4354,7 +4386,8 @@ function lineAddons(lid, backTo){
   const draw = () => openDialog({ icon:'ing',
     title:'เลือกไส้ / ท็อปปิ้ง',
     sub: topSumText(l),
-    html: topsHTML(tops, new Set((l.addons||[]).map(a => a.name)), lid),
+    html: topsHTML(tops, new Set((l.addons||[]).map(a => a.name)), lid,
+                   n((findMenu(l.menuId)||{}).incl) > 0),
     /* กากบาท / Esc = ยกเลิก
        มาจากทางลัด: ต้องกลับไปหน้าขายเลย และของที่เพิ่งกดต้องไม่ค้างอยู่ในบิล
        เดิมโผล่หน้าต่าง "สั่งสินค้า" ที่แม่ค้าไม่ได้สั่งให้เปิด ต้องกดปิดอีกรอบ
@@ -4379,10 +4412,23 @@ function lineAddons(lid, backTo){
 
 // บรรทัดสรุปใต้หัวกล่อง บอกว่าตอนนี้เลือกอะไรไปแล้วบ้าง บวกเงินเท่าไร
 function topSumText(l){
+  const m = findMenu(l.menuId);
   const picked = l.addons || [];
-  if(!picked.length) return `${l.name} — แตะของที่ลูกค้าเลือก เลือกได้หลายอย่าง`;
-  const extra = picked.reduce((s,a) => s + n(a.price), 0);
-  return picked.map(a => a.name).join(' · ') + (extra ? ` · +${baht(extra)} บาท` : '');
+  const incl = n(m && m.incl);
+
+  // เมนูแบบโควตา (โตเกียว 2 ไส้) ต้องบอกตั้งแต่ยังไม่เลือกว่ารวมกี่อย่าง เกินแล้วคิดเท่าไหร่
+  if(!picked.length)
+    return incl > 0
+      ? `${l.name} — ราคานี้รวมไส้ ${incl} อย่าง · เกินคิดเพิ่มอันละ ${baht(m.extraTop)} บาท`
+      : `${l.name} — แตะของที่ลูกค้าเลือก เลือกได้หลายอย่าง`;
+
+  const extra = addonCost(m, picked);
+  const over  = addonOver(m, picked);
+  const tail  = incl > 0
+    ? ` · เลือก ${picked.length} จาก ${incl}` +
+      (over ? ` · เกิน ${over} อย่าง +${baht(extra)} บาท` : ' · ยังไม่เกิน')
+    : (extra ? ` · +${baht(extra)} บาท` : '');
+  return picked.map(a => a.name).join(' · ') + tail;
 }
 function pickLineTop(lid, name, btn){
   const l = order.lines.find(x => x.lid === lid); if(!l) return;
@@ -4533,7 +4579,14 @@ function orderDialogHTML(){
         <div class="bl-name">${esc(l.name || '(ไม่มีชื่อ)')}
           <span class="bl-sum">฿${baht(lineTotal(l))}</span></div>
         ${picked
-          ? `<div class="bl-add">${l.addons.map(a => esc(a.name) + (n(a.price) > 0 ? ' +' + baht(a.price) : '')).join(' · ')}</div>`
+          ? `<div class="bl-add">${(() => {
+              const mm = findMenu(l.menuId), ov = addonOver(mm, l.addons);
+              // เมนูโควตาไม่ได้คิดราคาต่อไส้ จะเอาราคาต่อไส้มาโชว์ไม่ได้ เดี๋ยวบวกเองแล้วงง
+              if(n(mm && mm.incl) > 0)
+                return l.addons.map(a => esc(a.name)).join(' · ')
+                     + (ov ? ` · เกิน ${ov} อย่าง +${baht(addonCost(mm, l.addons))}` : '');
+              return l.addons.map(a => esc(a.name) + (n(a.price) > 0 ? ' +' + baht(a.price) : '')).join(' · ');
+            })()}</div>`
           : ''}
       </div>
       <div class="bl-act">
@@ -4871,7 +4924,10 @@ function delBill(billId){
 
 
 // จัดกลุ่มท็อปปิ้งตามหัวข้อในใบเมนู (ไส้คาว / ไส้หวาน / ราดซอส) จะได้หาเจอเร็ว
-function topsHTML(tops, picked, lid){
+/* quota = เมนูนี้คิดแบบโควตาไหม (เช่น โตเกียว 2 ไส้)
+   ถ้าใช่ **ห้ามโชว์ราคาต่อไส้บนชิป** เพราะ 2 อันแรกฟรี ไม่ได้คิดอันละ 5 ทุกอัน
+   เคยโชว์ "+5" ทุกอันแล้วดูเหมือนเลือก 3 อันต้องจ่าย 15 ซึ่งไม่จริง (จ่าย 5) */
+function topsHTML(tops, picked, lid, quota){
   const groups = [];
   tops.forEach(a => {
     const g = a.group || '';
@@ -4883,7 +4939,7 @@ function topsHTML(tops, picked, lid){
     ${row.g ? `<div class="sec">${esc(row.g)}</div>` : ''}
     <div class="tops">${row.list.map(a => `
       <button type="button" class="top${picked.has(a.name) ? ' on' : ''}" aria-pressed="${picked.has(a.name)}" onclick="pickLineTop('${lid}','${jsq(a.name)}',this)">
-        ${esc(a.name)} <b>${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</b>
+        ${esc(a.name)}${quota ? '' : ` <b>${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</b>`}
       </button>`).join('')}</div>`).join('');
 }
 
@@ -5625,9 +5681,9 @@ function saleDialog(existing){
 function saleTotal(){
   const m = findMenu(saleDraft.menuId);
   if(!m) return 0;
-  const extra = menuAddons(m).filter(a => saleDraft.picked.has(a.name))
-                             .reduce((s,a) => s + n(a.price), 0);
-  return (n(m.price) + extra) * n(saleDraft.qty);
+  // ใช้สูตรกลางตัวเดียวกับบิลหน้าร้าน ไม่งั้นแก้ย้อนหลังแล้วได้ราคาคนละอย่าง
+  const picked = menuAddons(m).filter(a => saleDraft.picked.has(a.name));
+  return (n(m.price) + addonCost(m, picked)) * n(saleDraft.qty);
 }
 
 function renderSaleDialog(){
@@ -5655,7 +5711,8 @@ function renderSaleDialog(){
       ${tops.length ? `<div class="sec">ท็อปปิ้งที่เพิ่ม</div>
       <div class="tops">${tops.map(a => `
         <button type="button" class="top${saleDraft.picked.has(a.name) ? ' on' : ''}" onclick="toggleTop('${jsq(a.name)}')">
-          ${esc(a.name)} <b>${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</b>
+          ${esc(a.name)}${n((findMenu(saleDraft.menuId)||{}).incl) > 0 ? ''
+            : ` <b>${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</b>`}
         </button>`).join('')}</div>`
       : `<p class="hint">เมนูนี้ยังไม่ได้ตั้งไส้ — ตั้งได้ที่แท็บ <b>ตั้งค่า</b></p>`}
 

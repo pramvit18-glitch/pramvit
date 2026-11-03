@@ -1,6 +1,6 @@
 // Service worker — ทำให้แอปเปิดได้ตอนไม่มีเน็ต
 // เวลาแก้ index.html แล้วอยากให้เครื่องที่ติดตั้งไปแล้วได้ของใหม่ ให้ขยับเลข CACHE
-const CACHE = 'crepe-cost-v111';
+const CACHE = 'crepe-cost-v112';
 
 const ASSETS = [
   './',
