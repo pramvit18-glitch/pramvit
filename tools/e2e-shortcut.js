@@ -49,27 +49,28 @@ const state = pg => pg.evaluate(() => ({
   }
 
   // ทางเข้าทั้งสามเส้น ชื่อ + วิธีกด
+  // [ชื่อเส้น, วิธีกด, หน้าที่กดมา — ยกเลิกแล้วต้องกลับไปหน้านี้]
   const ways = [
     ['เมนูลัดหน้าขาย', async pg => {
       await pg.evaluate(() => go('sale'));
       await pg.waitForTimeout(500);
       await pg.locator('#view .qmenu-b').first().click();
-    }],
+    }, 'sale'],
     ['ขายดีบนแดชบอร์ด', async pg => {
       await pg.evaluate(() => go('today'));
       await pg.waitForTimeout(500);
       await pg.locator('.hil-b:not([disabled])').first().click();
-    }],
+    }, 'today'],
     ['ผลค้นหาเมนู', async pg => {
       await pg.evaluate(() => go('today'));
       await pg.waitForTimeout(400);
       await pg.locator('#searchQ').fill('เครปกรอบ');
       await pg.waitForTimeout(600);
       await pg.locator('[onclick^="searchMenu"]').first().click();
-    }]
+    }, 'today']
   ];
 
-  for(const [name, tap] of ways){
+  for(const [name, tap, home] of ways){
     /* ---------- กดกากบาท = ยกเลิก ต้องกลับหน้าขาย ไม่เหลืออะไรค้าง ---------- */
     let pg = await fresh();
     await tap(pg);
@@ -83,7 +84,10 @@ const state = pg => pg.evaluate(() => ({
     s = await state(pg);
     push(`${name}: กากบาทแล้วปิดจริง ไม่โผล่หน้าต่างสั่งสินค้า`, s.dlgOpen === false);
     push(`${name}: ยกเลิกแล้วของไม่ค้างอยู่ในบิล`, s.lines === null || s.lines === 0);
-    push(`${name}: ยกเลิกแล้วอยู่ที่หน้าขาย`, s.tab === 'sale');
+    /* ต้องกลับไป **หน้าที่กดมา** ไม่ใช่ทิ้งไว้ที่หน้าขาย
+       เจ้าของเจอเอง: กดขายดีจากแดชบอร์ดแล้วยกเลิก มันเด้งไปอยู่หน้าขายเฉย ๆ
+       ทั้งที่ไม่ได้ตั้งใจจะย้ายหน้าไปไหน */
+    push(`${name}: ยกเลิกแล้วกลับไปหน้าที่กดมา (${home})`, s.tab === home);
     await pg.close();
 
     /* ---------- กด "เสร็จแล้ว" = ไปต่อที่หน้าต่างสั่งสินค้า ---------- */
@@ -100,6 +104,8 @@ const state = pg => pg.evaluate(() => ({
     push(`${name}: ของที่เลือกอยู่ในบิลจริง`, s.lines === 1);
     push(`${name}: ไส้ที่ติ๊กไว้ติดไปด้วย`,
       await pg.evaluate(() => !!(order && order.lines[0] && (order.lines[0].addons||[]).length)));
+    // กดเสร็จแล้วต้องมาอยู่หน้าขาย เพราะบิลที่กำลังทำอยู่ที่นั่น คนละเรื่องกับกดยกเลิก
+    push(`${name}: กดเสร็จแล้วมาอยู่หน้าขาย (บิลอยู่ที่นั่น)`, s.tab === 'sale');
     await pg.close();
   }
 

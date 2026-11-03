@@ -4299,7 +4299,7 @@ const orderTotal = () => (order ? order.lines : []).reduce((s,l) => s + lineTota
 const orderCount = () => (order ? order.lines : []).reduce((s,l) => s + n(l.qty), 0);
 
 // กดเมนู: ถ้าบรรทัดล่าสุดเป็นเมนูเดียวกันและยังไม่ใส่ท็อปปิ้ง ให้บวกจำนวนแทนการเพิ่มบรรทัดใหม่
-function tapMenu(id, fromQuick){
+function tapMenu(id, backTo){
   const m = findMenu(id); if(!m || !order) return;
   const tops = menuAddons(m);
 
@@ -4315,7 +4315,7 @@ function tapMenu(id, fromQuick){
   const line = { lid: uid(), menuId:id, name:m.name, price:n(m.price), qty:1, addons:[] };
   order.lines.push(line);
   repaintOrder();
-  if(tops.length) lineAddons(line.lid, fromQuick);
+  if(tops.length) lineAddons(line.lid, backTo);
 }
 
 // ไส้ของจานนี้ตรงกับอีกบรรทัดเป๊ะไหม — ใช้ชื่อไส้ที่เรียงแล้วเทียบ
@@ -4341,7 +4341,7 @@ function lineQty(lid, v){
 function delLine(lid){ order.lines = order.lines.filter(x => x.lid !== lid); repaintOrder(); }
 
 // ใส่ท็อปปิ้งให้บรรทัดนั้น
-function lineAddons(lid, fromQuick){
+function lineAddons(lid, backTo){
   const l = order.lines.find(x => x.lid === lid); if(!l) return;
   const m = findMenu(l.menuId);
   const tops = menuAddons(m);
@@ -4361,7 +4361,13 @@ function lineAddons(lid, fromQuick){
        แถมเมนูที่เพิ่งยกเลิกไปก็ยังนอนอยู่ในบิล (เจ้าของเจอเองกับตา)
        มาจากในหน้าต่างสั่งสินค้าอยู่แล้ว: กลับไปที่นั่นเหมือนเดิม ถูกแล้ว */
     onDismiss: () => {
-      if(fromQuick){ order = null; orderOpen = false; render(); return; }
+      if(backTo){
+        order = null; orderOpen = false;
+        // พากลับหน้าที่กดมา เจ้าของเจอว่ากดจากแดชบอร์ดแล้วยกเลิก
+        // มันทิ้งไว้ที่หน้าขายเฉย ๆ ทั้งที่ไม่ได้ตั้งใจจะมา
+        if(backTo !== tab) go(backTo); else render();
+        return;
+      }
       mergeSameLine(lid);
       if(orderOpen) drawOrderDialog();
     },
@@ -4822,9 +4828,12 @@ function viewPOS(){
    แล้วกล่องไม่ปิด ค้างอยู่อย่างนั้น** เพราะ repaintOrder() ไปวาดหน้าข้างหลังแทน
    แม่ค้าต้องกดกากบาทเอง แล้วของที่เลือกไว้ก็หายไปเงียบ ๆ */
 function posQuick(id){
+  // จำไว้ว่ากดมาจากหน้าไหน กดยกเลิกแล้วจะได้พากลับไปที่เดิม
+  // กดจากแดชบอร์ดแล้วยกเลิก ต้องกลับแดชบอร์ด ไม่ใช่ทิ้งไว้ที่หน้าขายเฉย ๆ
+  const back = tab || 'sale';
   if(tab !== 'sale') go('sale');
   openOrderDialog();
-  if(orderOpen) tapMenu(id, true);     // true = มาจากทางลัด
+  if(orderOpen) tapMenu(id, back);     // ส่งหน้าที่ต้องกลับไปด้วย
 }
 
 function billDetail(billId){
