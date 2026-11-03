@@ -61,6 +61,20 @@ const probe = `
   /* ---- POS ---- */
   openOrderDialog();            // เส้นทางจริงที่ปุ่ม "เปิดบิลใหม่" เรียก
   logic.push(['เปิดบิลได้', !!order]);
+
+  /* เมนูที่ยังไม่ได้บอกว่าใช้ของอะไร = ยังไม่รู้ต้นทุน ไม่ใช่กำไร 100%
+     ของเดิมขึ้น "กำไร 100% · ค่าของ 0" ซึ่งหลอกตา แม่ค้าอาจตั้งราคาผิดเพราะเชื่อเลขนี้ */
+  const noRec = { id:'norecipe-test', name:'ทดสอบไม่ผูกสูตร', price:25, groupIds:[], items:[] };
+  db.menus.push(noRec);
+  const keepTab = tab, keepOpen = openMenuId;
+  tab = 'menu'; openMenuId = noRec.id;
+  const hsNo = headStat();
+  openMenuId = keepOpen; tab = keepTab;
+  db.menus = db.menus.filter(m => m.id !== 'norecipe-test');
+  logic.push(['เมนูที่ยังไม่ผูกสูตร ไม่โชว์กำไรหลอกตา',
+    !!hsNo && hsNo.v === '–' && !/100/.test(String(hsNo.v) + String(hsNo.s||''))]);
+  logic.push(['เมนูที่ยังไม่ผูกสูตร บอกสาเหตุให้รู้',
+    !!hsNo && /ยังไม่ได้ใส่ว่า/.test(String(hsNo.s||''))]);
   views['ขาย (POS)'] = viewPOS();
 
   /* เมนูที่ "ไม่มีไส้ให้เลือก" กดซ้ำ = บวกจำนวนในบรรทัดเดิม

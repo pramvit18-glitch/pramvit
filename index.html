@@ -2895,6 +2895,11 @@ function headStat(){
     const avg = ms.length ? ms.reduce((a,m)=>a+marginPct(m),0)/ms.length : 0;
     if(openMenuId){
       const m = findMenu(openMenuId);
+      // ยังไม่ได้บอกว่าเมนูนี้ใช้ของอะไร = ยังไม่รู้ต้นทุน ไม่ใช่กำไร 100%
+      // ของเดิมขึ้น "กำไร 100% · ค่าของ 0" ซึ่งหลอกตา แม่ค้าอาจตั้งราคาผิดเพราะเชื่อเลขนี้
+      if(m && !(m.items||[]).length)
+        return {k:'กำไรของเมนูนี้', v:'–', u:'',
+                s:'ยังไม่ได้ใส่ว่าเมนูนี้ใช้ของอะไรบ้าง เลยยังคิดต้นทุนไม่ได้'};
       if(m) return {k:'กำไรของเมนูนี้', v: n(m.price)>0 ? marginPct(m).toFixed(0) : '–', u:'%',
                     s: n(m.price)>0 ? `ขาย ${baht(m.price)} · ค่าของ ${baht(menuCost(m))} · เหลือ ${baht(profit(m))} บาท` : 'ยังไม่ได้ใส่ราคาขาย'};
     }
