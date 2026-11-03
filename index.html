@@ -327,6 +327,33 @@
      ไม่ใส่ margin-bottom ที่ .srow ตรง ๆ เพราะหน้าแรกมีบางจุดที่ไม่ต้องการช่องว่างเพิ่ม */
   .srow + .card, .srow + .block{margin-top:14px}
 
+  /* ---------- แถบแจ้งออเดอร์ บนสุดของทุกหน้า ----------
+     ต้องเห็นชัดแต่ไม่กินที่ แม่ค้ายืนทอดอยู่ต้องเหลือบเห็นแล้วรู้เลยว่ามีกี่ใบ */
+  .obar{
+    display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    border:none; font:inherit; color:#fff; cursor:pointer;
+    background:linear-gradient(145deg, var(--brand-mid), var(--brand-d));
+    border-radius:var(--r); padding:11px 14px; margin-bottom:14px;
+    box-shadow:0 8px 22px rgba(211,43,43,.3);
+    transition:transform var(--tap-out) var(--ease);
+  }
+  .obar:active{transform:scale(.985); transition-duration:var(--tap-in)}
+  .obar-n{
+    width:34px; height:34px; flex:0 0 auto; border-radius:50%;
+    background:rgba(255,255,255,.22); display:grid; place-items:center;
+    font-size:16px; font-weight:800; font-variant-numeric:tabular-nums;
+  }
+  .obar-m{flex:1; min-width:0}
+  .obar-t{display:block; font-size:14.5px; font-weight:800; letter-spacing:-.01em}
+  .obar-s{
+    display:block; font-size:12px; font-weight:600; color:rgba(255,255,255,.82); margin-top:1px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .obar-go{
+    flex:0 0 auto; display:flex; align-items:center; gap:2px;
+    font-size:13px; font-weight:800; color:rgba(255,255,255,.95);
+  }
+
   /* ---------- ออเดอร์ที่ลูกค้าสั่งเข้ามา ---------- */
   .ord{padding:14px 0}
   .ord + .ord{border-top:1px solid var(--line)}
@@ -2410,13 +2437,57 @@ async function finishOrder(id){
 }
 
 /* ---------- การ์ดออเดอร์บนหน้าแรก ---------- */
-function ordersCard(){
-  if(!db.orderOn || !cloudOrders.length) return '';
-  return `<div class="card">
-    ${cardHead('cart','ออเดอร์จากลูกค้า','กดรับแล้วลูกค้าเห็นเลขคิว',
-      `<span class="head-tag">${cloudOrders.length} รายการ</span>`)}
-    <div class="ords">${cloudOrders.map(orderRowHTML).join('')}</div>
-  </div>`;
+/* แถบเล็กบนสุดของทุกหน้า — บอกว่ามีออเดอร์กี่ใบและใบถัดไปคืออะไร
+   เดิมเอาการ์ดเต็มมาแปะบนสุด พอมี 4 ใบมันกินเต็มจอแรก แดชบอร์ดถูกดันหายหมด
+   เลยย่อเหลือแถบเดียว แตะแล้วเข้าหน้าออเดอร์เต็ม ๆ */
+function ordersBar(){
+  if(!db.orderOn || !cloudOrders.length || tab === 'orders') return '';
+  const fresh = cloudOrders.filter(o => o.status === 'new').length;
+  const next  = cloudOrders[0];
+  const what  = (next.items || []).map(it => `${it.name} ×${it.qty}`).join(' · ');
+  return `<button type="button" class="obar" onclick="go('orders')">
+    <span class="obar-n">${cloudOrders.length}</span>
+    <span class="obar-m">
+      <span class="obar-t">${cloudOrders.length} ออเดอร์${
+        fresh ? ` · ใหม่ ${fresh} ใบรอรับ` : ' · กำลังทำอยู่'}</span>
+      <span class="obar-s">${esc(what || 'ออเดอร์จากลูกค้า')}</span>
+    </span>
+    <span class="obar-go">ดู${icon('chev',15)}</span>
+  </button>`;
+}
+
+/* ---------- หน้าออเดอร์เต็ม ๆ (แท็บซ่อน เข้าจากแถบบนสุด) ---------- */
+function viewOrders(){
+  const back = `<button class="btn back" onclick="go('today')">${icon('back',16)} แดชบอร์ด</button>`;
+
+  if(!db.orderOn){
+    return back + `<div class="card">
+      ${cardHead('cart','ยังไม่ได้เปิดรับออเดอร์','ลูกค้ายังสั่งผ่าน QR ไม่ได้')}
+      <button type="button" class="btn primary block" onclick="orderSetupDialog()">
+        ${icon('cart',16)} ไปตั้งค่าการรับออเดอร์</button>
+    </div>`;
+  }
+
+  if(!cloudOrders.length){
+    return back + `<div class="card">
+      <div class="empty">
+        <div class="empty-ic">${icon('check',34)}</div>
+        <h3>ไม่มีออเดอร์ค้าง</h3>
+        <p>ทำครบหมดแล้ว · ออเดอร์ใหม่จะเด้งขึ้นมาเองพร้อมเสียงเตือน</p>
+      </div>
+    </div>`;
+  }
+
+  const fresh = cloudOrders.filter(o => o.status === 'new');
+  const cook  = cloudOrders.filter(o => o.status === 'cook');
+  const sec = (list, ic, title, sub) => list.length ? `<div class="card">
+    ${cardHead(ic, title, sub, `<span class="head-tag">${list.length} ใบ</span>`)}
+    <div class="ords">${list.map(orderRowHTML).join('')}</div>
+  </div>` : '';
+
+  return back
+    + sec(fresh, 'cart', 'ออเดอร์ใหม่ รอรับ', 'กดรับแล้วลูกค้าเห็นเลขคิว')
+    + sec(cook,  'today', 'กำลังทำอยู่',      'ลูกค้ามารับแล้วกดเสร็จ · รับเงิน');
 }
 
 /* ปุ่มสองปุ่มกับราคาเบียดกันไม่ลงในแถว .li ปกติ (ราคาถูกบีบจนหาย)
@@ -2732,7 +2803,7 @@ function headStat(){
   }
   // ing / fixed / dash มีการ์ดสรุปจาก subHead() อยู่หัวหน้าแล้ว
   // ใส่ตัวเลขใหญ่ซ้ำอีกชั้นคือบอกเรื่องเดียวกันสามรอบ กินที่เปล่า ๆ
-  if(tab === 'ing' || tab === 'fixed') return null;
+  if(tab === 'ing' || tab === 'fixed' || tab === 'orders') return null;
   if(tab === 'menu'){
     const ms = db.menus.filter(m => (m.items||[]).length);
     const avg = ms.length ? ms.reduce((a,m)=>a+marginPct(m),0)/ms.length : 0;
@@ -2759,6 +2830,7 @@ const PAGES = {
   menu:  ['','เมนูและสูตร','menu'],
   fixed: ['','ต้นทุนคงที่','fixed'],
   dash:  ['','ภาพรวมร้าน','dash'],
+  orders:['','ออเดอร์จากลูกค้า','cart'],
   more:  ['','อื่น ๆ','more']
 };
 
@@ -2822,7 +2894,7 @@ function render(){
   });
 
   renderBanner();
-  document.getElementById('orderInbox').innerHTML = ordersCard();
+  document.getElementById('orderInbox').innerHTML = ordersBar();
 
   // หัวใหญ่ใช้ทุกหน้า ยกเว้นหน้าขายที่ต้องการพื้นที่เต็มจอ
   const home = tab === 'today';
@@ -2848,7 +2920,8 @@ function render(){
     tab==='menu'  ? viewMenu()  :
     tab==='ing'   ? viewIng()   :
     tab==='fixed' ? viewFixed() :
-    tab==='dash'  ? viewDash()  : viewMore();
+    tab==='dash'  ? viewDash()  :
+    tab==='orders'? viewOrders(): viewMore();
 
   // เนื้อหาลอยขึ้นมาเฉพาะตอนเปลี่ยนหน้า
   // render() ถูกเรียกบ่อยมาก (กดบันทึก เปิด-ปิดร้าน สลับวัน) ถ้าเล่นทุกครั้งจะรำคาญ

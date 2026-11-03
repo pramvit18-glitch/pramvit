@@ -110,12 +110,35 @@ const push = (name, v) => { ok.push([name, !!v]); };
   const got = await seller.evaluate(() => cloudOrders.length);
   push('ออเดอร์เด้งเข้าเครื่องแม่ค้า', got === 1);
 
-  const cardTxt = await seller.evaluate(() => {
-    render();
-    const c = document.querySelector('.ord');
-    return c ? c.textContent : '';
-  });
-  push('การ์ดออเดอร์โชว์ของที่ลูกค้าสั่ง', /เครปกรอบ/.test(cardTxt) && /โอ๋/.test(cardTxt) && /ไม่เผ็ด/.test(cardTxt));
+  /* แดชบอร์ดต้องเหลือแค่แถบเล็ก ไม่ใช่การ์ดเต็มที่กินจอแรกทั้งจอ */
+  await seller.evaluate(() => { tab = 'today'; render(); });
+  await seller.waitForTimeout(300);
+  // ไม่มีแถบ = ของที่ตามมาอ่านไม่ได้ ต้องรายงานเป็นข้อตก ไม่ใช่ค้างรอจนล้มทั้งชุด
+  const hasBar = await seller.locator('#orderInbox .obar').count() === 1;
+  const barTxt = hasBar ? await seller.textContent('#orderInbox .obar') : '';
+  push('แดชบอร์ดมีแถบแจ้งออเดอร์', hasBar);
+  push('แถบบอกจำนวนออเดอร์ถูกต้อง', /\b1\b/.test(barTxt) && /1 ออเดอร์/.test(barTxt));
+  push('แถบบอกด้วยว่าเป็นของอะไร', /เครปกรอบ/.test(barTxt));
+  push('แดชบอร์ดไม่มีการ์ดออเดอร์เต็มมาแปะแล้ว',
+    await seller.locator('#orderInbox .ord').count() === 0);
+
+  await seller.screenshot({ path: SHOT + '/seller-bar.png' });
+
+  /* แตะแถบแล้วเข้าหน้าออเดอร์เต็ม
+     ถ้าไม่มีแถบก็เข้าหน้าตรง ๆ แทน จะได้รายงานเป็นข้อตก ไม่ใช่ค้างรอจนล้มทั้งชุด */
+  if(await seller.locator('.obar').count()) await seller.locator('.obar').click();
+  else await seller.evaluate(() => go('orders'));
+  await seller.waitForTimeout(400);
+  push('แตะแถบแล้วเข้าหน้าออเดอร์', await seller.evaluate(() => tab) === 'orders');
+  push('หน้าออเดอร์ไม่มีแถบซ้ำอีกใบ', await seller.locator('.obar').count() === 0);
+  const cardTxt = await seller.textContent('#view');
+  push('หน้าออเดอร์โชว์ของที่ลูกค้าสั่ง',
+    /เครปกรอบ/.test(cardTxt) && /โอ๋/.test(cardTxt) && /ไม่เผ็ด/.test(cardTxt));
+  push('หน้าออเดอร์มีทางกลับแดชบอร์ด', await seller.locator('.btn.back').count() === 1);
+  push('หัวหน้าบอกชื่อถูก ไม่ใช่ "ภาพรวม"',
+    (await seller.textContent('#pageTitle')).includes('ออเดอร์จากลูกค้า'));
+  push('หน้าออเดอร์แยกใบใหม่กับใบที่กำลังทำ',
+    (await seller.textContent('#view')).includes('รอรับ'));
 
   await seller.screenshot({ path: SHOT + '/seller-order.png' });
 
