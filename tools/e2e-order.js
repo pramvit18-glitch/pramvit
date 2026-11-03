@@ -79,7 +79,7 @@ const push = (name, v) => { ok.push([name, !!v]); };
   await cust.waitForTimeout(60);
   push('กล่องหน้าลูกค้ามีภาพเลื่อนออกตอนปิด',
     await cust.evaluate(() => dlg.open && dlg.classList.contains('closing')));
-  await cust.waitForTimeout(500);
+  await cust.waitForTimeout(900);   // ภาพยาว .7s ต้องรอให้เกิน
   push('กล่องหน้าลูกค้าปิดจริงหลังเล่นจบ',
     await cust.evaluate(() => !dlg.open && !dlg.classList.contains('closing')));
   // เปิดกลับมาให้ข้อถัดไปใช้ต่อ

@@ -49,19 +49,19 @@ const out=[]; const ok=(n,v)=>out.push([n,!!v]);
     mid.ยังเปิดอยู่ && mid.มีคลาสปิด && mid.ชื่อภาพ === 'sheetout');
   await p.screenshot({path:S+'/close-mid.png'});
 
-  await p.waitForTimeout(500);
+  await p.waitForTimeout(900);
   ok('เล่นจบแล้วกล่องปิดจริง', await p.evaluate(() => !dlg.open));
   ok('คลาสปิดถูกล้างทิ้ง ไม่ค้าง',
     await p.evaluate(() => !document.getElementById('dlg').classList.contains('closing')));
 
   /* ---- 2. กด Esc ก็ต้องมีภาพเคลื่อนไหวเหมือนกัน ---- */
   await p.locator('.orderbtn').click();
-  await p.waitForTimeout(500);
+  await p.waitForTimeout(900);
   await p.keyboard.press('Escape');
   await p.waitForTimeout(60);
   ok('กด Esc ก็มีภาพเลื่อนออกเหมือนกัน',
     await p.evaluate(() => dlg.open && document.getElementById('dlg').classList.contains('closing')));
-  await p.waitForTimeout(500);
+  await p.waitForTimeout(900);
   ok('กด Esc แล้วปิดจริง', await p.evaluate(() => !dlg.open));
 
   /* ---- 3. ปิดแล้วเปิดกล่องใหม่ทันที กล่องใหม่ต้องไม่หายตามไปด้วย ---- */
@@ -70,7 +70,7 @@ const out=[]; const ok=(n,v)=>out.push([n,!!v]);
   await p.evaluate(() => dayMoneyDialog(dayKey()));
   await p.waitForTimeout(600);
   await p.locator('.dlg-foot button', {hasText:'เพิ่มรายจ่าย'}).click();   // dlg.close(); expenseDialog(null)
-  await p.waitForTimeout(500);
+  await p.waitForTimeout(900);
   const after = await p.evaluate(() => ({
     เปิดอยู่: dlg.open,
     ค้างคลาสปิด: document.getElementById('dlg').classList.contains('closing'),
@@ -82,7 +82,7 @@ const out=[]; const ok=(n,v)=>out.push([n,!!v]);
 
   /* ---- 4. ลากหัวกล่องลงเพื่อปิดยังใช้ได้ ---- */
   await p.evaluate(() => dlg.close());
-  await p.waitForTimeout(500);
+  await p.waitForTimeout(900);
   ok('ปิดกล่องสุดท้ายเรียบร้อย', await p.evaluate(() => !dlg.open));
 
   ok('ไม่มี error หลุดออกมาเลย', errs.length === 0);

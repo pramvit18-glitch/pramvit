@@ -680,14 +680,14 @@
   /* will-change บอกเบราว์เซอร์ให้ยกกล่องขึ้นเป็นเลเยอร์ของตัวเองก่อนเริ่มขยับ
      ไม่งั้นมันต้องวาดใหม่ทั้งหน้าในเฟรมแรก ซึ่งเป็นจังหวะที่สะดุดที่สุด
      ใส่เฉพาะตอนเปิดอยู่ ไม่ใส่ถาวร เพราะกินหน่วยความจำเปล่า ๆ */
-  dialog[open]{animation:sheet .62s var(--sheet) both; will-change:transform}
+  dialog[open]{animation:sheet .7s var(--sheet) both; will-change:transform}
   /* จังหวะที่สะดุดที่สุดคือเฟรมแรก เพราะเบราว์เซอร์ต้องจัดหน้ากล่องทั้งใบ
      พร้อมกับเริ่มขยับไปด้วย (วัดได้ 83ms ตอนจำลองมือถือช้า ๆ)
      .preopen จอดกล่องไว้นอกจอโดยไม่เล่นภาพ ให้จัดหน้าให้เสร็จก่อนหนึ่งเฟรม
      แล้ว JS ค่อยถอดคลาสออก ภาพเลื่อนจึงได้เริ่มบนเฟรมที่ว่างจริง ๆ */
   dialog.preopen{transform:translateX(100%); animation:none}
   dialog.preopen::backdrop{animation:none; opacity:0}
-  dialog[open]::backdrop{animation:dlgfade .5s ease both}
+  dialog[open]::backdrop{animation:dlgfade .7s ease both}
   /* กล่องเลื่อนเข้ามาจากขวา ทิศเดียวกับตอนเข้าหน้าย่อย (viewr)
      ทั้งแอปจึงรู้สึกเป็นชุดเดียวกัน: เข้าไปข้างใน = ของเลื่อนมาจากขวา
      เดิมกล่องเลื่อนขึ้นจากล่าง ส่วนหน้าเลื่อนข้าง เป็นคนละจังหวะกัน
@@ -698,8 +698,8 @@
   /* ปิดกล่อง = เลื่อนออกไปทางขวา ย้อนทางที่เข้ามา (JS ใส่คลาส .closing ให้)
      forwards ค้างไว้นอกจอจนกว่าจะปิดจริง ไม่งั้นมันเด้งกลับมาให้เห็นแวบหนึ่ง
      ออกเร็วกว่าเข้านิดหน่อย กดปิดแล้วต้องไม่รู้สึกว่าต้องรอ */
-  dialog[open].closing{animation:sheetout .46s var(--sheet) forwards}
-  dialog[open].closing::backdrop{animation:dlgfadeout .46s ease forwards}
+  dialog[open].closing{animation:sheetout .7s var(--sheet) forwards}
+  dialog[open].closing::backdrop{animation:dlgfadeout .7s ease forwards}
   @keyframes sheetout{from{transform:translateX(0)} to{transform:translateX(100%)}}
   @keyframes dlgfadeout{from{opacity:1} to{opacity:0}}
   @media(prefers-reduced-motion:reduce){
@@ -929,10 +929,10 @@
       max-height:86dvh; box-shadow:0 24px 70px rgba(22,24,28,.3);
       transform:none;
     }
-    dialog[open]{animation:dlgpop .34s var(--ease)}
+    dialog[open]{animation:dlgpop .7s var(--ease)}
     @keyframes dlgpop{from{opacity:0; transform:translateX(34px)} to{opacity:1; transform:translateX(0)}}
     /* จอกว้างก็ออกทางขวาเหมือนกัน แต่ระยะสั้นเพราะเป็นกล่องลอยกลางจอ */
-    dialog[open].closing{animation:dlgpopout .3s var(--ease) forwards}
+    dialog[open].closing{animation:dlgpopout .7s var(--ease) forwards}
     @keyframes dlgpopout{from{opacity:1; transform:translateX(0)} to{opacity:0; transform:translateX(34px)}}
     @media(prefers-reduced-motion:reduce){ dialog[open]{animation:none} }
     .dlg-grip-hit{display:none}
@@ -3317,7 +3317,7 @@ function showSheet(){
     if(dlg.open && !dlg.classList.contains('closing')) dlg.classList.add('settled');
   };
   dlg.addEventListener('animationend', settle, { once:true });
-  setTimeout(settle, 700);
+  setTimeout(settle, 820);
   // รอสองเฟรม: เฟรมแรกเบราว์เซอร์จัดหน้า เฟรมที่สองค่อยเริ่มขยับ
   // รอสองเฟรม: เฟรมแรกเบราว์เซอร์จัดหน้า เฟรมที่สองค่อยเริ่มขยับ
   // (ชุดตรวจรันนอกเบราว์เซอร์ ไม่มี rAF จึงต้องเช็กก่อน)
@@ -3362,7 +3362,7 @@ function closeDialogAnimated(){
     dlgCloseNow();
   };
   // เผื่อ animationend ไม่ยิง (เบราว์เซอร์แปลก ๆ หรือแท็บถูกพักไว้) ต้องมีตัวสำรองเสมอ
-  dlgCloseTimer = setTimeout(finish, 540);
+  dlgCloseTimer = setTimeout(finish, 820);
   dlg.addEventListener('animationend', finish, { once:true });
 }
 dlg.close = closeDialogAnimated;
