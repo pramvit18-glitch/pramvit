@@ -2210,7 +2210,7 @@ function shopLinkDialog(id){
         แนะนำให้เขากด "เพิ่มลงหน้าจอโฮม" ไว้ด้วย
       </p>
       <textarea id="shopLinkBox" readonly rows="3"
-        style="width:100%; border:1px solid var(--line); border-radius:12px; background:var(--soft);
+        style="width:100%; border:1px solid var(--line); border-radius:var(--r); background:var(--soft);
                padding:11px 13px; font:inherit; font-size:12.5px; color:var(--ink-2); resize:none">${esc(url)}</textarea>
       <p class="hint" style="margin:10px 0 0">ข้อมูลของแต่ละเครื่องแยกกันอยู่แล้ว ลิงก์นี้มีไว้กันเปิดผิดร้านกับกันงงเฉย ๆ
         ไม่ได้ล็อกแน่นหนาแบบรหัสผ่าน</p>`,
@@ -2653,7 +2653,7 @@ function orderSetupDialog(){
             : 'ยังไม่ได้เปิด',
     html:`
       ${on && !db.shopOpen ? `<div style="display:flex; gap:11px; align-items:center;
-             background:var(--warn-bg); color:var(--warn-ink); border-radius:12px;
+             background:var(--warn-bg); color:var(--warn-ink); border-radius:var(--r);
              padding:12px 14px; margin:0 0 14px; font-size:13.5px; font-weight:700; line-height:1.5">
         <span style="flex:1">ร้านปิดอยู่ ลูกค้าจะเห็นว่า "ร้านปิด" และยังสั่งไม่ได้</span>
         <button type="button" class="btn sm primary" style="flex:0 0 auto"
@@ -2664,7 +2664,7 @@ function orderSetupDialog(){
         แม่ค้ากดรับแล้วลูกค้าจะเห็นเลขคิว <b>จ่ายเงินตอนมารับของ</b>
       </p>
       <p style="margin:0 0 14px; color:var(--ink-2); font-size:13px; line-height:1.65;
-                background:var(--soft); border-radius:12px; padding:12px 14px">
+                background:var(--soft); border-radius:var(--r); padding:12px 14px">
         สิ่งที่ส่งออกจากเครื่องมีแค่ <b>ชื่อร้าน เมนู ราคา ไส้ และออเดอร์ที่ลูกค้าสั่ง</b><br>
         ต้นทุน วัตถุดิบ ค่าใช้จ่าย ยอดขายย้อนหลัง และกำไร <b>ไม่ถูกส่งออกไปไหนทั้งนั้น</b>
       </p>
@@ -2675,7 +2675,7 @@ function orderSetupDialog(){
       ${on && link ? `<div class="f" style="margin-top:14px">
         <label for="orderLinkBox">ลิงก์สำหรับลูกค้า (เอาไปทำ QR ติดหน้าร้าน)</label>
         <textarea id="orderLinkBox" readonly rows="3"
-          style="width:100%; border:none; border-radius:12px; background:var(--soft);
+          style="width:100%; border:none; border-radius:var(--r); background:var(--soft);
                  padding:11px 13px; font:inherit; font-size:12.5px; color:var(--ink-2); resize:none">${esc(link)}</textarea>
       </div>` : ''}
       ${on ? `<p class="hint" style="margin:12px 0 0">ออเดอร์ที่จบแล้วถูกลบทิ้งให้เองหลังผ่านไป 12 ชั่วโมง

@@ -16,6 +16,7 @@ push('เลิกใช้ชื่อเก่า --r-card ที่สื่�
 
 /* ---------- ไล่ดูทุกค่าที่ใช้จริง ---------- */
 const vals = [...css.matchAll(/border-radius:\s*([^;}]+)/g)].map(m => m[1].trim());
+const cssVals = vals;
 const kinds = {};
 vals.forEach(v => { kinds[v] = (kinds[v] || 0) + 1; });
 
@@ -30,6 +31,28 @@ const OK = v =>
 
 const bad = Object.keys(kinds).filter(v => !OK(v));
 push(`ไม่มีตัวเลขความมนดิบ ๆ หลงเหลือ${bad.length ? ' — เจอ: ' + bad.join(' | ') : ''}`, !bad.length);
+
+/* ---------- สไตล์ที่ฝังใน JS (style="...") ----------
+   ของเดิมดูแค่ใน <style> เลยมองไม่เห็น เคยมี border-radius:12px ดิบ ๆ หลุดอยู่ 4 จุด
+   ค่าถูกก็จริง แต่ถ้าวันหนึ่งเปลี่ยน --r มันจะไม่เปลี่ยนตาม กลายเป็นมนไม่เท่ากัน */
+const inlineVals = [...src.matchAll(/border-radius:\s*([^;"'}]+)/g)]
+  .map(m => m[1].trim())
+  .filter(v => !cssVals.includes(v) || true);
+const inlineBad = [...new Set(inlineVals.filter(v => !OK(v)))];
+push(`สไตล์ที่ฝังใน JS ก็ใช้ token ด้วย${inlineBad.length ? ' — เจอ: ' + inlineBad.join(' | ') : ''}`,
+  !inlineBad.length);
+
+/* ---------- หน้าลูกค้าต้องใช้ token ชุดเดียวกัน ----------
+   order.html เคยมี 22px กับ 26px ของตัวเอง ชุดตรวจเดิมไม่ได้แตะไฟล์นี้เลย */
+let orderSrc = '';
+try{ orderSrc = fs.readFileSync('order.html', 'utf8'); }catch(e){}
+if(orderSrc){
+  const oBad = [...new Set([...orderSrc.matchAll(/border-radius:\s*([^;"'}]+)/g)]
+    .map(m => m[1].trim()).filter(v => !OK(v)))];
+  push(`หน้าลูกค้าใช้ token ความมนชุดเดียวกัน${oBad.length ? ' — เจอ: ' + oBad.join(' | ') : ''}`,
+    !oBad.length);
+  push('หน้าลูกค้าใช้ --r เท่ากับแอปร้าน (12px)', /--r:\s*12px/.test(orderSrc));
+}
 push(`จำนวนค่าความมนที่ใช้ไม่เกิน 7 แบบ (ตอนนี้ ${Object.keys(kinds).length})`,
   Object.keys(kinds).length <= 7);
 
