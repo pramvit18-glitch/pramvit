@@ -35,9 +35,19 @@ async function waitUp(url, tries = 40){
           && await waitUp('http://127.0.0.1:8788/x.json');
   if(!up){ stopAll(); console.error('  เปิดเซิร์ฟเวอร์ไม่ขึ้น'); process.exit(1); }
 
-  const run = spawn(process.execPath, [path.join(ROOT, 'tools/e2e-order.js')],
-                    { cwd: ROOT, stdio:'inherit' });
-  run.on('exit', code => { stopAll(); process.exit(code || 0); });
+  // ชุดทดสอบที่ต้องใช้เบราว์เซอร์จริง รันต่อกันไปทีละชุด
+  const suites = ['tools/e2e-order.js', 'tools/e2e-dialog.js'];
+  let worst = 0;
+  for(const f of suites){
+    console.log(`\n  ── ${f} ──`);
+    const code = await new Promise(res => {
+      const r = spawn(process.execPath, [path.join(ROOT, f)], { cwd: ROOT, stdio:'inherit' });
+      r.on('exit', c => res(c || 0));
+    });
+    if(code) worst = code;
+  }
+  stopAll();
+  process.exit(worst);
 })();
 
 process.on('SIGINT',  () => { stopAll(); process.exit(1); });

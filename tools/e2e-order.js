@@ -74,6 +74,20 @@ const push = (name, v) => { ok.push([name, !!v]); };
   await cust.waitForTimeout(150);
   push("ติ๊กไส้ที่ชื่อมี ' ได้", await cust.locator('.tops .top.on').count() === 1);
   // กล่องต้องเลื่อนเข้ามาจากขวาเหมือนแอปร้าน ไม่ใช่ขึ้นจากล่างคนละจังหวะ
+  // กดปิดกล่องก็ต้องมีภาพเลื่อนออก เหมือนแอปร้าน
+  await cust.evaluate(() => dlg.close());
+  await cust.waitForTimeout(60);
+  push('กล่องหน้าลูกค้ามีภาพเลื่อนออกตอนปิด',
+    await cust.evaluate(() => dlg.open && dlg.classList.contains('closing')));
+  await cust.waitForTimeout(500);
+  push('กล่องหน้าลูกค้าปิดจริงหลังเล่นจบ',
+    await cust.evaluate(() => !dlg.open && !dlg.classList.contains('closing')));
+  // เปิดกลับมาให้ข้อถัดไปใช้ต่อ
+  await cust.locator('#view button.li').first().click();
+  await cust.waitForTimeout(400);
+  await cust.locator('.tops .top', { hasText: "ไข่ไก่ด'ล" }).click();
+  await cust.waitForTimeout(150);
+
   push('กล่องหน้าลูกค้าเลื่อนมาจากขวาเหมือนแอปร้าน',
     await cust.evaluate(() => [...document.styleSheets]
       .flatMap(s => { try{ return [...s.cssRules]; }catch(e){ return []; } })

@@ -678,8 +678,16 @@
      ตอนปิดยังลากหัวกล่องลงได้เหมือนเดิม (--drag ใช้ translateY) */
   @keyframes sheet{from{transform:translateX(100%)} to{transform:translateX(0)}}
   @keyframes dlgfade{from{opacity:0} to{opacity:1}}
+
+  /* ปิดกล่อง = เลื่อนออกไปทางขวา ย้อนทางที่เข้ามา (JS ใส่คลาส .closing ให้)
+     forwards ค้างไว้นอกจอจนกว่าจะปิดจริง ไม่งั้นมันเด้งกลับมาให้เห็นแวบหนึ่ง
+     ออกเร็วกว่าเข้านิดหน่อย กดปิดแล้วต้องไม่รู้สึกว่าต้องรอ */
+  dialog[open].closing{animation:sheetout .24s var(--ease) forwards}
+  dialog[open].closing::backdrop{animation:dlgfadeout .24s ease forwards}
+  @keyframes sheetout{from{transform:translateX(0)} to{transform:translateX(100%)}}
+  @keyframes dlgfadeout{from{opacity:1} to{opacity:0}}
   @media(prefers-reduced-motion:reduce){
-    dialog[open], dialog[open]::backdrop{animation:none}
+    dialog[open], dialog[open]::backdrop, dialog[open].closing{animation:none}
     dialog::backdrop{-webkit-backdrop-filter:none; backdrop-filter:none}
   }
 
@@ -907,6 +915,9 @@
     }
     dialog[open]{animation:dlgpop .2s var(--ease)}
     @keyframes dlgpop{from{opacity:0; transform:translateX(34px)} to{opacity:1; transform:translateX(0)}}
+    /* จอกว้างก็ออกทางขวาเหมือนกัน แต่ระยะสั้นเพราะเป็นกล่องลอยกลางจอ */
+    dialog[open].closing{animation:dlgpopout .2s var(--ease) forwards}
+    @keyframes dlgpopout{from{opacity:1; transform:translateX(0)} to{opacity:0; transform:translateX(34px)}}
     @media(prefers-reduced-motion:reduce){ dialog[open]{animation:none} }
     .dlg-grip-hit{display:none}
     .dlg-head{top:0; padding-top:20px}
@@ -3177,6 +3188,9 @@ function plainButtons(){
 }
 
 function openDialog(cfg){
+  // ปิดแล้วเปิดกล่องใหม่ทันทีมีหลายจุด (เช่น "เพิ่มรายจ่าย" ในกล่องสรุปวัน)
+  // ถ้าไม่ยกเลิกการปิดที่ค้างอยู่ กล่องใหม่จะเลื่อนหายออกไปตามกล่องเก่า
+  if(dlgClosing) abortDlgClose();
   dlgCfg = cfg;
   const ic = document.getElementById('dlgIcon');
   ic.hidden = !cfg.icon;
@@ -3274,6 +3288,52 @@ function dlgSubmit(e){
   return false;
 }
 // กดกากบาท = ทำแบบเดียวกับปิดกล่อง (บางกล่องต้องย้อนกลับไปหน้าต่างสั่งสินค้า ไม่ใช่ทิ้งบิล)
+/* ===================== ปิดกล่องให้มีภาพเคลื่อนไหว =====================
+   ตอนเปิดกล่องเลื่อนเข้ามาจากขวา แต่ตอนปิดของเดิมหายวับทันที เป็นคนละจังหวะกัน
+   dialog.close() ของเบราว์เซอร์ปิดทันทีเสมอ จึงต้องครอบไว้:
+   เล่นภาพเลื่อนออกก่อน จบแล้วค่อยปิดจริง
+
+   ครอบที่ตัว dlg.close เลย จุดที่เรียกปิดทั้ง 36 แห่งในไฟล์นี้จึงได้ไปด้วยโดยไม่ต้องแก้ทีละจุด */
+// เก็บตัวปิดของจริงไว้ก่อนจะทับ dlg.close ด้านล่าง
+// (ใช้ dlg.close ตรง ๆ ไม่อ้าง HTMLDialogElement เพราะชุดตรวจรันนอกเบราว์เซอร์ ไม่มีคลาสนั้น)
+const dlgCloseNow = dlg.close.bind(dlg);
+let dlgClosing = false, dlgCloseTimer = null;
+
+const reduceMotion = () => {
+  try{ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; }
+};
+
+// ยกเลิกการปิดที่ค้างอยู่ ใช้ตอนมีกล่องใหม่มาเปิดแทนระหว่างที่กล่องเก่ากำลังเลื่อนออก
+function abortDlgClose(){
+  dlgClosing = false;
+  clearTimeout(dlgCloseTimer); dlgCloseTimer = null;
+  dlg.classList.remove('closing');
+}
+
+function closeDialogAnimated(){
+  if(!dlg.open || dlgClosing) return;
+  if(reduceMotion()) return dlgCloseNow();   // เครื่องตั้งให้ลดการเคลื่อนไหว ปิดเลยไม่ต้องหน่วง
+
+  dlgClosing = true;
+  dlg.classList.add('closing');
+  const finish = () => {
+    if(!dlgClosing) return;        // ถูกยกเลิกไปแล้ว เพราะมีกล่องใหม่มาเปิดแทน
+    abortDlgClose();
+    dlgCloseNow();
+  };
+  // เผื่อ animationend ไม่ยิง (เบราว์เซอร์แปลก ๆ หรือแท็บถูกพักไว้) ต้องมีตัวสำรองเสมอ
+  dlgCloseTimer = setTimeout(finish, 340);
+  dlg.addEventListener('animationend', finish, { once:true });
+}
+dlg.close = closeDialogAnimated;
+
+// กด Esc เบราว์เซอร์จะปิดเองทันที กันไว้แล้วปิดเองให้มีภาพเคลื่อนไหวเหมือนกดปุ่ม
+dlg.addEventListener('cancel', e => {
+  if(dlgClosing) return;
+  e.preventDefault();
+  closeDialogAnimated();
+});
+
 function dlgDismiss(){ dlg.close(); }   // ที่เหลือให้ตัวดักเหตุการณ์ close จัดการ จะได้ไม่ทำซ้ำ
 dlg.addEventListener('close', () => {
   dlg.removeEventListener('input', dlgLive);

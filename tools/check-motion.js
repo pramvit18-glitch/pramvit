@@ -180,6 +180,25 @@ push('จอกว้างกล่องก็มาจากขวา ไม�
   /translateX/.test(kf('dlgpop')) && !/scale/.test(kf('dlgpop')));
 // ลากหัวกล่องลงเพื่อปิดยังต้องใช้ได้ ตัวลากใช้ translateY คนละแกนกับตอนเปิด
 push('ยังลากหัวกล่องลงเพื่อปิดได้อยู่', /transform:translateY\(var\(--drag/.test(css));
+
+/* ปิดกล่องต้องมีภาพเลื่อนออกด้วย ไม่ใช่หายวับ
+   dialog.close() ของเบราว์เซอร์ปิดทันทีเสมอ จึงต้องครอบไว้ใน JS แล้วค่อยปิดจริง */
+push('กล่องเลื่อนออกทางขวาตอนปิด ย้อนทางที่เข้ามา',
+  /translateX\(100%\)/.test(kf('sheetout')) && /dialog\[open\]\.closing\{animation:sheetout/.test(clean));
+push('ค้างไว้นอกจอจนปิดจริง (forwards) ไม่เด้งกลับมาให้เห็น',
+  /animation:sheetout[^}]*forwards/.test(clean));
+push('ฉากหลังจางหายไปด้วย', /\.closing::backdrop\{animation:dlgfadeout/.test(clean));
+push('จอกว้างก็ออกทางขวาเหมือนกัน', /animation:dlgpopout[^}]*forwards/.test(clean));
+push('มีตัวครอบ dlg.close ไว้เล่นภาพก่อนปิดจริง',
+  /dlg\.close = closeDialogAnimated/.test(script) && /dlgCloseNow/.test(script));
+push('กด Esc ก็ได้ภาพเคลื่อนไหวเหมือนกดปุ่ม',
+  /addEventListener\('cancel'/.test(script));
+// ปิดแล้วเปิดกล่องใหม่ทันทีมีหลายจุด ถ้าไม่ยกเลิกการปิด กล่องใหม่จะเลื่อนหายตามไปด้วย
+push('เปิดกล่องใหม่ระหว่างกล่องเก่ากำลังปิด ต้องยกเลิกการปิด',
+  /if\(dlgClosing\) abortDlgClose\(\)/.test(script));
+push('เครื่องที่ปิดภาพเคลื่อนไหว ให้ปิดกล่องทันทีไม่ต้องหน่วง',
+  /if\(reduceMotion\(\)\) return dlgCloseNow\(\)/.test(script));
+push('มีตัวสำรองเผื่อ animationend ไม่ยิง', /setTimeout\(finish/.test(script));
 push('ปิดภาพเคลื่อนไหวของกล่องได้ถ้าเครื่องตั้งไว้',
   /prefers-reduced-motion[\s\S]{0,400}dialog\[open\][^}]*animation:none/.test(css));
 
