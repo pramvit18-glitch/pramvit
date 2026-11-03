@@ -302,46 +302,71 @@
     70%,100% {opacity:0;  transform:translateY(-8px)}
   }
 
-  /* ===================== หน้ารอคิว ===================== */
-  .qbig{text-align:center; padding:10px 0 4px}
-  .qbig b{display:block; font-size:62px; font-weight:800; line-height:1; letter-spacing:-.05em; color:var(--brand)}
-  .qbig span{display:block; font-size:12.5px; color:var(--muted); font-weight:700; margin-top:9px}
-  .steps{display:flex; gap:8px; margin:20px 0 16px}
-  .step{flex:1; text-align:center; font-size:11.5px; font-weight:800; color:var(--muted)}
-  .step i{display:block; height:5px; border-radius:var(--r-pill); background:var(--line); margin-bottom:8px}
+  /* ===================== หน้ารอคิว =====================
+     เลขคิวอยู่บนหัวการ์ด ไม่ใช่ตัวเบ้อเริ่มกลางการ์ดแบบเดิม (เจ้าของขอ)
+     ยังเด่นพออ่านข้ามโต๊ะได้ แต่ไม่กินที่จนภาพเตากับขั้นตอนถูกดันลงไป */
+  .head-q{
+    flex:0 0 auto; align-self:center; text-align:center; min-width:64px;
+    background:var(--tint); border-radius:var(--r); padding:6px 13px 8px;
+  }
+  .head-q > span{
+    display:block; font-size:10.5px; font-weight:800; letter-spacing:.05em;
+    color:var(--brand-d); opacity:.8;
+  }
+  .head-q b{
+    display:block; font-size:30px; font-weight:800; line-height:1.05;
+    letter-spacing:-.04em; color:var(--brand); font-variant-numeric:tabular-nums;
+  }
+  .head-q.live b{animation:breathe 2.1s var(--ease) infinite}
+  /* ยังไม่ได้เลขคิว = จุดสามจุดเด้งไล่กัน
+     ต้องเจาะจงกว่า .head-q b ไม่งั้นโดน display:block ทับแล้วจุดหายทั้งแถว */
+  .head-q b.dots{display:flex; gap:5px; justify-content:center; align-items:center; height:31px}
+  .head-q b.dots i{
+    display:block; width:7px; height:7px; border-radius:50%; background:var(--brand-l);
+    animation:dot 1.25s var(--ease) infinite;
+  }
+  .head-q b.dots i:nth-child(2){animation-delay:.16s}
+  .head-q b.dots i:nth-child(3){animation-delay:.32s}
+
+  /* ขั้นตอนแบบ stepper มาตรฐาน: วงกลมมีเลข ต่อกันด้วยเส้น
+     ของเดิมเป็นขีดสามขีดลอย ๆ อ่านไม่ออกว่าตอนนี้อยู่ขั้นไหนของกี่ขั้น */
+  .steps{display:flex; margin:18px 0 14px}
+  .step{flex:1; position:relative; text-align:center; font-size:11.5px; font-weight:800; color:var(--muted)}
+  /* เส้นเชื่อมมาจากวงกลมก่อนหน้า ขั้นแรกไม่มีเส้นเข้า */
+  .step::before{
+    content:''; position:absolute; top:13px; right:50%; width:100%; height:3px;
+    background:var(--line); border-radius:var(--r-pill);
+  }
+  .step:first-child::before{display:none}
+  .step.on::before{background:var(--brand)}
+  .step-n{
+    position:relative; z-index:1; display:grid; place-items:center;
+    width:28px; height:28px; margin:0 auto 8px; border-radius:50%;
+    background:var(--bg); border:2.5px solid var(--line);
+    color:var(--muted); font-size:12.5px; font-weight:800;
+  }
+  .step-n svg{width:14px; height:14px}
+  .step-t{display:block}
   .step.on{color:var(--brand)}
-  .step.on i{background:var(--brand)}
+  .step.on .step-n{background:var(--brand); border-color:var(--brand); color:#fff}
+  /* ขั้นที่กำลังทำอยู่มีวงแหวนจางเต้นเบา ๆ บอกว่ายังเดินหน้าอยู่ */
+  .step.cur .step-n{animation:ring 1.8s var(--ease) infinite}
+  @keyframes ring{
+    0%,100%{box-shadow:0 0 0 0 var(--tint)}
+    50%    {box-shadow:0 0 0 6px var(--tint)}
+  }
 
   /* ---------- ภาพเคลื่อนไหวตอนรอคิว ----------
      ลูกค้ายืนจ้องหน้านี้อยู่ ถ้านิ่งสนิทจะไม่แน่ใจว่าแอปยังทำงานอยู่ไหม
      ขยับเฉพาะจุดที่บอกสถานะ ไม่ขยับทั้งหน้าจนลายตา */
 
-  /* รอร้านกดรับ: จุดสามจุดเด้งไล่กัน แบบเดียวกับตอนอีกฝ่ายพิมพ์อยู่ในแชต */
-  /* ต้องเจาะจงกว่า .qbig b ไม่งั้นโดน display:block ของเลขคิวทับ แล้วจุดหายไปเลย
-     (i เป็น inline โดยปริยาย ถ้าไม่ได้อยู่ใน flex มันจะไม่กินความกว้าง-สูงที่ตั้งไว้) */
-  .qbig b.dots{display:flex; gap:11px; justify-content:center; padding:14px 0 10px; font-size:0}
-  .qbig b.dots i{
-    display:block; width:14px; height:14px; border-radius:50%; background:var(--brand-l);
-    animation:dot 1.25s var(--ease) infinite;
-  }
-  .qbig b.dots i:nth-child(2){animation-delay:.16s}
-  .qbig b.dots i:nth-child(3){animation-delay:.32s}
+  /* จุดสามจุดเด้งไล่กัน ใช้ตอนยังไม่ได้เลขคิว แบบเดียวกับตอนอีกฝ่ายพิมพ์อยู่ในแชต */
   @keyframes dot{
-    0%,70%,100%{transform:translateY(0);      background:var(--brand-l)}
-    35%        {transform:translateY(-9px);   background:var(--brand)}
+    0%,70%,100%{transform:translateY(0);    background:var(--brand-l)}
+    35%        {transform:translateY(-5px); background:var(--brand)}
   }
-
-  /* กำลังทำ: แถบขั้นตอนที่ทำอยู่มีแสงวิ่งผ่าน บอกว่ายังเดินหน้าอยู่ */
-  .step.cur i{
-    background:linear-gradient(90deg, var(--brand) 0%, var(--brand) 35%,
-               var(--brand-l) 50%, var(--brand) 65%, var(--brand) 100%);
-    background-size:260% 100%;
-    animation:flow 1.6s linear infinite;
-  }
-  @keyframes flow{from{background-position:140% 0} to{background-position:-140% 0}}
 
   /* เลขคิวหายใจเบา ๆ ตอนร้านกำลังทำของเรา */
-  .qbig b.live{animation:breathe 2.1s var(--ease) infinite}
   @keyframes breathe{
     0%,100%{transform:scale(1)}
     50%    {transform:scale(1.07)}
@@ -405,10 +430,9 @@
   .li, .tops .top{transition:transform var(--tap-out) var(--ease), background .14s, border-color .16s}
 
   @media(prefers-reduced-motion:reduce){
-    .qbig b.dots i, .step.cur i, .qbig b.live, .empty.thanks .empty-ic, .card.rise,
+    .head-q b.dots i, .step.cur .step-n, .head-q.live b, .empty.thanks .empty-ic, .card.rise,
     .cookpic .spread, .cookpic .st{animation:none}
     .cookpic .st{opacity:.9}
-    .step.cur i{background:var(--brand)}
     dialog[open], dialog[open]::backdrop, dialog[open].closing{animation:none}
     dialog::backdrop{-webkit-backdrop-filter:none; backdrop-filter:none}
   }
@@ -456,7 +480,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v114';
+const PAGE_VER = 'crepe-cost-v115';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -1155,15 +1179,20 @@ function queueCard(o){
       st === 'done' ? 'มารับที่ร้านได้เลยครับ'
       : st === 'cook' ? 'อีกสักครู่นะครับ'
       : 'ส่งให้ร้านแล้ว รอสักครู่',
-      o ? `<span class="head-tag">฿${baht(o.total)}</span>` : '')}
+      /* เลขคิวขึ้นหัวการ์ดแทนป้ายราคา — เจ้าของขอให้ย้ายออกจากกลางการ์ด
+         ราคารวมอยู่แถวล่างสุดอยู่แล้ว (รวม · จ่ายตอนมารับของ) ไม่ต้องบอกซ้ำตรงนี้ */
+      o && o.no
+        ? `<span class="head-q${st === 'cook' ? ' live' : ''}"><span>คิวที่</span><b>${esc(String(o.no))}</b></span>`
+        : `<span class="head-q"><span>เลขคิว</span><b class="dots"><i></i><i></i><i></i></b></span>`)}
     ${st === 'cook' ? cookScene() : ''}
-    <div class="qbig">
-      ${o && o.no ? `<b class="${st === 'cook' ? 'live' : ''}">${esc(String(o.no))}</b><span>เลขคิวของคุณ</span>`
-                  : `<b class="dots"><i></i><i></i><i></i></b><span>ยังไม่ได้เลขคิว</span>`}
-    </div>
     <div class="steps">
-      ${STEPS.map((x, i) => `<div class="step ${i <= at ? 'on' : ''}${
-        i === at && st !== 'done' ? ' cur' : ''}"><i></i>${x[1]}</div>`).join('')}
+      ${STEPS.map((x, i) => {
+        const done = i < at || st === 'done';
+        return `<div class="step${i <= at ? ' on' : ''}${i === at && st !== 'done' ? ' cur' : ''}">
+          <span class="step-n">${done ? icon('check',14) : i + 1}</span>
+          <span class="step-t">${x[1]}</span>
+        </div>`;
+      }).join('')}
     </div>
     ${items.length ? `<div class="list">
       ${items.map(it => `

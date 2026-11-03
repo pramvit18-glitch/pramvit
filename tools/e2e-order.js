@@ -109,17 +109,23 @@ const push = (name, v) => { ok.push([name, !!v]); };
   await cust.locator('#sendBtn').click();
   await cust.waitForTimeout(700);
 
-  push('ส่งออเดอร์แล้วเข้าหน้ารอคิว', (await cust.locator('.qbig').count()) === 1);
+  push('ส่งออเดอร์แล้วเข้าหน้ารอคิว', (await cust.locator('.head-q').count()) === 1);
   push('ส่งแล้วมีคำขอบคุณให้ลูกค้า',
     (await cust.textContent('#view')).includes('ขอบคุณที่สั่ง'));
   // ลูกค้ายืนจ้องหน้านี้อยู่ ถ้านิ่งสนิทจะไม่แน่ใจว่าแอปยังทำงานไหม
   push('รอร้านกดรับ มีจุดสามจุดเด้งอยู่',
-    await cust.locator('.qbig .dots i').count() === 3);
-  push('แถบขั้นตอนที่ทำอยู่มีแสงวิ่ง',
-    await cust.locator('.steps .step.cur').count() === 1);
+    await cust.locator('.head-q b.dots i').count() === 3);
+  /* ข้อนี้เคยชื่อ "แถบขั้นตอนที่ทำอยู่มีแสงวิ่ง" แต่เช็กแค่ว่ามีคลาส .cur
+     พอเปลี่ยนแถบเป็น stepper วงกลมแล้วแสงวิ่งหายไป มันก็ยังผ่านอยู่ดี — เทสต์โกหก
+     ตอนนี้อ่าน animationName จริงว่าวงแหวนเต้นอยู่ */
+  push('ขั้นที่ทำอยู่มีวงแหวนเต้น บอกว่ายังเดินหน้าอยู่',
+    await cust.evaluate(() => {
+      const el = document.querySelector('.steps .step.cur .step-n');
+      return !!el && getComputedStyle(el).animationName === 'ring';
+    }));
   push('จุดเด้งจริง ไม่ใช่แค่มีคลาส',
     await cust.evaluate(() => {
-      const el = document.querySelector('.qbig .dots i');
+      const el = document.querySelector('.head-q b.dots i');
       return !!el && getComputedStyle(el).animationName === 'dot';
     }));
 
@@ -218,7 +224,7 @@ const push = (name, v) => { ok.push([name, !!v]); };
 
   await cust.evaluate(() => refreshMine());
   await cust.waitForTimeout(500);
-  const qtxt = await cust.textContent('.qbig');
+  const qtxt = await cust.textContent('.head-q');
   push('ลูกค้าเห็นเลขคิวของตัวเอง', qtxt.includes('1'));
   push('ลูกค้าเห็นว่ากำลังทำอยู่', (await cust.textContent('.steps')).includes('กำลังทำ'));
   /* ตอนร้านกำลังทำ โชว์ภาพเตาเครปที่ขยับ ลูกค้าจะได้เห็นว่าของกำลังทำอยู่จริง */
@@ -265,11 +271,37 @@ const push = (name, v) => { ok.push([name, !!v]); };
       const cs = getComputedStyle(el);
       return cs.transformBox === 'view-box' && /70px\s+69px/.test(cs.transformOrigin);
     }));
+  /* ขั้นตอนเป็น stepper มาตรฐาน: วงกลมมีเลข ต่อกันด้วยเส้น (เจ้าของขอ)
+     ขั้นที่ผ่านแล้วเป็นเครื่องหมายถูก ขั้นที่ยังไม่ถึงเป็นเลขสีเทา */
+  push('ขั้นตอนเป็นวงกลมมีเลข ครบ 3 ขั้น',
+    await cust.locator('.steps .step-n').count() === 3);
+  push('ขั้นที่ผ่านแล้วเป็นเครื่องหมายถูก',
+    await cust.locator('.steps .step-n svg').count() === 1);
+  push('ขั้นที่กำลังทำกับยังไม่ถึง ยังเป็นเลข',
+    (await cust.locator('.steps .step').nth(1).textContent()).includes('2')
+    && (await cust.locator('.steps .step').nth(2).textContent()).includes('3'));
+  push('วงกลมเป็นวงกลมจริง ไม่ใช่ขีดแบน', await cust.evaluate(() => {
+    const el = document.querySelector('.steps .step-n');
+    if(!el) return false;
+    const cs = getComputedStyle(el), r = el.getBoundingClientRect();
+    return cs.borderRadius === '50%' && Math.abs(r.width - r.height) < 1 && r.width > 20;
+  }));
+  push('มีเส้นเชื่อมระหว่างวงกลม', await cust.evaluate(() => {
+    const el = document.querySelectorAll('.steps .step')[1];
+    if(!el) return false;
+    const w = getComputedStyle(el, '::before').width;
+    return w && w !== 'auto' && parseFloat(w) > 20;
+  }));
+  push('ขั้นแรกไม่มีเส้นเข้า (ไม่มีเส้นลอยออกนอกการ์ด)', await cust.evaluate(() => {
+    const el = document.querySelector('.steps .step');
+    return !!el && getComputedStyle(el, '::before').display === 'none';
+  }));
+
   push('ได้เลขคิวแล้ว จุดเด้งหายไป เหลือเลขจริง',
-    await cust.locator('.qbig .dots').count() === 0 && await cust.locator('.qbig b.live').count() === 1);
+    await cust.locator('.head-q b.dots').count() === 0 && await cust.locator('.head-q.live b').count() === 1);
   push('เลขคิวหายใจอยู่ตอนร้านกำลังทำ',
     await cust.evaluate(() => {
-      const el = document.querySelector('.qbig b.live');
+      const el = document.querySelector('.head-q.live b');
       return !!el && getComputedStyle(el).animationName === 'breathe';
     }));
 
@@ -324,7 +356,7 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('สั่งใบที่สองได้ และเก็บไว้ทั้งสองใบ',
     await cust.evaluate(() => sentList.length) === 2);
   push('หน้าคิวโชว์ออเดอร์ครบทุกใบ',
-    await cust.locator('#view .qbig').count() === 2);
+    await cust.locator('#view .head-q').count() === 2);
 
   /* ---------- ที่เก็บออเดอร์ปฏิเสธ (กฎ Firebase หมดอายุ) ----------
      เคสจริงที่อันตรายที่สุด: กฎ "โหมดทดสอบ" หมดอายุ 30 วัน แล้วปิดทุกทางเอง
@@ -461,7 +493,7 @@ const push = (name, v) => { ok.push([name, !!v]); };
   const salesWas = await seller.evaluate(() => (db.sales||[]).length);
   // ต้องนับ **ก่อน** แม่ค้ากดลบ ไม่งั้นชนกับจังหวะที่หน้าลูกค้าถามเองทุก 4 วินาที
   // แล้วบางรอบมันตัดใบที่ถูกลบออกไปก่อนเราจะทันนับ เทสต์เลยตก ๆ ผ่าน ๆ
-  const cardsWas = await cust.locator('#view .qbig').count();
+  const cardsWas = await cust.locator('#view .head-q').count();
   push('มีออเดอร์ค้างอยู่ให้ลบ', !!liveId);
 
   await seller.evaluate(id => deleteOrder(id), liveId);
@@ -496,11 +528,11 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('ออเดอร์ที่ถูกลบหายออกจากรายการของลูกค้าเลย',
     await cust.evaluate(() => sentList.length) === 1);
   push('การ์ดคิวลดลงจริง ไม่ใช่เพิ่มการ์ดยกเลิกเข้ามาแทน',
-    await cust.locator('#view .qbig').count() === cardsWas - 1);
+    await cust.locator('#view .head-q').count() === cardsWas - 1);
   push('ออเดอร์ที่ถูกลบ ไม่นับว่ายังค้างอยู่',
     await cust.evaluate(() => liveOrders().length) === 0);
   push('ออเดอร์ที่ถูกลบ ไม่มีจุดเด้งค้างอยู่',
-    await cust.locator('#view .qbig .dots').count() === 0);
+    await cust.locator('#view .head-q b.dots').count() === 0);
   push('ออเดอร์ที่ถูกลบ ไม่กลับมาอีกตอนถามรอบหน้า',
     await cust.evaluate(async () => { await refreshMine(); return sentList.length; }) === 1);
 
@@ -559,7 +591,7 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('ล้างออเดอร์แล้ว ไม่มีการ์ดยกเลิกโผล่มาแทน',
     !(await cust.textContent('#view')).includes('ถูกยกเลิกแล้ว'));
   push('ล้างออเดอร์แล้ว ไม่มีจุดเด้งค้างรอเก้อ',
-    await cust.locator('#view .qbig .dots').count() === 0);
+    await cust.locator('#view .head-q b.dots').count() === 0);
   push('ยังมีข้อความบอกว่าร้านเอาออเดอร์ออก',
     (await cust.textContent('#view')).includes('เอาออเดอร์ของคุณออกไปแล้ว'));
 
