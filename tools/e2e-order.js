@@ -326,11 +326,84 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('หน้าคิวโชว์ออเดอร์ครบทุกใบ',
     await cust.locator('#view .qbig').count() === 2);
 
+  /* ---------- แจ้งเตือนตอนลูกค้าสั่งเข้ามา ----------
+     เดิมแอปหยุดถามที่เก็บทันทีที่จอดับ/สลับแอป แม่ค้าเปิด LINE อยู่แล้วลูกค้าสั่งเข้ามา
+     จะไม่มีอะไรเตือนเลยจนกว่าจะกลับมาเปิดแอป — เสียออเดอร์ไปดื้อ ๆ */
+  const notes = [];
+  await seller.evaluate(() => {
+    // ดักไว้ดูว่าแอปสั่งเด้งแถบแจ้งเตือนจริงไหม (เบราว์เซอร์เทสต์ไม่มีของจริงให้กด)
+    window.__notes = [];
+    window.Notification = function(){};
+    window.Notification.permission = 'granted';
+    window.Notification.requestPermission = async () => 'granted';
+    navigator.serviceWorker.getRegistration = async () => ({
+      showNotification: (t, o) => { window.__notes.push({ t, b: o && o.body }); }
+    });
+  });
+
+  push('แอปรู้จักการกันจอดับ', await seller.evaluate(() => typeof keepScreenOn === 'function'));
+  push('ถามถี่ตอนดูจออยู่ · ห่างลงตอนสลับไปแอปอื่น',
+    await seller.evaluate(() => POLL_ON < POLL_OFF && POLL_ON === 5000));
+
+  // ทำเป็นว่าแม่ค้าสลับไปเล่นแอปอื่น แล้วลูกค้าสั่งเข้ามาตอนนั้น
+  await seller.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { get: () => true, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  const hiddenKey = await seller.evaluate(() => db.orderKey);
+  await fetch(`${CLOUD}/s/${hiddenKey}/orders/hidden1.json`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ at: Date.now(), status:'new', total: 15,
+      items:[{ id:'m1', name:'เครปกรอบ', qty:1, price:15, addons:[], total:15 }] })
+  });
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(800);
+
+  push('สลับไปแอปอื่นแล้ว ยังรู้ว่ามีออเดอร์เข้ามา',
+    await seller.evaluate(() => cloudOrders.some(o => o.id === 'hidden1')));
+  const noteSeen = await seller.evaluate(() => window.__notes);
+  push('เด้งแถบแจ้งเตือนของเครื่องให้ด้วย', noteSeen.length >= 1);
+  push('แถบแจ้งเตือนบอกว่ามีออเดอร์ใหม่', !!noteSeen[0] && noteSeen[0].t.includes('ออเดอร์ใหม่'));
+  push('แถบแจ้งเตือนบอกด้วยว่าลูกค้าสั่งอะไร', !!noteSeen[0] && String(noteSeen[0].b).includes('เครปกรอบ'));
+
+  /* ย้ำซ้ำถ้ายังไม่ได้กดรับ — แม่ค้ายืนทอดอยู่ เสียงครั้งเดียวพลาดง่าย
+     ต้องยิงผ่าน pollOrders() ไม่ใช่เรียก nagNewOrders() ตรง ๆ
+     ไม่งั้นต่อให้ลืมต่อสายเข้ากับรอบถาม เทสต์ก็ยังผ่าน (ลองแล้ว ผ่านจริง) */
+  push('ยังไม่กดรับ = ย้ำเตือนซ้ำเองตอนถามรอบถัดไป', await seller.evaluate(async () => {
+    nagAt = Date.now() - NAG_EVERY - 1;      // ทำเป็นว่าผ่านไปครบรอบแล้ว
+    let rang = 0;
+    const real = window.ringBell; window.ringBell = () => { rang++; };
+    await pollOrders();
+    window.ringBell = real;
+    return rang === 1;
+  }));
+  push('กดรับหมดแล้ว = หยุดย้ำเอง', await seller.evaluate(async () => {
+    for(const o of cloudOrders.filter(x => x.status === 'new')) await takeOrder(o.id);
+    nagAt = Date.now() - NAG_EVERY - 1;
+    let rang = 0;
+    const real = window.ringBell; window.ringBell = () => { rang++; };
+    await pollOrders();
+    window.ringBell = real;
+    return rang === 0;
+  }));
+
+  // กลับมาดูจอ แล้วเก็บกวาดใบที่เพิ่งใส่เข้าไป
+  await seller.evaluate(async () => {
+    Object.defineProperty(document, 'hidden', { get: () => false, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    await cloudReq('PATCH', `s/${db.orderKey}/orders`, { hidden1: null });
+    await pollOrders();
+  });
+  await seller.waitForTimeout(600);
+
   /* ---------- แม่ค้าลบออเดอร์ทิ้งเองได้ ----------
      เดิมออเดอร์ที่กดรับไปแล้วแต่ลูกค้าไม่มารับ จะค้างอยู่จนกว่าจะกด "เสร็จแล้ว · รับเงิน"
      ซึ่งจะกลายเป็นยอดขายปลอม เงินในสรุปวันนี้เพี้ยนทันที */
   const liveId   = await seller.evaluate(() => cloudOrders[0] && cloudOrders[0].id);
   const salesWas = await seller.evaluate(() => (db.sales||[]).length);
+  // ต้องนับ **ก่อน** แม่ค้ากดลบ ไม่งั้นชนกับจังหวะที่หน้าลูกค้าถามเองทุก 4 วินาที
+  // แล้วบางรอบมันตัดใบที่ถูกลบออกไปก่อนเราจะทันนับ เทสต์เลยตก ๆ ผ่าน ๆ
+  const cardsWas = await cust.locator('#view .qbig').count();
   push('มีออเดอร์ค้างอยู่ให้ลบ', !!liveId);
 
   await seller.evaluate(id => deleteOrder(id), liveId);
@@ -351,7 +424,6 @@ const push = (name, v) => { ok.push([name, !!v]); };
      แต่ต้อง **ไม่** โชว์เป็นการ์ดค้างไว้ทีละใบ
      เคยทำแบบนั้นแล้วพอแม่ค้าล้างออเดอร์ทั้งวัน ลูกค้าได้การ์ด "ถูกยกเลิกแล้ว"
      ซ้ำ ๆ เรียงยาวเต็มจอ เลื่อนเท่าไหร่ก็ไม่หมด */
-  const cardsWas = await cust.locator('#view .qbig').count();
   await cust.evaluate(() => refreshMine());
   await cust.waitForTimeout(700);
   const goneTxt = await cust.textContent('#view');

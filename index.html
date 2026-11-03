@@ -2343,23 +2343,97 @@ let cloudOrders = [];       // ออเดอร์ที่ยังค้า�
 let orderTimer  = null;
 let seenOrders  = null;     // รหัสออเดอร์ที่เคยเห็นแล้ว ใช้ดูว่ามีอันใหม่เข้ามาไหม
 
+const POLL_ON  = 5000;    // กำลังดูจออยู่ ถามถี่หน่อย จะได้รู้ทันที
+const POLL_OFF = 15000;   // สลับไปแอปอื่น ถามห่างลง ประหยัดโควตาฟรีกับแบต
+
 function startOrderWatch(){
   clearInterval(orderTimer);
   if(!db.orderOn || !cloudReady() || !db.orderKey) return;
   pollOrders();
-  orderTimer = setInterval(pollOrders, 5000);
+  orderTimer = setInterval(pollOrders, document.hidden ? POLL_OFF : POLL_ON);
+  keepScreenOn();
 }
-function stopOrderWatch(){ clearInterval(orderTimer); orderTimer = null; cloudOrders = []; }
+function stopOrderWatch(){
+  clearInterval(orderTimer); orderTimer = null; cloudOrders = [];
+  letScreenSleep();
+}
 
-// จอดับหรือสลับไปแอปอื่น = ไม่ได้ยืนขายอยู่ หยุดถามไปก่อน
-// ประหยัดทั้งโควตาฟรีของที่เก็บออเดอร์และแบตมือถือ
-// (เบราว์เซอร์หน่วงตัวนับเวลาในแท็บที่ไม่ได้ดูอยู่แล้ว ถามไปก็ไม่ตรงเวลา)
-// พอกลับมาดูจอ ถามทันทีหนึ่งครั้ง จะได้ไม่ต้องรอครบรอบ
-document.addEventListener('visibilitychange', () => { if(!document.hidden) pollOrders(); });
+/* สลับไปแอปอื่นแล้วยัง**ถามต่อ** แค่ถามห่างลง
+   เดิมหยุดถามเลยตอนจอดับ ซึ่งแปลว่าแม่ค้าเปิด LINE อยู่แล้วลูกค้าสั่งเข้ามา
+   จะไม่มีอะไรเตือนเลยจนกว่าจะกลับมาเปิดแอป — เสียออเดอร์ไปดื้อ ๆ
+   กลับมาดูจอเมื่อไหร่ ถามทันทีหนึ่งครั้ง แล้วปรับจังหวะกลับเป็นถี่ */
+document.addEventListener('visibilitychange', () => { startOrderWatch(); });
+
+/* ---------- กันจอดับระหว่างเปิดรับออเดอร์ ----------
+   แม่ค้าวางมือถือไว้บนเคาน์เตอร์ พอจอดับเบราว์เซอร์จะหยุดทุกอย่าง
+   เสียงเตือนก็ไม่ดัง เจ้าของยอมแลกกับแบตแล้ว (เสียบพาวเวอร์แบงก์เอา)
+
+   กับดัก: ระบบ**ปล่อยล็อกเอง**ตอนสลับแอปหรือจอดับ ต้องขอใหม่ทุกครั้งที่กลับมา
+   ไม่ใช่ขอครั้งเดียวตอนเปิดแอป · เครื่องเก่าที่ไม่รองรับก็ไม่พังอะไร แค่ไม่ได้ผล */
+let wakeLock = null;
+
+async function keepScreenOn(){
+  if(!('wakeLock' in navigator)) return;
+  if(!db.orderOn || document.hidden) return;
+  if(wakeLock) return;
+  try{
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  }catch(e){ wakeLock = null; }    // แบตใกล้หมด หรือเครื่องไม่ให้ — ปล่อยไป
+}
+
+function letScreenSleep(){
+  const w = wakeLock;
+  wakeLock = null;
+  if(!w) return;
+  try{ w.release(); }catch(e){}
+}
+
+/* ---------- แถบแจ้งเตือนของเครื่อง ----------
+   ของเดิมมีแค่เสียง + ข้อความในแอป ซึ่งเห็นเฉพาะตอนเปิดแอปนี้ค้างอยู่
+   อันนี้เด้งทับหน้าจอได้แม้กำลังเล่นแอปอื่น
+
+   ต้องขออนุญาต**ตอนแม่ค้ากดปุ่มเท่านั้น** เบราว์เซอร์ไม่ยอมให้ขอลอย ๆ
+   จึงขอตอนกดเปิดรับออเดอร์ */
+async function askNotifyOK(){
+  if(!('Notification' in window)) return false;
+  if(Notification.permission === 'granted') return true;
+  if(Notification.permission === 'denied')  return false;
+  try{ return (await Notification.requestPermission()) === 'granted'; }
+  catch(e){ return false; }
+}
+
+async function notifyOrder(count, what){
+  if(!('Notification' in window) || Notification.permission !== 'granted') return;
+  const title = count === 1 ? 'มีออเดอร์ใหม่จากลูกค้า' : `มีออเดอร์ใหม่ ${count} รายการ`;
+  const opt = {
+    body: what || 'แตะเพื่อเปิดแอปแล้วกดรับ',
+    tag: 'crepe-order', renotify: true,
+    icon: 'icons/icon-192.png', badge: 'icons/icon-192.png'
+  };
+  try{
+    // ไอโฟนสั่งผ่าน service worker เท่านั้น new Notification() ใช้ไม่ได้
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    if(reg && reg.showNotification){ await reg.showNotification(title, opt); return; }
+    new Notification(title, opt);
+  }catch(e){}
+}
+
+/* ย้ำเตือนซ้ำถ้ายังมีออเดอร์ที่ยังไม่ได้กดรับ
+   แม่ค้ายืนทอดอยู่ มือเปื้อนแป้ง เสียงครั้งเดียวพลาดได้ง่ายมาก
+   หยุดเองทันทีที่กดรับหรือกดไม่รับ ไม่ต้องไปปิดที่ไหน */
+const NAG_EVERY = 30000;
+let nagAt = 0;
+
+function nagNewOrders(){
+  if(!cloudOrders.some(o => o.status === 'new')){ nagAt = 0; return; }
+  if(Date.now() - nagAt < NAG_EVERY) return;
+  nagAt = Date.now();
+  beep(); ringBell();
+}
 
 async function pollOrders(){
   if(!db.orderOn || !cloudReady() || !db.orderKey) return;
-  if(document.hidden) return;
   let data;
   try{ data = await cloudReq('GET', `s/${db.orderKey}/orders`); }
   catch(e){ return; }                      // เน็ตหลุดชั่วคราว รอบหน้าค่อยลองใหม่
@@ -2377,6 +2451,10 @@ async function pollOrders(){
       beep();
       ringBell();
       toast(fresh.length === 1 ? 'มีออเดอร์ใหม่จากลูกค้า' : `มีออเดอร์ใหม่ ${fresh.length} รายการ`);
+      // เด้งแถบแจ้งเตือนของเครื่องด้วย จะได้เห็นแม้กำลังเล่นแอปอื่นอยู่
+      notifyOrder(fresh.length,
+        (fresh[0].items || []).map(it => `${it.name} ×${it.qty}`).join(' · '));
+      nagAt = Date.now();        // เพิ่งเตือนไป ยังไม่ต้องย้ำซ้ำทันที
     }
   }
   seenOrders = ids;
@@ -2389,6 +2467,8 @@ async function pollOrders(){
   cloudOrders = list;
   if(changed) render();
 
+  nagNewOrders();
+  keepScreenOn();          // ระบบปล่อยล็อกเองบ่อย ขอคืนทุกรอบที่ถาม
   sweepOldOrders(data);
 }
 
@@ -2459,17 +2539,22 @@ async function numberNewOrders(list){
 }
 
 // เสียงเตือนสั้น ๆ ไม่ต้องมีไฟล์เสียงให้แอปอ้วนขึ้น
+/* เสียงเตือนสองโน้ตไล่ขึ้น ตัดเสียงรถเสียงคนหน้าร้านได้ดีกว่าปี๊บเดียว */
 function beep(){
   try{
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if(!Ctx) return;
-    const ac = new Ctx(), o = ac.createOscillator(), g = ac.createGain();
-    o.type = 'sine'; o.frequency.value = 880;
-    g.gain.setValueAtTime(.001, ac.currentTime);
-    g.gain.exponentialRampToValueAtTime(.25, ac.currentTime + .02);
-    g.gain.exponentialRampToValueAtTime(.001, ac.currentTime + .45);
-    o.connect(g); g.connect(ac.destination);
-    o.start(); o.stop(ac.currentTime + .5);
+    const ac = new Ctx();
+    [[880, 0], [1245, .17]].forEach(([hz, at]) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      const t = ac.currentTime + at;
+      o.type = 'sine'; o.frequency.value = hz;
+      g.gain.setValueAtTime(.001, t);
+      g.gain.exponentialRampToValueAtTime(.3, t + .02);
+      g.gain.exponentialRampToValueAtTime(.001, t + .35);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t); o.stop(t + .42);
+    });
   }catch(e){}
 }
 
@@ -2745,7 +2830,10 @@ function orderSetupDialog(){
           style="width:100%; border:none; border-radius:var(--r); background:var(--soft);
                  padding:11px 13px; font:inherit; font-size:12.5px; color:var(--ink-2); resize:none">${esc(link)}</textarea>
       </div>` : ''}
-      ${on ? `<p class="hint" style="margin:12px 0 0">ออเดอร์ที่จบแล้วถูกลบทิ้งให้เองหลังผ่านไป 12 ชั่วโมง
+      ${on ? `<p class="hint" style="margin:12px 0 0"><b>ระหว่างเปิดรับออเดอร์ จอจะไม่ดับเอง</b>
+        แอปจะได้ไม่หลับแล้วพลาดออเดอร์ · <b>กินแบตมากขึ้น เสียบสายชาร์จไว้ด้วยนะครับ</b><br>
+        ${notifyLine()}</p>
+      <p class="hint" style="margin:12px 0 0">ออเดอร์ที่จบแล้วถูกลบทิ้งให้เองหลังผ่านไป 12 ชั่วโมง
         ที่เก็บจึงไม่มีวันเต็ม · <button type="button" class="seeall" style="margin-top:8px"
         onclick="clearOldOrders()">ล้างออเดอร์เก่าเดี๋ยวนี้</button>
         <button type="button" class="seeall" style="margin-top:8px"
@@ -2759,6 +2847,25 @@ function orderSetupDialog(){
        cls: on ? 'ghost wide' : 'primary wide', fn:'toggleOrders()'}
     ].filter(Boolean)
   });
+}
+
+/* บอกตรง ๆ ว่าตอนนี้เด้งแจ้งเตือนได้หรือยัง
+   ถ้าแม่ค้าเผลอกดไม่อนุญาตไป จะได้รู้ว่าทำไมไม่มีอะไรเด้ง และต้องไปแก้ที่ไหน */
+function notifyLine(){
+  if(!('Notification' in window))
+    return 'เครื่องนี้ไม่รองรับแถบแจ้งเตือน — ยังมีเสียงเตือนกับแถบแดงในแอปเหมือนเดิม';
+  if(Notification.permission === 'granted')
+    return 'เปิดแถบแจ้งเตือนไว้แล้ว ✓ สลับไปเล่นแอปอื่นก็ยังเห็นออเดอร์ใหม่';
+  if(Notification.permission === 'denied')
+    return 'เครื่องนี้ <b>ปิดแถบแจ้งเตือน</b>ของแอปนี้ไว้ เปิดคืนได้ที่ ตั้งค่าเครื่อง → การแจ้งเตือน';
+  return `ยังไม่ได้เปิดแถบแจ้งเตือน · <button type="button" class="seeall"
+          onclick="turnOnNotify()">เปิดแถบแจ้งเตือน</button>`;
+}
+
+async function turnOnNotify(){
+  const ok = await askNotifyOK();
+  toast(ok ? 'เปิดแถบแจ้งเตือนแล้ว' : 'ยังไม่ได้เปิด — ลองอีกทีหรือเปิดที่ตั้งค่าเครื่อง');
+  orderSetupDialog();
 }
 
 async function copyOrderLink(){
@@ -2811,6 +2918,9 @@ async function toggleOrders(){
   db.orderOn = true; save();
   try{ await publishMenu(); }
   catch(e){ db.orderOn = false; save(); toast('ต่อที่เก็บออเดอร์ไม่ติด ลองเช็ก URL อีกที'); return; }
+  // ขออนุญาตเด้งแจ้งเตือนตรงนี้ เพราะเบราว์เซอร์ยอมให้ขอเฉพาะตอนที่คนกดปุ่มเอง
+  // ไม่อนุญาตก็ไม่เป็นไร ยังมีเสียงกับแถบแดงในแอปเหมือนเดิม
+  await askNotifyOK();
   seenOrders = null;
   startOrderWatch();
   dlg.close(); render();

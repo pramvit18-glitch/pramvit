@@ -1,6 +1,6 @@
 // Service worker — ทำให้แอปเปิดได้ตอนไม่มีเน็ต
 // เวลาแก้ index.html แล้วอยากให้เครื่องที่ติดตั้งไปแล้วได้ของใหม่ ให้ขยับเลข CACHE
-const CACHE = 'crepe-cost-v104';
+const CACHE = 'crepe-cost-v105';
 
 const ASSETS = [
   './',
@@ -24,6 +24,18 @@ self.addEventListener('activate', e => {
     caches.keys()
       .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
+  );
+});
+
+/* แตะแถบแจ้งเตือนแล้วต้องเด้งเข้าแอป ไม่ใช่แตะแล้วเงียบหาย
+   ถ้าแอปเปิดค้างอยู่แล้วให้สลับไปหน้านั้น ไม่เปิดซ้ำเป็นอีกแท็บ */
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const c of list) if ('focus' in c) return c.focus();
+      if (self.clients.openWindow) return self.clients.openWindow('./index.html');
+    })
   );
 });
 
