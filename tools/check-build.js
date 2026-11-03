@@ -39,6 +39,19 @@ push('ไม่มีโฟลเดอร์ tools หลุดขึ้นไ�
 push('ไม่มี node_modules หลุดขึ้นไป', !fs.existsSync(path.join(OUT, 'node_modules')));
 push('ไม่มี CLAUDE.md หลุดขึ้นไป', !has('CLAUDE.md'));
 
+/* เลขรุ่นของเว็บต้องตรงกันระหว่าง sw.js กับ order.html
+   sw.js ใช้ทิ้งแคชเก่า · order.html ใช้รู้ว่ามีของใหม่แล้วค่อยโหลดหน้าใหม่
+   ถ้าสองเลขนี้ไม่ตรงกัน หน้าลูกค้าจะรีเฟรชตัวเองทิ้ง ๆ ขว้าง ๆ ทันทีที่เปิด */
+const swTxt  = fs.readFileSync(path.join(OUT, 'sw.js'), 'utf8');
+const ordTxt = fs.readFileSync(path.join(OUT, 'order.html'), 'utf8');
+const swVer  = (swTxt.match(/const CACHE = '(crepe-cost-v\d+)'/)   || [])[1];
+const ordVer = (ordTxt.match(/const PAGE_VER = '(crepe-cost-v\d+)'/) || [])[1];
+
+push('sw.js บอกเลขรุ่นของเว็บไว้', !!swVer);
+push('order.html บอกเลขรุ่นของเว็บไว้', !!ordVer);
+push(`เลขรุ่นตรงกันทั้งสองไฟล์ (${swVer || '?'} / ${ordVer || '?'})`,
+     !!swVer && swVer === ordVer);
+
 fs.rmSync(OUT, {recursive:true, force:true});
 
 let bad = 0;

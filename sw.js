@@ -1,6 +1,6 @@
 // Service worker — ทำให้แอปเปิดได้ตอนไม่มีเน็ต
 // เวลาแก้ index.html แล้วอยากให้เครื่องที่ติดตั้งไปแล้วได้ของใหม่ ให้ขยับเลข CACHE
-const CACHE = 'crepe-cost-v100';
+const CACHE = 'crepe-cost-v101';
 
 const ASSETS = [
   './',
@@ -33,15 +33,22 @@ self.addEventListener('fetch', e => {
 
   // ตัวหน้าเว็บ: เอาของใหม่จากเน็ตก่อน ถ้าเน็ตล่มค่อยใช้ของที่เก็บไว้
   if (req.mode === 'navigate') {
+    // เก็บแยกตามหน้า ไม่ใช่ยัดทุกหน้าลงช่องของ index.html
+    // เคยพังมาแล้ว: ลูกค้าเปิด order.html ทีหนึ่ง มันเอาหน้าลูกค้าไปทับช่องของแอปร้าน
+    // พอเน็ตหลุดแล้วแม่ค้าเปิดแอป ได้หน้าลูกค้าขึ้นมาแทน
+    const u = new URL(req.url);
+    const key = u.pathname.endsWith('/') ? u.pathname + 'index.html' : u.pathname;
     e.respondWith(
       // cache:'reload' = ข้ามแคชของเบราว์เซอร์ ไม่งั้นเปิดมาได้ของเก่าทั้งที่เน็ตมีของใหม่แล้ว
       fetch(req, {cache: 'reload'})
         .then(res => {
           const copy = res.clone();
-          caches.open(CACHE).then(c => c.put('./index.html', copy));
+          caches.open(CACHE).then(c => c.put(key, copy));
           return res;
         })
-        .catch(() => caches.match('./index.html').then(r => r || caches.match('./')))
+        .catch(() => caches.match(key)
+          .then(r => r || caches.match('./index.html'))
+          .then(r => r || caches.match('./')))
     );
     return;
   }

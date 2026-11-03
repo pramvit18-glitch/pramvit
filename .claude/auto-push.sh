@@ -20,10 +20,12 @@ if ! npm run check > .claude/last-check.log 2>&1; then
   exit 0
 fi
 
-# ---------- แก้ index.html แล้วต้องขยับเลขแคชใน sw.js ----------
+# ---------- แก้หน้าเว็บหน้าไหนก็ตาม ต้องขยับเลขรุ่น ----------
 # ไม่งั้นเครื่องที่ติดตั้งแอปไว้แล้วจะไม่ได้ของใหม่
-if ! git diff --quiet HEAD -- index.html 2>/dev/null; then
-  node -e "const fs=require('fs');const f='sw.js';let s=fs.readFileSync(f,'utf8');s=s.replace(/crepe-cost-v(\d+)/,(m,n)=>'crepe-cost-v'+(+n+1));fs.writeFileSync(f,s)" 2>/dev/null
+# และหน้าลูกค้าที่เปิดค้างไว้ระหว่างรอคิวจะไม่รู้ว่ามีของใหม่
+# เดิมดูแค่ index.html พอแก้ order.html เลขไม่ขยับ ของใหม่เลยไม่ถึงมือลูกค้า
+if ! git diff --quiet HEAD -- '*.html' 2>/dev/null; then
+  node tools/bump-ver.js > /dev/null 2>&1
 fi
 
 # ---------- commit ----------

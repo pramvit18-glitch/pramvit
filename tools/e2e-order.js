@@ -512,11 +512,82 @@ const push = (name, v) => { ok.push([name, !!v]); };
     (await cust4.evaluate(() => localStorage.getItem('crepe-order-base')) || '').includes('asia-southeast1'));
   await cust4.unroute('**/*-default-rtdb.*/**');
 
+  /* ---------- หน้าลูกค้าเปิดค้างไว้ แล้วร้านเอาของใหม่ขึ้นเว็บ ----------
+     ลูกค้ายืนรอคิวโดยเปิดหน้านี้ค้างไว้เป็นสิบนาที หน้าที่เปิดค้างแค่วาดใหม่
+     ไม่ได้โหลดหน้าใหม่ จึงใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ ถึงเราจะเอาของใหม่ขึ้นเว็บแล้ว
+     (เจ้าของเคยเจอ: แก้เสร็จเอาขึ้นเว็บแล้ว แต่หน้าที่เปิดค้างไว้ยังเป็นของเก่า) */
+  const custVer = await b.newPage({ viewport:{width:390,height:844} });
+  let loads = 0;
+  custVer.on('load', () => loads++);
+
+  await custVer.goto(`${APP}/order.html?s=${key}&c=${encodeURIComponent(CLOUD)}`);
+  await custVer.waitForTimeout(900);
+  const pageVer = await custVer.evaluate(() => (typeof PAGE_VER === 'string' ? PAGE_VER : ''));
+  push('หน้าลูกค้ารู้เลขรุ่นของเว็บที่ตัวเองเป็นอยู่', /^crepe-cost-v\d+$/.test(pageVer));
+  push('รุ่นเดียวกับบนเว็บ = ไม่โหลดหน้าใหม่ให้เสียของ', loads === 1);
+
+  // ทำเป็นว่าเราเพิ่งเอาของใหม่ขึ้นเว็บ (เลขรุ่นขยับ)
+  const newVer = 'crepe-cost-v' + (Number(pageVer.replace(/\D/g, '')) + 1);
+  await custVer.route('**/sw.js*', r => r.fulfill({
+    status:200, contentType:'application/javascript',
+    body:`const CACHE = '${newVer}';`
+  }));
+  // ลูกค้าหยิบมือถือขึ้นมาดูอีกที
+  await custVer.evaluate(() => { verAt = 0; document.dispatchEvent(new Event('visibilitychange')); });
+  await custVer.waitForTimeout(1500);
+  push('มีของใหม่บนเว็บแล้ว หน้าลูกค้าโหลดหน้าใหม่ให้เอง', loads === 2);
+
+  // โหลดใหม่แล้วแต่ยังได้ของเก่าอยู่ (แคชเบราว์เซอร์ดื้อ) ต้องไม่วนโหลดไม่จบ
+  await custVer.waitForTimeout(1200);
+  push('ไม่วนโหลดหน้าใหม่ไม่จบ ถ้าโหลดแล้วยังได้ของเก่า', loads === 2);
+  await custVer.unroute('**/sw.js*');
+
   /* ---------- ลิงก์มั่ว ---------- */
   const cust3 = await b.newPage({ viewport:{width:390,height:844} });
   await cust3.goto(`${APP}/order.html?s=ไม่มีจริง&c=${encodeURIComponent(CLOUD)}`);
   await cust3.waitForTimeout(600);
   push('ลิงก์ที่ไม่มีร้านจริง ไม่พังแต่บอกให้รู้', (await cust3.textContent('#view')).includes('ยังไม่ได้เปิด'));
+
+  /* ---------- service worker เก็บหน้าเว็บแยกตามหน้า ----------
+     เคยพังมาแล้ว: ตัวจัดการ navigate เอาทุกหน้าที่เปิดไปยัดลงช่องของ index.html
+     ลูกค้าเปิด order.html ทีหนึ่ง หน้าลูกค้าก็ไปทับที่เก็บของแอปร้าน
+     พอเน็ตหลุดแล้วแม่ค้าเปิดแอป ได้หน้าลูกค้าขึ้นมาแทน
+     (ทำท้ายสุดแล้ว unregister ทิ้ง ไม่ให้ไปคุมหน้าอื่นในชุดทดสอบ) */
+  const swPage = await b.newPage({ viewport:{width:390,height:844} });
+  try{
+    await swPage.goto(`${APP}/index.html`);
+    await swPage.evaluate(async () => {
+      await navigator.serviceWorker.register('sw.js');
+      await navigator.serviceWorker.ready;
+    });
+    await swPage.reload();                       // รอบนี้มี service worker คุมแล้ว
+    await swPage.waitForTimeout(400);
+    push('ลงทะเบียน service worker ได้',
+      await swPage.evaluate(() => !!navigator.serviceWorker.controller));
+
+    // ลูกค้าเปิดหน้าสั่งของ — ผ่านมือ service worker เหมือนของจริง
+    await swPage.goto(`${APP}/order.html?s=${key}&c=${encodeURIComponent(CLOUD)}`);
+    await swPage.waitForTimeout(800);
+
+    const kept = await swPage.evaluate(async () => {
+      const names = await caches.keys();
+      const c = await caches.open(names.find(x => x.startsWith('crepe-cost-v')) || names[0]);
+      const grab = async u => { const r = await c.match(u); return r ? await r.text() : ''; };
+      return { home: await grab('/index.html'), order: await grab('/order.html') };
+    });
+    // แอปร้านมี crepe-hub-v1 · หน้าลูกค้ามี crepe-order-base ไม่ปนกัน
+    push('เปิดหน้าลูกค้าแล้ว ที่เก็บของแอปร้านยังเป็นแอปร้าน',
+      kept.home.includes('crepe-hub-v1') && !kept.home.includes('crepe-order-base'));
+    push('หน้าลูกค้าถูกเก็บไว้ในช่องของตัวเอง เปิดตอนเน็ตหลุดได้',
+      kept.order.includes('crepe-order-base'));
+  }catch(e){
+    push('ทดสอบ service worker ได้ (' + e.message.slice(0, 60) + ')', false);
+  }
+  // เก็บกวาด ไม่ให้ service worker ค้างไปคุมรอบทดสอบหน้าถัดไป
+  await swPage.evaluate(async () => {
+    for(const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+    for(const k of await caches.keys()) await caches.delete(k);
+  }).catch(() => {});
 
   await b.close();
 
