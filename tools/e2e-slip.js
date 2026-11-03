@@ -1,0 +1,381 @@
+/* สลิปโอนเงิน — แนบได้ และ **กันสลิปซ้ำ** ได้จริง
+
+   เรื่องนี้เป็นเรื่องเงิน เทสต์จึงไม่ดูแค่ว่า "มีปุ่มแนบรูปแล้ว"
+   แต่สร้างไฟล์รูปจริงขึ้นมา 3 ใบ (ใบเดิม · ใบเดิมที่โดนบีบอัดจนเพี้ยนเล็กน้อย ·
+   ใบที่ต่างกันคนละรูป) แล้วไล่ส่งเข้าไปจริง ดูว่าฝั่งแม่ค้าจับได้ถูกใบ
+
+   ข้อที่สำคัญที่สุดสองข้อ:
+   1. **รูปห้ามอยู่ในก้อนออเดอร์** ต้องแยกไปอยู่ s/<ร้าน>/slips/<id>
+      เพราะแอปแม่ค้าถามออเดอร์ทุก 5 วินาที ถ้ารูปติดมาด้วยโควตาฟรีหมดวันเดียว
+   2. **ตอนถามออเดอร์ห้ามโหลดรูปเลย** ต้องโหลดเฉพาะตอนแม่ค้ากดดู
+
+   node tools/fake-cloud.js &  node serve.js &  node tools/e2e-slip.js  */
+
+const { chromium } = require('playwright');
+const zlib = require('zlib');
+const os   = require('os');
+const path = require('path');
+const fs   = require('fs');
+
+const APP   = 'http://127.0.0.1:8787';
+const CLOUD = 'http://127.0.0.1:8788';
+const KEY   = 'slipkey1';
+const SHOT  = process.env.SHOT_DIR || os.tmpdir();
+
+const ok = [];
+const push = (name, v) => ok.push([name, !!v]);
+
+/* กดของที่อาจไม่มี — ถ้าไม่มีให้ตกเฉพาะข้อนั้น
+   เคยพลาดมาแล้ว: click() ของที่ไม่มีจะรอจนหมดเวลาแล้ว **ล้มทั้งชุด**
+   ไม่รายงานผลสักข้อ กลายเป็นเทสต์ที่จับบั๊กได้แต่ไม่บอกว่าจับอะไรได้ */
+async function tap(loc, why){
+  if(await loc.count() === 0){ push(why, false); return false; }
+  await loc.first().click();
+  return true;
+}
+
+const put = (p, b) => fetch(`${CLOUD}/${p}.json`, {
+  method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(b)
+}).then(r => r.json());
+const get = p => fetch(`${CLOUD}/${p}.json`).then(r => r.json());
+
+/* ---------- ทำไฟล์ PNG ขึ้นมาเองโดยไม่ลงไลบรารีเพิ่ม ----------
+   (zlib มีมากับ node อยู่แล้ว · ต้องเป็นรูปจริงที่เบราว์เซอร์เปิดได้
+    ไม่ใช่ไฟล์ปลอม ไม่งั้น readImage() จะโยนทิ้งแล้วเทสต์ไม่ได้ทดสอบอะไรเลย) */
+const CRC = (() => {
+  const t = new Int32Array(256);
+  for(let n = 0; n < 256; n++){
+    let c = n;
+    for(let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c;
+  }
+  return t;
+})();
+function crc32(buf){
+  let c = -1;
+  for(let i = 0; i < buf.length; i++) c = CRC[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ -1) >>> 0;
+}
+function chunk(type, data){
+  const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+  const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+  const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(body));
+  return Buffer.concat([len, body, crc]);
+}
+function makePNG(w, h, px){
+  const raw = Buffer.alloc((w * 3 + 1) * h);
+  for(let y = 0; y < h; y++){
+    const row = y * (w * 3 + 1);
+    raw[row] = 0;
+    for(let x = 0; x < w; x++){
+      const c = px(x, y);
+      raw[row + 1 + x*3]     = c[0];
+      raw[row + 1 + x*3 + 1] = c[1];
+      raw[row + 1 + x*3 + 2] = c[2];
+    }
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4);
+  ihdr[8] = 8; ihdr[9] = 2; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+  return Buffer.concat([
+    Buffer.from([0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', zlib.deflateSync(raw, { level:9 })),
+    chunk('IEND', Buffer.alloc(0))
+  ]);
+}
+
+// ให้เหมือนสลิปจริงหน่อย: พื้นอ่อน มีแถบ มีก้อนตัวเลขเข้ม ๆ กระจายเป็นลาย
+const clamp = v => Math.max(0, Math.min(255, Math.round(v)));
+const slipA = (x, y) => {
+  const band = (y % 90 < 8) ? 60 : 245;
+  const ink  = (x % 70 < 26 && y % 90 > 24 && y % 90 < 40) ? 40 : band;
+  return [clamp(ink), clamp(ink - 4), clamp(ink - 10)];
+};
+// ใบเดิมที่โดนบีบอัดซ้ำ/ถ่ายจอมา — พิกเซลเพี้ยนไปทั้งรูปแต่ลายเดิม
+let seed = 12345;
+const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF) / 0x7FFFFFFF;
+const slipA2 = (x, y) => slipA(x, y).map(v => clamp(v + (rnd() * 24 - 12)));
+// คนละใบจริง ๆ — ลายคนละแบบคนละทิศ
+const slipB = (x, y) => {
+  const band = (x % 70 < 10) ? 50 : 240;
+  const ink  = (y % 60 < 30 && x % 70 > 30 && x % 70 < 52) ? 30 : band;
+  return [clamp(ink - 12), clamp(ink), clamp(ink - 6)];
+};
+
+const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slip-'));
+const file = (name, fn) => {
+  const p = path.join(DIR, name);
+  fs.writeFileSync(p, makePNG(360, 540, fn));
+  return p;
+};
+const IMG_A  = file('a.png',  slipA);
+const IMG_A2 = file('a2.png', slipA2);
+const IMG_B  = file('b.png',  slipB);
+
+(async () => {
+  await fetch(CLOUD + '/__reset').catch(() => {});
+
+  const b = await chromium.launch({ args:['--no-sandbox'] });
+
+  /* ---------- เครื่องแม่ค้า ---------- */
+  const seller = await b.newPage({ viewport:{width:390,height:844}, deviceScaleFactor:2 });
+  seller.on('pageerror', e => push('แอปแม่ค้าตาย: ' + e.message.slice(0,60), false));
+  let slipGET = 0;          // นับว่าโหลดรูปสลิปไปกี่ครั้ง
+  seller.on('request', r => {
+    if(r.method() === 'GET' && /\/slips\/[^/]+\.json/.test(r.url())) slipGET++;
+  });
+
+  await seller.goto(APP + '/index.html');
+  await seller.evaluate(cloud => {
+    localStorage.setItem('crepe-cloud', cloud);
+    const d = {
+      id:'sh1', shopName:'ร้านเครปทดสอบ', shopBranch:'', shopOpen:1,
+      groups:[], menus:[{ id:'m1', name:'เครปกรอบ', price:15, groupIds:[], items:[] }],
+      ingredients:[], sales:[], expenses:[],
+      fixed:{rent:0, electric:0, gas:0, water:0, other:0, days:26, labor:0},
+      payId:'0812345678'
+    };
+    localStorage.setItem('crepe-hub-v1', JSON.stringify({shops:[d], active:'sh1'}));
+  }, CLOUD);
+  await seller.reload();
+  await seller.waitForTimeout(400);
+  await seller.evaluate(async () => {
+    db.orderKey = 'slipkey1'; db.orderOn = 1; db.payId = '0812345678';
+    save(); await publishMenu();
+  });
+  push('ร้านเปิดรับออเดอร์พร้อมเลขพร้อมเพย์', (await get(`s/${KEY}/menu`)).payId === '0812345678');
+
+  /* ---------- สูตรเทียบลายนิ้วมือ ต้องทนบีบอัด แต่ไม่มั่ว ---------- */
+  const near = await seller.evaluate(() => ({
+    same:   slipSame('abcd1234abcd1234', 'abcd1234abcd1234'),
+    oneBit: slipSame('0000000000000000', '0000000000000001'),   // ต่าง 1 บิต
+    fiveBit:slipSame('0000000000000000', '000000000000001f'),   // ต่าง 5 บิต = ยังใบเดิม
+    sixBit: slipSame('0000000000000000', '000000000000003f'),   // ต่าง 6 บิต = คนละใบ
+    empty:  slipSame('', ''),
+    half:   slipSame('abcd1234abcd1234', 'abcd1234')
+  }));
+  push('ลายนิ้วมือเดียวกัน = ใบเดียวกัน', near.same === true);
+  push('เพี้ยน 1 บิต ยังถือว่าใบเดียวกัน (โดนบีบอัดซ้ำ)', near.oneBit === true);
+  push('เพี้ยน 5 บิต ยังถือว่าใบเดียวกัน', near.fiveBit === true);
+  push('ต่าง 6 บิตขึ้นไป = คนละใบ ไม่กล่าวหาผิด', near.sixBit === false);
+  push('ไม่มีสลิป ไม่เอาไปเทียบกับใครเลย', near.empty === false);
+  push('ความยาวไม่เท่ากันไม่เทียบ (ของเก่าคนละรุ่น)', near.half === false);
+
+  /* ---------- เครื่องลูกค้า ---------- */
+  const cust = await b.newPage({ viewport:{width:390,height:844}, deviceScaleFactor:2 });
+  cust.on('pageerror', e => push('หน้าลูกค้าตาย: ' + e.message.slice(0,60), false));
+
+  const toPay = async () => {
+    await cust.goto(`${APP}/order.html?s=${KEY}&c=${encodeURIComponent(CLOUD)}`);
+    await cust.waitForTimeout(800);
+    await cust.locator('#view button.li').first().click();
+    await cust.waitForTimeout(900);
+    await cust.locator('button', { hasText:'ใส่ตะกร้า' }).click();
+    await cust.waitForTimeout(700);
+    await cust.locator('#barBtn').click();
+    await cust.waitForTimeout(800);
+    await cust.locator('#payBtn').click();
+    await cust.waitForTimeout(700);
+  };
+  const sendWith = async img => {
+    if(img){
+      await cust.setInputFiles('#slipPick', img);
+      await cust.waitForTimeout(700);
+    }
+    await cust.locator('#sendBtn').click();
+    await cust.waitForTimeout(1500);
+  };
+
+  await toPay();
+  push('หน้าสแกนจ่ายมีช่องแนบสลิป', await cust.locator('#slipPick').count() === 1);
+  push('บอกว่าแนบสลิปไว้ช่วยอะไร',
+    (await cust.textContent('#dlg')).includes('แนบสลิป'));
+
+  await cust.setInputFiles('#slipPick', IMG_A);
+  await cust.waitForTimeout(800);
+  push('แนบแล้วเห็นรูปที่แนบ ไม่ใช่แนบไปแบบไม่รู้ว่าใบไหน',
+    await cust.locator('.slipprev img').count() === 1);
+  push('ย่อรูปแล้วเก็บเป็น jpeg ไม่ส่งไฟล์เต็มใบขึ้นไป',
+    await cust.evaluate(() => (slipData || '').startsWith('data:image/jpeg')));
+  const kb = await cust.evaluate(() => Math.round((slipData || '').length / 1024));
+  push(`รูปที่จะส่งเล็กพอ (${kb}KB ไม่เกิน 300KB)`, kb > 0 && kb < 300);
+  push('ได้ลายนิ้วมือ 16 ตัว', await cust.evaluate(() => /^[0-9a-f]{16}$/.test(slipHash)));
+  await cust.screenshot({ path: SHOT + '/slip-pay.png' });
+
+  // เอาออกได้ ถ้าแนบผิดใบ
+  await tap(cust.locator('button', { hasText:'เอาสลิปออก' }), 'มีปุ่มเอาสลิปออกให้กด');
+  await cust.waitForTimeout(300);
+  push('แนบผิดใบ เอาออกได้', await cust.locator('.slipprev img').count() === 0
+    && await cust.evaluate(() => slipData === null && slipHash === ''));
+
+  // ย้อนกลับไปแก้ชื่อแล้วกลับมา รูปที่แนบต้องยังอยู่
+  await cust.setInputFiles('#slipPick', IMG_A);
+  await cust.waitForTimeout(700);
+  const hashA = await cust.evaluate(() => slipHash);
+  await tap(cust.locator('#dlg button', { hasText:'ย้อนกลับ' }), 'หน้าสแกนจ่ายมีปุ่มย้อนกลับ');
+  await cust.waitForTimeout(600);
+  await cust.locator('#payBtn').click();
+  await cust.waitForTimeout(700);
+  push('ย้อนกลับแล้วกลับมา สลิปที่แนบไว้ยังอยู่ ไม่ต้องเลือกใหม่',
+    await cust.locator('.slipprev img').count() === 1);
+
+  await sendWith(null);
+
+  /* ---------- ข้อสำคัญ: รูปต้องไม่อยู่ในก้อนออเดอร์ ---------- */
+  const ords1 = await get(`s/${KEY}/orders`);
+  const id1 = Object.keys(ords1 || {})[0];
+  const o1  = ords1[id1];
+  push('ออเดอร์ส่งถึงแล้วและแจ้งว่าโอนแล้ว', !!o1 && o1.paid === true);
+  push('ออเดอร์มีแค่ลายนิ้วมือสลิป ไม่ใช่ตัวรูป', o1.slip === hashA && o1.slip.length === 16);
+  push('ไม่มีรูปแอบอยู่ในก้อนออเดอร์ (ไม่งั้นโควตาฟรีหมดวันเดียว)',
+    !/data:image/.test(JSON.stringify(ords1)));
+  const img1 = await get(`s/${KEY}/slips/${id1}`);
+  push('รูปสลิปไปอยู่ช่องแยกของตัวเอง', typeof img1 === 'string' && img1.startsWith('data:image/jpeg'));
+
+  /* ---------- ฝั่งแม่ค้าเห็นว่ามีสลิป แต่ยังไม่โหลดรูป ---------- */
+  slipGET = 0;
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(500);
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(500);
+  await seller.evaluate(() => go('orders'));
+  await seller.waitForTimeout(400);
+  push('การ์ดออเดอร์มีปุ่มดูสลิป',
+    (await seller.textContent('#view')).includes('ดูสลิปที่แนบมา'));
+  push('ใบแรกยังไม่ซ้ำกับใคร ไม่ขึ้นเตือนผิด', await seller.locator('.ord-slip.dup').count() === 0);
+  push('ถามออเดอร์ตั้งหลายรอบแล้วยังไม่โหลดรูปเลย (ประหยัดโควตา)', slipGET === 0);
+
+  await tap(seller.locator('.ord-slip'), 'มีปุ่มดูสลิปให้กด');
+  await seller.waitForTimeout(900);
+  push('กดดูแล้วค่อยโหลดรูป', slipGET === 1);
+  push('เห็นรูปสลิปจริงในกล่อง', await seller.locator('.slipview img').count() === 1);
+  push('กล่องย้ำว่าสลิปปลอมทำได้เหมือนจริง ให้เช็กแอปธนาคาร',
+    (await seller.textContent('#dlg')).includes('สลิปปลอม'));
+  await seller.screenshot({ path: SHOT + '/slip-view.png' });
+  await seller.evaluate(() => dlg.close());
+  await seller.waitForTimeout(900);
+
+  /* ---------- ส่งสลิปใบเดิมซ้ำ ต้องจับได้ ---------- */
+  await cust.evaluate(() => { try{ localStorage.clear(); }catch(e){} });
+  await toPay();
+  await sendWith(IMG_A);
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(600);
+  await seller.evaluate(() => render());
+  await seller.waitForTimeout(300);
+  push('เอาสลิปใบเดิมมาส่งอีกใบ แม่ค้าเห็นคำเตือนทันทีบนการ์ด',
+    (await seller.textContent('#view')).includes('สลิปซ้ำ'));
+  push('ปุ่มสลิปซ้ำเป็นสีเตือน ไม่ใช่ปุ่มเทา ๆ เหมือนเดิม',
+    await seller.locator('.ord-slip.dup').count() >= 1);
+  const openedDup = await tap(seller.locator('.ord-slip.dup'), 'กดปุ่มสลิปซ้ำเข้าไปดูได้');
+  await seller.waitForTimeout(900);
+  const dupTxt = openedDup ? await seller.textContent('#dlg') : '';
+  push('กล่องบอกว่าเคยใช้มาแล้วเมื่อไหร่ ยอดเท่าไหร่', dupTxt.includes('เคยใช้มาแล้ว') && dupTxt.includes('ยอด'));
+  await seller.screenshot({ path: SHOT + '/slip-dup.png' });
+  await seller.evaluate(() => dlg.close());
+  await seller.waitForTimeout(900);
+
+  /* ---------- ใบเดิมที่โดนบีบอัดจนพิกเซลเพี้ยน ก็ยังต้องจับได้ ---------- */
+  await cust.evaluate(() => { try{ localStorage.clear(); }catch(e){} });
+  await toPay();
+  await cust.setInputFiles('#slipPick', IMG_A2);
+  await cust.waitForTimeout(800);
+  const hashA2 = await cust.evaluate(() => slipHash);
+  push('รูปเดิมที่เพี้ยนไป ได้ลายนิ้วมือใกล้เดิม (ไม่ต้องเหมือนเป๊ะ)',
+    await seller.evaluate(h => slipSame(h[0], h[1]), [hashA, hashA2]));
+  await sendWith(null);
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(600);
+  await seller.evaluate(() => render());
+  await seller.waitForTimeout(300);
+  push('ถ่ายจอ/บีบอัดใหม่แล้วเอามาใช้ซ้ำ ก็ยังจับได้',
+    await seller.locator('.ord-slip.dup').count() >= 2);
+
+  /* ---------- คนละใบจริง ๆ ต้องไม่ถูกกล่าวหา ---------- */
+  await cust.evaluate(() => { try{ localStorage.clear(); }catch(e){} });
+  await toPay();
+  await sendWith(IMG_B);
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(600);
+  await seller.evaluate(() => render());
+  await seller.waitForTimeout(300);
+  const cards = await seller.locator('.ord-slip').count();
+  const dups  = await seller.locator('.ord-slip.dup').count();
+  push(`คนละใบไม่ถูกกล่าวหาว่าซ้ำ (มีสลิป ${cards} ใบ ซ้ำ ${dups} ใบ)`, cards - dups === 1);
+
+  /* ---------- จ่ายตอนมารับของ ไม่มีสลิปติดไป ---------- */
+  await cust.evaluate(() => { try{ localStorage.clear(); }catch(e){} });
+  await cust.goto(`${APP}/order.html?s=${KEY}&c=${encodeURIComponent(CLOUD)}`);
+  await cust.waitForTimeout(800);
+  await cust.locator('#view button.li').first().click();
+  await cust.waitForTimeout(900);
+  await cust.locator('button', { hasText:'ใส่ตะกร้า' }).click();
+  await cust.waitForTimeout(700);
+  await cust.locator('#barBtn').click();
+  await cust.waitForTimeout(800);
+  await cust.locator('#laterBtn').click();
+  await cust.waitForTimeout(1500);
+  const ordsAll = await get(`s/${KEY}/orders`);
+  const cash = Object.values(ordsAll).find(o => o && !o.paid);
+  push('จ่ายตอนมารับของ ไม่มีสลิปติดไปด้วย', !!cash && !cash.slip);
+
+  /* ---------- สั่งใหม่ต้องไม่เอาสลิปใบเก่าติดไปเอง ---------- */
+  await cust.evaluate(() => { try{ localStorage.clear(); }catch(e){} });
+  await toPay();
+  await sendWith(IMG_B);
+  await tap(cust.locator('button', { hasText:'สั่งเพิ่ม' }), 'หน้าคิวมีปุ่มสั่งเพิ่ม');
+  await cust.waitForTimeout(600);
+  push('ส่งแล้วสลิปถูกล้างออกจากมือ', await cust.evaluate(() => slipData === null && slipHash === ''));
+  await cust.locator('#view button.li').first().click();
+  await cust.waitForTimeout(900);
+  await cust.locator('button', { hasText:'ใส่ตะกร้า' }).click();
+  await cust.waitForTimeout(700);
+  await cust.locator('#barBtn').click();
+  await cust.waitForTimeout(800);
+  await cust.locator('#payBtn').click();
+  await cust.waitForTimeout(700);
+  push('สั่งรอบใหม่ ช่องแนบสลิปว่างเปล่า ไม่มีใบเก่าค้าง',
+    await cust.locator('.slipprev img').count() === 0);
+  await cust.locator('#sendBtn').click();
+  await cust.waitForTimeout(1500);
+  const ords2 = await get(`s/${KEY}/orders`);
+  const latest = Object.keys(ords2).sort().pop();
+  push('ออเดอร์รอบใหม่ไม่ติดลายนิ้วมือใบเก่ามาเอง', !ords2[latest].slip);
+
+  /* ---------- ลบออเดอร์ รูปต้องหายไปด้วย (ไม่ทิ้งรูปค้างกินโควตา) ---------- */
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(600);
+  const before = Object.keys(await get(`s/${KEY}/slips`) || {}).length;
+  await seller.evaluate(async () => {
+    const o = cloudOrders.find(x => x.slip);
+    window.__gone = o.id;
+    deleteOrder(o.id);
+  });
+  await seller.waitForTimeout(700);
+  push('ลบทีละใบต้องถามยืนยันก่อน ไม่ลบทันที',
+    (await seller.textContent('#dlg')).includes('ไม่ถูกบันทึกเป็นยอดขาย'));
+  await tap(seller.locator('#dlg button', { hasText:'ลบทิ้ง' }), 'กล่องยืนยันมีปุ่มลบทิ้ง');
+  await seller.waitForTimeout(1200);
+  const goneId = await seller.evaluate(() => window.__gone);
+  const afterOne = await get(`s/${KEY}/slips`) || {};
+  push('ลบออเดอร์ทีละใบ รูปสลิปใบนั้นหายไปด้วย',
+    before > 0 && !afterOne[goneId] && Object.keys(afterOne).length === before - 1);
+
+  /* ---------- ล้างออเดอร์วันนี้ รูปต้องหายเกลี้ยง (ข้อนี้ล้างข้อมูล อยู่ท้ายสุด) ---------- */
+  await seller.evaluate(() => clearTodayOrders());
+  await seller.waitForTimeout(1000);
+  await tap(seller.locator('#dlg button', { hasText:'ล้างเลย' }), 'กล่องยืนยันมีปุ่มล้างเลย');
+  await seller.waitForTimeout(1500);
+  const afterAll = await get(`s/${KEY}/slips`);
+  push('ล้างออเดอร์วันนี้ รูปสลิปไม่เหลือค้างในที่เก็บ',
+    afterAll === null || Object.keys(afterAll).length === 0);
+
+  await b.close();
+  try{ fs.rmSync(DIR, { recursive:true, force:true }); }catch(e){}
+
+  let bad = 0;
+  ok.forEach(([n2, v]) => { console.log(`  ${v ? '✓' : '✗'} ${n2}`); if(!v) bad++; });
+  console.log(bad ? `\n  ตก ${bad} ข้อ\n` : `\n  ผ่านทุกข้อ (${ok.length} ข้อ)\n`);
+  process.exit(bad ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(1); });

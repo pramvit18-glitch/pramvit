@@ -410,6 +410,17 @@
     background:var(--good-bg); color:var(--good-ink); border-radius:var(--r-pill);
     padding:3px 10px 4px; font-size:11.5px; font-weight:800; line-height:1.4;
   }
+  .ord-slip{
+    display:inline-flex; align-items:center; gap:5px; margin-top:6px; margin-left:6px;
+    border:none; cursor:pointer; font:inherit;
+    background:var(--soft); color:var(--ink-2); border-radius:var(--r-pill);
+    padding:3px 11px 4px; font-size:11.5px; font-weight:800; line-height:1.4;
+    transition:transform var(--tap-out) var(--ease), background .16s;
+  }
+  /* สลิปซ้ำ = แดงเต็ม ต้องสะดุดตากว่าป้ายอื่นทั้งหมดบนการ์ด */
+  .ord-slip.dup{background:var(--bad-bg); color:var(--bad-ink)}
+  .slipview{text-align:center; min-height:180px}
+  .slipview img{max-width:100%; border-radius:var(--r); background:var(--soft)}
   .ord-act{display:flex; gap:9px; margin-top:12px}
   .ord-act .btn{flex:0 0 auto}
   .ord-act .btn.primary, .ord-act .btn.wide{flex:1}
@@ -867,7 +878,8 @@
   /* ใหญ่ — แถวรายการ การ์ดที่กดได้ ปุ่มเต็มความกว้าง */
   .li:active, .seeall:active, .shoprow-main:active, .billrow:active,
   .pick-main:active, .day:active, .navrow:active, .posrow:active,
-  .dayx-row:active, .daybtn:active, .qmenu-b:active, .posbtn:active{transform:scale(.975)}
+  .dayx-row:active, .daybtn:active, .qmenu-b:active, .posbtn:active,
+  .ord-slip:active{transform:scale(.975)}
 
   /* ปุ่มใหญ่สีแดงกับแถบเมนูล่าง ยุบชัดหน่อยเพราะเป็นของที่กดบ่อยสุด */
   .orderbtn:active{transform:scale(.96)}
@@ -2534,6 +2546,9 @@ async function pollOnce(){
   cloudOrders = list;
   if(changed) render();
 
+  // จำลายนิ้วมือสลิปของทุกใบที่เห็น เพื่อจับสลิปที่เอากลับมาใช้ซ้ำข้ามวัน
+  list.forEach(rememberSlip);
+
   nagNewOrders();
   keepScreenOn();          // ระบบปล่อยล็อกเองบ่อย ขอคืนทุกรอบที่ถาม
   sweepOldOrders(data);
@@ -2567,7 +2582,18 @@ async function sweepOldOrders(data, force){
   dead.forEach(id => { patch[id] = null; });
   try{ await cloudReq('PATCH', `s/${db.orderKey}/orders`, patch); }
   catch(e){ return 0; }
+  await dropSlips(dead);
   return dead.length;
+}
+
+/* ลบรูปสลิปทิ้งคู่กับออเดอร์เสมอ
+   รูปใหญ่กว่าออเดอร์เป็นร้อยเท่า ถ้าลืมลบ ที่เก็บจะเต็มเร็วมาก
+   เรียกทุกจุดที่ลบออเดอร์: กวาดอัตโนมัติ · ลบทีละใบ · ล้างทั้งวัน */
+async function dropSlips(ids){
+  if(!ids || !ids.length || !db.orderKey) return;
+  const patch = {};
+  ids.forEach(id => { patch[id] = null; });
+  try{ await cloudReq('PATCH', `s/${db.orderKey}/slips`, patch); }catch(e){}
 }
 
 // ปุ่มล้างเองจากหน้าตั้งค่า เผื่ออยากเคลียร์เดี๋ยวนั้น
@@ -2694,6 +2720,7 @@ function deleteOrder(id){
       // ส่ง null = สั่งลบ (ที่เก็บออเดอร์รับคำสั่งลบแบบนี้)
       try{ await cloudReq('PATCH', `s/${db.orderKey}/orders`, { [id]: null }); }
       catch(e){ toast('ลบไม่สำเร็จ เน็ตอาจหลุด'); return; }
+      await dropSlips([id]);
       cloudOrders = cloudOrders.filter(x => x.id !== id);
       render();
       toast('ลบออเดอร์แล้ว');
@@ -2727,12 +2754,86 @@ async function clearTodayOrders(){
       ids.forEach(id => { patch[id] = null; });
       try{ await cloudReq('PATCH', `s/${db.orderKey}/orders`, patch); }
       catch(e){ toast('ล้างไม่สำเร็จ เน็ตอาจหลุด'); return; }
+      await dropSlips(ids);
       db.queueDay = today; db.queueNo = 0; save();
       cloudOrders = [];
       await pollOrders();
       render();
       toast(`ล้างออเดอร์วันนี้แล้ว ${ids.length} ใบ · เลขคิวเริ่มที่ 1 ใหม่`);
     });
+}
+
+/* ===================== สลิปโอนเงิน =====================
+   **สลิปไม่ใช่หลักฐานว่าเงินเข้า** แอปทำสลิปปลอมมีเยอะและทำได้เหมือนจริงทุกจุด
+   มีไว้ให้แม่ค้าหาเจอง่ายตอนไล่ดูในแอปธนาคาร ไม่ใช่ให้เชื่อแทนแอปธนาคาร
+
+   สิ่งที่กันได้จริงคือ **สลิปซ้ำ** — เอาสลิปใบเดิมมาใช้หลายออเดอร์
+   ลูกค้าส่งลายนิ้วมือของรูป (64 บิต) มากับออเดอร์ เราเก็บที่เคยเห็นไว้ในเครื่อง
+   แล้วเทียบ ต่างกันไม่เกิน 5 บิต = รูปเดียวกัน (เผื่อโดนบีบอัดซ้ำ)
+
+   ต้องเก็บในเครื่องเอง เพราะออเดอร์เก่าถูกลบจากที่เก็บทุก 12-24 ชม.
+   ถ้าดูแค่ออเดอร์ที่ยังค้าง จะจับสลิปที่เอากลับมาใช้ข้ามวันไม่ได้ */
+const SLIP_KEEP = 400;      // จำลายนิ้วมือย้อนหลังไว้เท่านี้ใบ
+const SLIP_NEAR = 5;        // ต่างกันไม่เกินกี่บิตถึงถือว่ารูปเดียวกัน
+
+function slipBits(h){
+  let b = '';
+  for(const c of String(h || '')) b += parseInt(c, 16).toString(2).padStart(4, '0');
+  return b;
+}
+function slipSame(a, b){
+  if(!a || !b || a.length !== b.length) return false;
+  const x = slipBits(a), y = slipBits(b);
+  let d = 0;
+  for(let i = 0; i < x.length; i++) if(x[i] !== y[i] && ++d > SLIP_NEAR) return false;
+  return true;
+}
+
+// เคยเห็นสลิปใบนี้มาก่อนไหม — คืนรายการเดิมถ้าเคย
+function slipSeenBefore(hash, orderId){
+  return (db.slipSeen || []).find(x => x.id !== orderId && slipSame(x.h, hash));
+}
+
+// จำไว้ว่าเห็นสลิปใบนี้กับออเดอร์ไหนเมื่อไหร่
+function rememberSlip(o){
+  if(!o.slip) return;
+  db.slipSeen = db.slipSeen || [];
+  if(db.slipSeen.some(x => x.id === o.id)) return;
+  db.slipSeen.push({ id:o.id, h:o.slip, at:n(o.at) || Date.now(), total:n(o.total) });
+  if(db.slipSeen.length > SLIP_KEEP) db.slipSeen = db.slipSeen.slice(-SLIP_KEEP);
+  save();
+}
+
+// รูปโหลดเฉพาะตอนกดดู ไม่เอามาปนกับรอบถามออเดอร์ทุก 5 วินาที ไม่งั้นโควตาฟรีหมดเร็ว
+async function viewSlip(id){
+  const o = cloudOrders.find(x => x.id === id);
+  const dup = o && o.slip ? slipSeenBefore(o.slip, id) : null;
+  openDialog({ icon:'cart', title:'สลิปที่ลูกค้าแนบมา',
+    sub: o ? `${money(n(o.total))}${o.who ? ' · ' + esc(o.who) : ''}` : '',
+    html:`<div id="slipBox" class="slipview"><div class="empty"><p>กำลังโหลดรูป…</p></div></div>
+      ${dup ? `<div class="note bad">${icon('alert',17)}<span>
+        <b>สลิปใบนี้เคยใช้มาแล้ว</b> เมื่อ ${esc(whenText(dup.at))} ยอด ${money(dup.total)}<br>
+        อาจเป็นการเอาสลิปเดิมมาใช้ซ้ำ — เช็กแอปธนาคารให้ดีก่อนนะครับ
+      </span></div>` : ''}
+      <p class="hint" style="margin:12px 0 0"><b>สลิปปลอมทำได้เหมือนจริงมาก</b>
+        รูปนี้ใช้ดูประกอบเฉย ๆ ยืนยันเงินเข้าได้จากแอปธนาคารอย่างเดียว</p>`,
+    foot:[{label:'ปิด', cls:'primary wide', fn:'dlg.close()'}]
+  });
+  let img = null;
+  try{ img = await cloudReq('GET', `s/${db.orderKey}/slips/${id}`); }catch(e){}
+  const box = document.getElementById('slipBox');
+  if(!box) return;
+  box.innerHTML = img
+    ? `<img src="${esc(img)}" alt="สลิปที่ลูกค้าแนบ">`
+    : `<div class="empty"><p>โหลดรูปไม่ขึ้น — อาจส่งไม่ถึงตอนเน็ตหลุด หรือถูกลบไปแล้ว</p></div>`;
+}
+
+// บอกเวลาแบบคนพูด ไม่ใช่ timestamp
+function whenText(ms){
+  const d = new Date(n(ms));
+  const today = dayKey();
+  return dayKey(d) === today ? `วันนี้ ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+                             : `${d.getDate()}/${d.getMonth()+1} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
 /* ---------- การ์ดออเดอร์บนหน้าแรก ---------- */
@@ -2858,13 +2959,21 @@ function orderRowHTML(o){
     ? `<span class="ord-paid">${icon('check',13)} ลูกค้าแจ้งว่าโอนแล้ว ${money(n(o.total))} · เช็กแอปธนาคารก่อนนะ</span>`
     : '';
 
+  // สลิปซ้ำต้องเตือนตั้งแต่บนการ์ด ไม่ต้องรอให้กดเข้าไปดู
+  const dup = o.slip ? slipSeenBefore(o.slip, o.id) : null;
+  const slipTag = o.slip
+    ? `<button type="button" class="ord-slip${dup ? ' dup' : ''}" onclick="viewSlip('${jsq(o.id)}')">
+         ${icon(dup ? 'alert' : 'menu', 13)} ${dup ? 'สลิปซ้ำ! เคยใช้แล้ว · แตะดู' : 'ดูสลิปที่แนบมา'}
+       </button>`
+    : '';
+
   return `<div class="ord${cook ? ' cook' : ''}">
     <div class="ord-top">
       <span class="ord-no">${o.no ? esc(String(o.no)) : '–'}</span>
       <div class="ord-m">
         <div class="ord-n">${o.no ? `<span class="ord-q">คิวที่ ${esc(String(o.no))}</span>` : ''}${what || '(ไม่มีรายการ)'}</div>
         <div class="ord-s">${bits.join(' · ')}</div>
-        ${paidTag}
+        ${paidTag}${slipTag}
       </div>
       <b class="ord-p">${money(n(o.total))}</b>
     </div>
@@ -3473,7 +3582,7 @@ document.addEventListener('touchstart', () => {}, {passive:true});
    ตามตรง: Android/Chrome รองรับ ส่วน iOS Safari ไม่รองรับ Vibration API เลย
    บนไอโฟนจึงไม่สั่น แต่ไม่พังอะไร เพราะเช็ก navigator.vibrate ก่อนเรียกทุกครั้ง */
 const TAPPABLE = '.btn,.icon-btn,.orderbtn,.bottomnav button,.cat,.dseg-b,.qmenu-b,'
-               + '.quick-b,.hil-b,.wk-d,.li,.navrow,.seeall,.posbtn,.srow-a,.home-sec button';
+               + '.quick-b,.hil-b,.wk-d,.li,.navrow,.seeall,.posbtn,.srow-a,.ord-slip,.home-sec button';
 document.addEventListener('pointerdown', e => {
   if(!navigator.vibrate) return;
   const el = e.target.closest && e.target.closest(TAPPABLE);

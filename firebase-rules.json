@@ -11,6 +11,10 @@
         "orders": {
           ".read": true,
           ".write": true
+        },
+        "slips": {
+          ".read": true,
+          ".write": true
         }
       }
     }

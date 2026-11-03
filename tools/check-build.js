@@ -52,6 +52,24 @@ push('order.html บอกเลขรุ่นของเว็บไว้', 
 push(`เลขรุ่นตรงกันทั้งสองไฟล์ (${swVer || '?'} / ${ordVer || '?'})`,
      !!swVer && swVer === ordVer);
 
+/* กฎของที่เก็บออเดอร์ต้องอนุญาตทุกช่องที่แอปเขียนลงไปจริง
+   ถ้าโค้ดเพิ่มช่องใหม่ (เช่น slips) แต่ลืมเพิ่มในกฎ ของจริงจะโดนปฏิเสธ 401
+   แล้วลูกค้าแนบสลิปไม่ได้/สั่งไม่ได้ ทั้งที่ชุดตรวจอื่นผ่านหมด
+   เทสต์จับไม่ได้ด้วย เพราะที่เก็บจำลองไม่มีกฎ ปล่อยผ่านทุกอย่าง */
+const codeTxt = ['index.html', 'order.html']
+  .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
+const nodes = [...new Set([...codeTxt.matchAll(/s\/\$\{[^}]+\}\/([a-zA-Z]+)/g)]
+  .map(m => m[1]))];
+let rules = null;
+try{ rules = JSON.parse(fs.readFileSync(path.join(ROOT, 'firebase-rules.json'), 'utf8')); }catch(e){}
+const shop = rules && rules.rules && rules.rules.s && rules.rules.s.$shop;
+push('มีไฟล์กฎของที่เก็บออเดอร์ และอ่านเป็น JSON ได้', !!shop);
+push('โค้ดเขียนลงที่เก็บออเดอร์อยู่จริง (เจอช่องที่ใช้)', nodes.length > 0);
+nodes.forEach(k => push(`กฎอนุญาตช่อง "${k}" ที่แอปใช้จริง`,
+  !!(shop && shop[k] && shop[k]['.read'] === true && shop[k]['.write'] === true)));
+push('กฎไม่เปิดอ่านทั้งฐานข้อมูลทิ้งไว้',
+  !!rules && rules.rules && rules.rules['.read'] === false && rules.rules['.write'] === false);
+
 fs.rmSync(OUT, {recursive:true, force:true});
 
 let bad = 0;
