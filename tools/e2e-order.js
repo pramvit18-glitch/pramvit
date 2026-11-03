@@ -122,6 +122,23 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('แดชบอร์ดไม่มีการ์ดออเดอร์เต็มมาแปะแล้ว',
     await seller.locator('#orderInbox .ord').count() === 0);
 
+  /* กระดิ่งมุมบนขวา — ทางเข้าที่อยู่ที่เดิมตลอด แม้เลื่อนหน้าลงไปแล้ว */
+  const hasBell = await seller.locator('#bellBtn:not([hidden])').count() === 1;
+  push('มีกระดิ่งแจ้งออเดอร์มุมบนขวา', hasBell);
+  push('กระดิ่งมีตัวเลขบอกจำนวน',
+    hasBell && (await seller.evaluate(() => {
+      const n = document.querySelector('#bellBtn .bell-n');
+      return n ? n.textContent.trim() : '';
+    })) === '1');
+  push('กระดิ่งเป็นสีแดงตอนมีออเดอร์ค้าง',
+    await seller.evaluate(() => document.getElementById('bellBtn').classList.contains('on')));
+  push('กระดิ่งสั่นได้จริงตอนออเดอร์ใหม่เข้า',
+    await seller.evaluate(() => {
+      ringBell();
+      const b = document.getElementById('bellBtn');
+      return b.classList.contains('ring') && getComputedStyle(b).animationName === 'ring';
+    }));
+
   await seller.screenshot({ path: SHOT + '/seller-bar.png' });
 
   /* แตะแถบแล้วเข้าหน้าออเดอร์เต็ม

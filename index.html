@@ -196,6 +196,7 @@
   @media(prefers-reduced-motion:reduce){
     .bottomnav button::before, .bottomnav button svg{transition:none}
     .bottomnav button.on::before, .bottomnav button.on svg{animation:none}
+    .icon-btn.bell.ring{animation:none}
   }
 
   /* ===================== หน้าแรก: หัวใหญ่ ค้นหา ทางลัด แถบวัน =====================
@@ -326,6 +327,25 @@
      (เห็นชัดในหน้าของที่ซื้อมา: การ์ดสรุปชนหัวข้อ "วัตถุดิบที่ซื้อมา" พอดี)
      ไม่ใส่ margin-bottom ที่ .srow ตรง ๆ เพราะหน้าแรกมีบางจุดที่ไม่ต้องการช่องว่างเพิ่ม */
   .srow + .card, .srow + .block{margin-top:14px}
+
+  /* ---------- กระดิ่งแจ้งออเดอร์ มุมบนขวา ---------- */
+  .icon-btn.bell{position:relative; overflow:visible}
+  .icon-btn.bell.on{background:var(--brand); color:#fff; box-shadow:0 6px 16px rgba(211,43,43,.3)}
+  .icon-btn.bell.on:hover{background:var(--brand-d); color:#fff}
+  .bell-n{
+    position:absolute; top:-3px; right:-3px; min-width:19px; height:19px; padding:0 5px;
+    border-radius:var(--r-pill); background:var(--ink); color:#fff;
+    font-size:11px; font-weight:800; line-height:19px; text-align:center;
+    font-variant-numeric:tabular-nums; border:2px solid var(--page);
+  }
+  /* สั่นทีหนึ่งตอนออเดอร์ใหม่เข้า ให้สะดุดตาแม้แม่ค้าไม่ได้มองจออยู่พอดี */
+  .icon-btn.bell.ring{animation:ring .7s var(--ease) 1}
+  @keyframes ring{
+    0%,100%{transform:rotate(0)}
+    12%{transform:rotate(-16deg)}  28%{transform:rotate(13deg)}
+    44%{transform:rotate(-9deg)}   60%{transform:rotate(6deg)}
+    76%{transform:rotate(-3deg)}
+  }
 
   /* ---------- แถบแจ้งออเดอร์ บนสุดของทุกหน้า ----------
      ต้องเห็นชัดแต่ไม่กินที่ แม่ค้ายืนทอดอยู่ต้องเหลือบเห็นแล้วรู้เลยว่ามีกี่ใบ */
@@ -1704,6 +1724,9 @@
     <button type="button" class="shopswitch" id="pageSub" onclick="shopHub()" hidden></button>
   </div>
   <div class="appbar-act">
+  <!-- กระดิ่งแจ้งออเดอร์ โผล่เฉพาะตอนเปิดรับออเดอร์อยู่ · เนื้อในตั้งจาก renderBell() -->
+  <button class="icon-btn bell" id="bellBtn" hidden onclick="go('orders')"
+          title="ออเดอร์จากลูกค้า" aria-label="ออเดอร์จากลูกค้า"></button>
   <button class="icon-btn" onclick="openBackup()" title="สำรอง / กู้คืนข้อมูล" aria-label="สำรอง / กู้คืนข้อมูล">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/>
@@ -2314,6 +2337,7 @@ async function pollOrders(){
     const fresh = list.filter(o => o.status === 'new' && !seenOrders.has(o.id));
     if(fresh.length){
       beep();
+      ringBell();
       toast(fresh.length === 1 ? 'มีออเดอร์ใหม่จากลูกค้า' : `มีออเดอร์ใหม่ ${fresh.length} รายการ`);
     }
   }
@@ -2437,6 +2461,28 @@ async function finishOrder(id){
 }
 
 /* ---------- การ์ดออเดอร์บนหน้าแรก ---------- */
+/* ---------- กระดิ่งแจ้งออเดอร์ มุมบนขวา ----------
+   อยู่คู่กับแถบแดง: แถบบอกรายละเอียด กระดิ่งเป็นทางเข้าที่อยู่ที่เดิมตลอด
+   แม้ไม่มีออเดอร์ค้าง ก็ยังกดเข้าไปดูได้ */
+function renderBell(){
+  const b = document.getElementById('bellBtn');
+  if(!b) return;
+  const n2 = cloudOrders.length;
+  b.hidden = !db.orderOn;
+  if(b.hidden) return;
+  b.classList.toggle('on', n2 > 0);
+  b.innerHTML = icon('bell', 19) + (n2 ? `<span class="bell-n">${n2 > 9 ? '9+' : n2}</span>` : '');
+}
+
+// สั่นทีหนึ่งตอนมีออเดอร์ใหม่เข้ามา เรียกคู่กับเสียงเตือน
+function ringBell(){
+  const b = document.getElementById('bellBtn');
+  if(!b || b.hidden) return;
+  b.classList.remove('ring');
+  void b.offsetWidth;            // บังคับให้เบราว์เซอร์เริ่มนับใหม่ ไม่งั้นสั่งซ้ำแล้วไม่เล่น
+  b.classList.add('ring');
+}
+
 /* แถบเล็กบนสุดของทุกหน้า — บอกว่ามีออเดอร์กี่ใบและใบถัดไปคืออะไร
    เดิมเอาการ์ดเต็มมาแปะบนสุด พอมี 4 ใบมันกินเต็มจอแรก แดชบอร์ดถูกดันหายหมด
    เลยย่อเหลือแถบเดียว แตะแล้วเข้าหน้าออเดอร์เต็ม ๆ */
@@ -2769,7 +2815,8 @@ const SVG = {
   search:'<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
   store:'<path d="M4 10h16v10H4z"/><path d="M4 10 6 4h12l2 6"/><path d="M9 20v-6h6v6"/>',
   link:'<path d="M10 13.5a4 4 0 0 0 5.7.3l2.6-2.6a4 4 0 0 0-5.7-5.7L11.5 7"/><path d="M14 10.5a4 4 0 0 0-5.7-.3l-2.6 2.6a4 4 0 0 0 5.7 5.7L12.5 17"/>',
-  lock:'<rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>'
+  lock:'<rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/>',
+  bell:'<path d="M18 15.5V11a6 6 0 0 0-12 0v4.5L4.5 18h15L18 15.5Z"/><path d="M10 21h4"/>'
 };
 const icon = (k,s=18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SVG[k]}</svg>`;
 
@@ -2895,6 +2942,7 @@ function render(){
 
   renderBanner();
   document.getElementById('orderInbox').innerHTML = ordersBar();
+  renderBell();
 
   // หัวใหญ่ใช้ทุกหน้า ยกเว้นหน้าขายที่ต้องการพื้นที่เต็มจอ
   const home = tab === 'today';
