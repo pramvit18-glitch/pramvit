@@ -58,6 +58,20 @@ const probe = `
   const c2 = t => (page.match(new RegExp('</' + t + '>', 'g'))||[]).length;
   out.push(['หน้าขายแท็กครบ', ['div','span','button','p'].every(t => o2(t) === c2(t))]);
 
+  /* ปุ่มท้ายกล่องสั่งสินค้า ปิดบิลและบันทึกเป็นยอดขายเลย ไม่ใช่แค่ใส่ของลงบิล
+     เดิมเขียนว่า "เพิ่มลงบิล" ซึ่งชวนเข้าใจผิดว่ายังไม่เก็บเงิน */
+  order = { lines: [] };
+  tapMenu(db.menus[0].id); tapMenu(db.menus[0].id);
+  let label = '';
+  const keepOpen = openDialog;
+  openDialog = cfg => { const f = (cfg.foot||[]).find(x => x && x.fn === 'payBill()'); label = f ? f.label : ''; };
+  drawOrderDialog();
+  openDialog = keepOpen;
+  out.push(['ปุ่มปิดบิลบอกตรง ๆ ว่ารับเงิน ไม่ใช่ "เพิ่มลงบิล"',
+    /รับเงิน/.test(label) && !/เพิ่มลงบิล/.test(label)]);
+  out.push(['ปุ่มปิดบิลบอกยอดที่ต้องเก็บด้วย',
+    label.indexOf(baht(orderTotal())) >= 0]);
+
   return { out, cats };
 })()
 `;

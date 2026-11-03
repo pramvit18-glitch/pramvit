@@ -4080,7 +4080,10 @@ function drawOrderDialog(){
     onDismiss: () => { if(orderOpen){ orderOpen = false; order = null; render(); } },
     foot: has
       ? [{label:'ปิด', cls:'ghost', fn:'closeOrderDialog()'},
-         {label:'เพิ่มลงบิล', cls:'primary wide', fn:'payBill()'}]
+         // ปุ่มนี้ปิดบิลและบันทึกเป็นยอดขายเลย ไม่ใช่แค่ใส่ของลงบิล
+         // เดิมเขียนว่า "เพิ่มลงบิล" ซึ่งชวนเข้าใจผิดว่ายังไม่เก็บเงิน
+         // บอกยอดไปด้วยเลย แม่ค้าจะได้เช็กก่อนกดว่าเก็บเงินเท่าไหร่
+         {label:`รับเงิน ${baht(orderTotal())} บาท`, cls:'primary wide', fn:'payBill()'}]
       : [{label:'ปิด', cls:'ghost', fn:'closeOrderDialog()'}]
   });
   keep.restore();
