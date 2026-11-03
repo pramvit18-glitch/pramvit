@@ -266,6 +266,33 @@
   .dlg-foot .btn.primary{flex:1.5}
   .dlg-foot .btn.ghost{flex:0 1 auto; padding-left:18px; padding-right:18px}
 
+  /* ---------- ภาพเตาเครปกำลังทำ ---------- */
+  .cookwrap{text-align:center; padding:8px 0 2px}
+  .cookwrap span{
+    display:block; font-size:12.5px; color:var(--muted); font-weight:700; margin-top:6px;
+  }
+  .cookpic{width:168px; height:122px; color:var(--brand)}
+  .cookpic .batter{stroke:var(--brand-l)}
+
+  /* ไม้ปาดหมุนรอบเตา เหมือนตอนปาดแป้งจริง
+     ต้องใช้ transform-box:view-box ถึงจะหมุนรอบจุดกลางเตาได้
+     (ปริยายมันหมุนรอบมุมบนซ้ายของกรอบตัวเอง ซึ่งเพี้ยน) */
+  .cookpic .spread{
+    transform-box:view-box; transform-origin:70px 69px;
+    animation:spread 3.2s linear infinite;
+  }
+  @keyframes spread{from{transform:rotate(0)} to{transform:rotate(360deg)}}
+
+  /* ไอน้ำลอยขึ้นแล้วจางหาย ไล่กันทีละเส้น */
+  .cookpic .st{opacity:0; stroke:var(--brand-l); animation:steam 2.6s ease-in-out infinite}
+  .cookpic .st2{animation-delay:.5s}
+  .cookpic .st3{animation-delay:1s}
+  @keyframes steam{
+    0%       {opacity:0;  transform:translateY(6px)}
+    35%      {opacity:.9; transform:translateY(0)}
+    70%,100% {opacity:0;  transform:translateY(-8px)}
+  }
+
   /* ===================== หน้ารอคิว ===================== */
   .qbig{text-align:center; padding:10px 0 4px}
   .qbig b{display:block; font-size:62px; font-weight:800; line-height:1; letter-spacing:-.05em; color:var(--brand)}
@@ -369,7 +396,9 @@
   .li, .tops .top{transition:transform var(--tap-out) var(--ease), background .14s, border-color .16s}
 
   @media(prefers-reduced-motion:reduce){
-    .qbig b.dots i, .step.cur i, .qbig b.live, .empty.thanks .empty-ic, .card.rise{animation:none}
+    .qbig b.dots i, .step.cur i, .qbig b.live, .empty.thanks .empty-ic, .card.rise,
+    .cookpic .spread, .cookpic .st{animation:none}
+    .cookpic .st{opacity:.9}
     .step.cur i{background:var(--brand)}
     dialog[open], dialog[open]::backdrop, dialog[open].closing{animation:none}
     dialog::backdrop{-webkit-backdrop-filter:none; backdrop-filter:none}
@@ -930,6 +959,34 @@ function drawMine(){
     </div>`;
 }
 
+/* ภาพเตาเครปกำลังทำ — ใช้ตอนสถานะ "กำลังทำ"
+   วาดเป็นเส้นแบบเดียวกับไอคอนอื่นในแอป ไม่ใช่รูปภาพ จะได้ไม่ต้องโหลดไฟล์เพิ่ม
+   ไม้ปาดหมุนรอบเตาเหมือนตอนปาดแป้งจริง ไอน้ำลอยขึ้นไล่กันสามเส้น */
+function cookScene(){
+  return `<div class="cookwrap">
+    <svg class="cookpic" viewBox="0 0 140 102" fill="none" stroke="currentColor"
+         stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <!-- ไอน้ำ อยู่ชิดขอบเตา ไม่ลอยห่างจนเห็นเป็นที่ว่าง -->
+      <path class="st st1" d="M50 40c-5-6 5-9 0-15"/>
+      <path class="st st2" d="M70 34c-5-7 5-10 0-16"/>
+      <path class="st st3" d="M90 40c-5-6 5-9 0-15"/>
+      <!-- เตาแบน -->
+      <ellipse cx="70" cy="70" rx="47" ry="15"/>
+      <path d="M23 70v7c0 8 21 15 47 15s47-7 47-15v-7"/>
+      <!-- หูจับข้างเตา -->
+      <path d="M117 72c6 0 10 3 10 7"/>
+      <!-- แป้งที่ปาดไว้ -->
+      <ellipse class="batter" cx="70" cy="69" rx="33" ry="9.5"/>
+      <!-- ไม้ปาด วางอยู่บนแป้ง ไม่ลอยเหนือเตา -->
+      <g class="spread">
+        <line x1="70" y1="69" x2="70" y2="55"/>
+        <line x1="58" y1="55" x2="82" y2="55"/>
+      </g>
+    </svg>
+    <span>กำลังทอดให้อยู่นะครับ</span>
+  </div>`;
+}
+
 // การ์ดของออเดอร์หนึ่งใบ — เลขคิว ขั้นตอน และรายการที่สั่ง
 function queueCard(o){
   const st = (o && o.status) || 'new';
@@ -951,6 +1008,7 @@ function queueCard(o){
       : st === 'cook' ? 'อีกสักครู่นะครับ'
       : 'ส่งให้ร้านแล้ว รอสักครู่',
       o ? `<span class="head-tag">฿${baht(o.total)}</span>` : '')}
+    ${st === 'cook' ? cookScene() : ''}
     <div class="qbig">
       ${o && o.no ? `<b class="${st === 'cook' ? 'live' : ''}">${esc(String(o.no))}</b><span>เลขคิวของคุณ</span>`
                   : `<b class="dots"><i></i><i></i><i></i></b><span>ยังไม่ได้เลขคิว</span>`}

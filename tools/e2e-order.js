@@ -221,6 +221,27 @@ const push = (name, v) => { ok.push([name, !!v]); };
   const qtxt = await cust.textContent('.qbig');
   push('ลูกค้าเห็นเลขคิวของตัวเอง', qtxt.includes('1'));
   push('ลูกค้าเห็นว่ากำลังทำอยู่', (await cust.textContent('.steps')).includes('กำลังทำ'));
+  /* ตอนร้านกำลังทำ โชว์ภาพเตาเครปที่ขยับ ลูกค้าจะได้เห็นว่าของกำลังทำอยู่จริง */
+  push('ตอนกำลังทำ มีภาพเตาเครปโผล่มา', await cust.locator('.cookpic').count() === 1);
+  push('ไม้ปาดหมุนจริง ไม่ใช่แค่มีรูป',
+    await cust.evaluate(() => {
+      const el = document.querySelector('.cookpic .spread');
+      return !!el && getComputedStyle(el).animationName === 'spread';
+    }));
+  push('ไอน้ำลอยจริง',
+    await cust.evaluate(() => {
+      const el = document.querySelector('.cookpic .st');
+      return !!el && getComputedStyle(el).animationName === 'steam';
+    }));
+  // ไม่มีรูป = querySelector คืน null แล้ว getComputedStyle โยน error ทำให้ล้มทั้งชุด
+  // ต้องเช็กก่อน จะได้รายงานเป็นข้อตกแทน
+  push('ไม้ปาดหมุนรอบกลางเตา ไม่ใช่รอบมุมกรอบ',
+    await cust.evaluate(() => {
+      const el = document.querySelector('.cookpic .spread');
+      if(!el) return false;
+      const cs = getComputedStyle(el);
+      return cs.transformBox === 'view-box' && /70px\s+69px/.test(cs.transformOrigin);
+    }));
   push('ได้เลขคิวแล้ว จุดเด้งหายไป เหลือเลขจริง',
     await cust.locator('.qbig .dots').count() === 0 && await cust.locator('.qbig b.live').count() === 1);
   push('เลขคิวหายใจอยู่ตอนร้านกำลังทำ',
@@ -244,6 +265,8 @@ const push = (name, v) => { ok.push([name, !!v]); };
 
   await cust.evaluate(() => refreshMine());
   await cust.waitForTimeout(400);
+  // ของเสร็จแล้วต้องไม่มีภาพกำลังทำค้างอยู่
+  push('ของเสร็จแล้ว ภาพเตาหายไป', await cust.locator('.cookpic').count() === 0);
   const doneTxt = await cust.textContent('#view');
   push('ลูกค้าเห็นว่าของเสร็จแล้ว', doneTxt.includes('ของเสร็จแล้ว'));
   push('ของเสร็จแล้วมีคำขอบคุณปิดท้าย', doneTxt.includes('ขอบคุณที่อุดหนุน'));
