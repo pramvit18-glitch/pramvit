@@ -326,6 +326,64 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('หน้าคิวโชว์ออเดอร์ครบทุกใบ',
     await cust.locator('#view .qbig').count() === 2);
 
+  /* ---------- ที่เก็บออเดอร์ปฏิเสธ (กฎ Firebase หมดอายุ) ----------
+     เคสจริงที่อันตรายที่สุด: กฎ "โหมดทดสอบ" หมดอายุ 30 วัน แล้วปิดทุกทางเอง
+     โค้ดเดิมกลืน error ทิ้งหมด ออเดอร์เลยเงียบหายโดยไม่มีอะไรเตือน
+     แม่ค้าจะนึกว่าวันนี้ไม่มีลูกค้าสั่ง ไม่ใช่ว่าระบบตาย */
+  await seller.route('**/orders.json*', r =>
+    r.fulfill({ status:401, contentType:'application/json',
+                headers:{'Access-Control-Allow-Origin':'*'},
+                body: JSON.stringify({error:'Permission denied'}) }));
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(700);
+
+  push('ที่เก็บปฏิเสธแล้วแอปรู้ตัว ไม่กลืนเงียบ',
+    await seller.evaluate(() => cloudDenied === true));
+  push('ขึ้นแถบเตือนบนสุดให้แม่ค้าเห็น',
+    await seller.locator('#orderInbox .obar.warn').count() === 1);
+  const warnTxt = await seller.textContent('#orderInbox');
+  push('แถบบอกตรง ๆ ว่าลูกค้าสั่งไม่ได้', warnTxt.includes('ลูกค้าสั่งไม่ได้ตอนนี้'));
+  push('แถบเตือนใช้คนละสีกับแถบออเดอร์เข้า ไม่สับสนกัน',
+    await seller.evaluate(() => {
+      const el = document.querySelector('#orderInbox .obar.warn');
+      return !!el && !getComputedStyle(el).backgroundImage.includes('211, 43, 43');
+    }));
+
+  /* แตะแล้วต้องบอกวิธีแก้ และต้องบอกว่าไม่ต้องเสียเงินเพิ่ม
+     ไม่มีแถบ = click ค้างจนหมดเวลาแล้วล้มทั้งชุด ต้องเช็กก่อน จะได้รายงานเป็นข้อตก */
+  const hasWarn = await seller.locator('#orderInbox .obar.warn').count() === 1;
+  let helpTxt = '';
+  if(hasWarn){
+    await seller.locator('#orderInbox .obar.warn').click();
+    await seller.waitForTimeout(900);
+    helpTxt = await seller.textContent('#dlg');
+  }
+  push('บอกวิธีแก้เป็นขั้นตอน', helpTxt.includes('Realtime Database') && helpTxt.includes('Rules'));
+  push('บอกชัดว่าไม่ใช่เรื่องต้องจ่ายเงินเพิ่ม', helpTxt.includes('ไม่ใช่เรื่องต้องจ่ายเงินเพิ่ม'));
+  push('บอกว่ายอดขายในเครื่องไม่หาย', helpTxt.includes('ไม่หายไปไหน'));
+  if(hasWarn){
+    await seller.locator('#dlg button', { hasText:'เข้าใจแล้ว' }).click();
+    await seller.waitForTimeout(900);
+  }
+
+  // แก้กฎแล้วแถบต้องหายเอง ไม่ต้องปิดเปิดแอป
+  await seller.unroute('**/orders.json*');
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(700);
+  push('พอกลับมาเข้าได้ แถบเตือนหายเอง',
+    await seller.evaluate(() => cloudDenied === false)
+    && await seller.locator('#orderInbox .obar.warn').count() === 0);
+
+  // เน็ตหลุดธรรมดาต้องไม่ขึ้นแถบนี้ ไม่งั้นตกใจเล่นทุกครั้งที่สัญญาณไม่ดี
+  await seller.route('**/orders.json*', r => r.abort());
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(700);
+  push('เน็ตหลุดเฉย ๆ ไม่ขึ้นแถบเตือนนี้ ไม่ตกใจเล่น',
+    await seller.evaluate(() => cloudDenied === false));
+  await seller.unroute('**/orders.json*');
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(600);
+
   /* ---------- แจ้งเตือนตอนลูกค้าสั่งเข้ามา ----------
      เดิมแอปหยุดถามที่เก็บทันทีที่จอดับ/สลับแอป แม่ค้าเปิด LINE อยู่แล้วลูกค้าสั่งเข้ามา
      จะไม่มีอะไรเตือนเลยจนกว่าจะกลับมาเปิดแอป — เสียออเดอร์ไปดื้อ ๆ */

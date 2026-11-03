@@ -361,6 +361,12 @@
     transition:transform var(--tap-out) var(--ease);
   }
   .obar:active{transform:scale(.985); transition-duration:var(--tap-in)}
+  /* แถบเตือนตอนที่เก็บออเดอร์ไม่ให้เข้า — ใช้สีส้มอำพัน ไม่ใช่แดงแบรนด์
+     จะได้ไม่กลืนกับแถบ "มีออเดอร์เข้า" ซึ่งเป็นข่าวดี อันนี้เป็นข่าวร้าย */
+  .obar.warn{
+    background:linear-gradient(145deg, #e0a32b, #b97708);
+    box-shadow:0 8px 22px rgba(185,119,8,.3);
+  }
   .obar-n{
     width:34px; height:34px; flex:0 0 auto; border-radius:50%;
     background:rgba(255,255,255,.22); display:grid; place-items:center;
@@ -2292,8 +2298,28 @@ async function cloudReq(method, path, body){
     headers: body === undefined ? undefined : {'Content-Type':'application/json'},
     body: body === undefined ? undefined : JSON.stringify(body)
   });
-  if(!res.ok) throw new Error('ต่อไม่ติด (' + res.status + ')');
+  if(!res.ok){
+    const err = new Error('ต่อไม่ติด (' + res.status + ')');
+    /* 401/403 = ที่เก็บปฏิเสธ ไม่ใช่เน็ตหลุด
+       เคสจริงที่ต้องกลัว: กฎของ Firebase ที่ตั้งเป็น "โหมดทดสอบ" หมดอายุ 30 วัน
+       พอหมดแล้วมันปิดทุกทาง ลูกค้าสั่งไม่ได้และออเดอร์ไม่เข้าเครื่องแม่ค้า
+       **โดยไม่มีอะไรเตือนเลย** เพราะโค้ดเดิมกลืน error ทิ้งทั้งหมด
+       แม่ค้าจะนึกว่าวันนี้ไม่มีลูกค้าสั่ง ไม่ใช่ว่าระบบตาย */
+    err.denied = (res.status === 401 || res.status === 403);
+    throw err;
+  }
   return res.json();
+}
+
+/* จำไว้ว่าที่เก็บกำลังปฏิเสธอยู่ไหม — เอาไปขึ้นแถบเตือนบนสุดของทุกหน้า */
+let cloudDenied = false;
+
+function markCloud(err){
+  const bad = !!(err && err.denied);
+  if(bad === cloudDenied) return false;        // ไม่เปลี่ยน ไม่ต้องวาดใหม่
+  cloudDenied = bad;
+  if(bad){ beep(); toast('ที่เก็บออเดอร์ไม่ให้เข้าถึง — ลูกค้าสั่งไม่ได้ตอนนี้'); }
+  return true;                                  // เปลี่ยนแล้ว ให้คนเรียกไปวาดใหม่
 }
 
 // ลิงก์ที่เอาไปทำ QR ติดหน้าร้าน — เดาไม่ได้ เพราะมีรหัสช่องของร้านอยู่ในนั้น
@@ -2436,7 +2462,13 @@ async function pollOrders(){
   if(!db.orderOn || !cloudReady() || !db.orderKey) return;
   let data;
   try{ data = await cloudReq('GET', `s/${db.orderKey}/orders`); }
-  catch(e){ return; }                      // เน็ตหลุดชั่วคราว รอบหน้าค่อยลองใหม่
+  catch(e){
+    // เน็ตหลุดชั่วคราวก็เงียบไว้ รอบหน้าค่อยลองใหม่
+    // แต่ถ้าที่เก็บ "ปฏิเสธ" ต้องบอกแม่ค้า ไม่งั้นนึกว่าวันนี้ไม่มีลูกค้าสั่ง
+    if(markCloud(e)) render();
+    return;
+  }
+  if(markCloud(null)) render();            // กลับมาเข้าได้แล้ว เอาแถบเตือนออก
 
   const list = Object.entries(data || {})
     .map(([id, o]) => Object.assign({ id }, o))
@@ -2695,6 +2727,18 @@ function ringBell(){
    เดิมเอาการ์ดเต็มมาแปะบนสุด พอมี 4 ใบมันกินเต็มจอแรก แดชบอร์ดถูกดันหายหมด
    เลยย่อเหลือแถบเดียว แตะแล้วเข้าหน้าออเดอร์เต็ม ๆ */
 function ordersBar(){
+  /* ที่เก็บปฏิเสธ = ลูกค้าสั่งไม่ได้และออเดอร์ไม่เข้า เรื่องใหญ่กว่าออเดอร์ค้าง
+     ขึ้นก่อนเสมอ และขึ้นทุกหน้า แม้จะอยู่หน้าออเดอร์อยู่แล้วก็ตาม */
+  if(db.orderOn && cloudDenied){
+    return `<button type="button" class="obar warn" onclick="cloudDeniedHelp()">
+      <span class="obar-n">!</span>
+      <span class="obar-m">
+        <span class="obar-t">ลูกค้าสั่งไม่ได้ตอนนี้</span>
+        <span class="obar-s">ที่เก็บออเดอร์ไม่ให้เข้าถึง · แตะดูวิธีแก้</span>
+      </span>
+      <span class="obar-go">ดู${icon('chev',15)}</span>
+    </button>`;
+  }
   if(!db.orderOn || !cloudOrders.length || tab === 'orders') return '';
   const fresh = cloudOrders.filter(o => o.status === 'new').length;
   const next  = cloudOrders[0];
@@ -2789,6 +2833,37 @@ function orderRowHTML(o){
            <button type="button" class="btn primary" onclick="takeOrder('${jsq(o.id)}')">รับออเดอร์</button>`}
     </div>
   </div>`;
+}
+
+/* อธิบายให้แม่ค้าเข้าใจว่าเกิดอะไรขึ้นและต้องทำอะไร
+   สาเหตุที่เจอบ่อยที่สุดคือกฎของ Firebase ที่ตั้งเป็น "โหมดทดสอบ" หมดอายุ 30 วัน
+   ไม่ใช่เรื่องต้องเสียเงินเพิ่ม แก้ฟรี ใช้เวลาสองนาที */
+function cloudDeniedHelp(){
+  openDialog({ icon:'cart', tone:'r',
+    title:'ลูกค้าสั่งไม่ได้ตอนนี้',
+    sub:'ที่เก็บออเดอร์ไม่ยอมให้เข้าถึง',
+    html:`
+      <p style="margin:0 0 14px; color:var(--ink-2); font-size:13.5px; line-height:1.65">
+        ออเดอร์จากลูกค้าจะไม่เข้าเครื่องนี้จนกว่าจะแก้ · ขายหน้าร้านปกติได้ตามเดิม
+        <b>ยอดขายกับข้อมูลในเครื่องไม่หายไปไหน</b>
+      </p>
+      <p style="margin:0 0 14px; color:var(--ink-2); font-size:13px; line-height:1.7;
+                background:var(--soft); border-radius:var(--r); padding:13px 15px">
+        สาเหตุที่เจอบ่อยที่สุด: ตอนสร้างที่เก็บเลือก <b>"โหมดทดสอบ"</b> ไว้
+        ซึ่ง<b>หมดอายุเองใน 30 วัน</b> พอหมดแล้วมันปิดทุกทางอัตโนมัติ<br>
+        <b>ไม่ใช่เรื่องต้องจ่ายเงินเพิ่ม</b> ตั้งใหม่ครั้งเดียวแล้วใช้ได้ตลอด ฟรีเหมือนเดิม
+      </p>
+      <p style="margin:0 0 10px; font-size:13.5px; font-weight:800">วิธีแก้</p>
+      <p style="margin:0; color:var(--ink-2); font-size:13px; line-height:1.9">
+        1. เปิด <b>console.firebase.google.com</b> แล้วเลือกโปรเจกต์ของร้าน<br>
+        2. เมนูซ้าย → <b>Realtime Database</b> → แท็บ <b>Rules</b><br>
+        3. ลบของเดิมทิ้ง วางของใหม่ที่คนทำแอปให้ไว้ แล้วกด <b>Publish</b><br>
+        4. กลับมาที่แอปนี้ รอสักครู่ แถบเตือนสีส้มนี้จะหายไปเอง
+      </p>
+      <p class="hint" style="margin:14px 0 0">ถ้าหายแล้วกลับมาเป็นอีก แปลว่าวางกฎผิดอัน
+        ส่งภาพหน้าจอหน้า Rules ให้คนทำแอปดูได้เลย</p>`,
+    foot:[{label:'เข้าใจแล้ว', cls:'primary wide', fn:'dlg.close()'}]
+  });
 }
 
 /* ---------- หน้าตั้งค่า: เปิด/ปิดรับออเดอร์ ---------- */
