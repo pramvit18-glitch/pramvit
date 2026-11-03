@@ -47,6 +47,9 @@
     /* โค้งสปริง: วิ่งเลยจุดหมายไปนิดแล้วค่อยถอยมานิ่ง คือสิ่งที่ทำให้รู้สึก "มีชีวิต"
        ต่างจาก ease-out ที่ค่อย ๆ ช้าลงแล้วหยุดตรง ๆ แบบเครื่องจักร */
     --spring:cubic-bezier(.34,1.56,.64,1);
+    /* โค้งของแผ่นเลื่อน: พุ่งออกตัวแรงแล้วค่อย ๆ จอดนิ่งยาว ๆ
+       ต่างจาก --ease ตรงที่ช่วงท้ายยืดกว่า ตาจึงอ่านว่า "ลื่น" ไม่ใช่ "หยุดกึก" */
+    --sheet:cubic-bezier(.32,.72,0,1);
     color-scheme: light;
   }
 
@@ -665,13 +668,26 @@
   dialog.dragging{transition:none}
   dialog.snapback{transition:transform .22s var(--ease)}
   /* ฉากหลังเบลอ ให้หน้าต่างเด่นขึ้นโดยไม่ต้องทำให้พื้นหลังมืดจัด */
-  dialog::backdrop{
-    background:rgba(22,24,28,.34);
+  /* เบลอฉากหลังคือของที่หนักที่สุดในจังหวะนี้ — วัดบนมือถือจำลองแล้วทำให้เฟรมสะดุด
+     จาก 2 เป็น 10 เพราะเบราว์เซอร์ต้องเบลอทั้งหน้าใหม่ทุกเฟรมที่กล่องขยับ
+     จึงเบลอทีหลัง ตอนกล่องจอดนิ่งแล้ว (JS ใส่คลาส settled ตอนภาพเปิดเล่นจบ)
+     ระหว่างเลื่อนเห็นแค่พื้นมืด ซึ่งตาแทบแยกไม่ออกเพราะของกำลังวิ่งอยู่ */
+  dialog::backdrop{ background:rgba(22,24,28,.34) }
+  dialog.settled::backdrop{
     -webkit-backdrop-filter:blur(7px) saturate(.9);
     backdrop-filter:blur(7px) saturate(.9);
   }
-  dialog[open]{animation:sheet .3s cubic-bezier(.17,.84,.26,1)}
-  dialog[open]::backdrop{animation:dlgfade .26s ease}
+  /* will-change บอกเบราว์เซอร์ให้ยกกล่องขึ้นเป็นเลเยอร์ของตัวเองก่อนเริ่มขยับ
+     ไม่งั้นมันต้องวาดใหม่ทั้งหน้าในเฟรมแรก ซึ่งเป็นจังหวะที่สะดุดที่สุด
+     ใส่เฉพาะตอนเปิดอยู่ ไม่ใส่ถาวร เพราะกินหน่วยความจำเปล่า ๆ */
+  dialog[open]{animation:sheet .42s var(--sheet) both; will-change:transform}
+  /* จังหวะที่สะดุดที่สุดคือเฟรมแรก เพราะเบราว์เซอร์ต้องจัดหน้ากล่องทั้งใบ
+     พร้อมกับเริ่มขยับไปด้วย (วัดได้ 83ms ตอนจำลองมือถือช้า ๆ)
+     .preopen จอดกล่องไว้นอกจอโดยไม่เล่นภาพ ให้จัดหน้าให้เสร็จก่อนหนึ่งเฟรม
+     แล้ว JS ค่อยถอดคลาสออก ภาพเลื่อนจึงได้เริ่มบนเฟรมที่ว่างจริง ๆ */
+  dialog.preopen{transform:translateX(100%); animation:none}
+  dialog.preopen::backdrop{animation:none; opacity:0}
+  dialog[open]::backdrop{animation:dlgfade .36s ease both}
   /* กล่องเลื่อนเข้ามาจากขวา ทิศเดียวกับตอนเข้าหน้าย่อย (viewr)
      ทั้งแอปจึงรู้สึกเป็นชุดเดียวกัน: เข้าไปข้างใน = ของเลื่อนมาจากขวา
      เดิมกล่องเลื่อนขึ้นจากล่าง ส่วนหน้าเลื่อนข้าง เป็นคนละจังหวะกัน
@@ -682,8 +698,8 @@
   /* ปิดกล่อง = เลื่อนออกไปทางขวา ย้อนทางที่เข้ามา (JS ใส่คลาส .closing ให้)
      forwards ค้างไว้นอกจอจนกว่าจะปิดจริง ไม่งั้นมันเด้งกลับมาให้เห็นแวบหนึ่ง
      ออกเร็วกว่าเข้านิดหน่อย กดปิดแล้วต้องไม่รู้สึกว่าต้องรอ */
-  dialog[open].closing{animation:sheetout .24s var(--ease) forwards}
-  dialog[open].closing::backdrop{animation:dlgfadeout .24s ease forwards}
+  dialog[open].closing{animation:sheetout .3s var(--sheet) forwards}
+  dialog[open].closing::backdrop{animation:dlgfadeout .3s ease forwards}
   @keyframes sheetout{from{transform:translateX(0)} to{transform:translateX(100%)}}
   @keyframes dlgfadeout{from{opacity:1} to{opacity:0}}
   @media(prefers-reduced-motion:reduce){
@@ -3235,7 +3251,7 @@ function openDialog(cfg){
     document.getElementById('dlgBody').innerHTML = `<div style="grid-column:1/-1">${cfg.html}</div>`;
     plainButtons();
     if(!cfg.foot) foot.innerHTML = '<button type="button" class="btn primary" onclick="dlg.close()">เข้าใจแล้ว</button>';
-    if(!dlg.open) dlg.showModal();
+    if(!dlg.open) showSheet();
     return;
   }
 
@@ -3258,7 +3274,7 @@ function openDialog(cfg){
   plainButtons();
   if(cfg.live) dlg.addEventListener('input', dlgLive);
   dlgLive();
-  if(!dlg.open) dlg.showModal();
+  if(!dlg.open) showSheet();
   const first = dlg.querySelector('[data-k]');
   if(first) setTimeout(() => first.focus(), 60);
 }
@@ -3288,6 +3304,28 @@ function dlgSubmit(e){
   return false;
 }
 // กดกากบาท = ทำแบบเดียวกับปิดกล่อง (บางกล่องต้องย้อนกลับไปหน้าต่างสั่งสินค้า ไม่ใช่ทิ้งบิล)
+/* เปิดกล่องโดยรอให้จัดหน้าเสร็จก่อนค่อยเริ่มเลื่อน จะได้ไม่สะดุดเฟรมแรก */
+function showSheet(){
+  if(reduceMotion()){ dlg.showModal(); return; }
+  dlg.classList.add('preopen');
+  dlg.showModal();
+  let started = false;
+  const start = () => { if(started) return; started = true; dlg.classList.remove('preopen'); };
+  // พอเลื่อนจบค่อยใส่เบลอ ตอนนั้นไม่มีอะไรขยับแล้ว เบลอทีเดียวจบ ไม่กินทุกเฟรม
+  const settle = e => {
+    if(e && e.animationName !== 'sheet') return;
+    if(dlg.open && !dlg.classList.contains('closing')) dlg.classList.add('settled');
+  };
+  dlg.addEventListener('animationend', settle, { once:true });
+  setTimeout(settle, 480);
+  // รอสองเฟรม: เฟรมแรกเบราว์เซอร์จัดหน้า เฟรมที่สองค่อยเริ่มขยับ
+  // รอสองเฟรม: เฟรมแรกเบราว์เซอร์จัดหน้า เฟรมที่สองค่อยเริ่มขยับ
+  // (ชุดตรวจรันนอกเบราว์เซอร์ ไม่มี rAF จึงต้องเช็กก่อน)
+  if(typeof requestAnimationFrame === 'function')
+    requestAnimationFrame(() => requestAnimationFrame(start));
+  setTimeout(start, 120);        // เผื่อแท็บถูกพักไว้ rAF ไม่ยิง กล่องจะได้ไม่ค้างนอกจอ
+}
+
 /* ===================== ปิดกล่องให้มีภาพเคลื่อนไหว =====================
    ตอนเปิดกล่องเลื่อนเข้ามาจากขวา แต่ตอนปิดของเดิมหายวับทันที เป็นคนละจังหวะกัน
    dialog.close() ของเบราว์เซอร์ปิดทันทีเสมอ จึงต้องครอบไว้:
@@ -3306,6 +3344,7 @@ const reduceMotion = () => {
 // ยกเลิกการปิดที่ค้างอยู่ ใช้ตอนมีกล่องใหม่มาเปิดแทนระหว่างที่กล่องเก่ากำลังเลื่อนออก
 function abortDlgClose(){
   dlgClosing = false;
+  dlg.classList.remove('settled');   // กล่องใหม่กำลังจะเปิด เดี๋ยวไปใส่เบลอตอนมันจอดเอง
   clearTimeout(dlgCloseTimer); dlgCloseTimer = null;
   dlg.classList.remove('closing');
 }
@@ -3315,6 +3354,7 @@ function closeDialogAnimated(){
   if(reduceMotion()) return dlgCloseNow();   // เครื่องตั้งให้ลดการเคลื่อนไหว ปิดเลยไม่ต้องหน่วง
 
   dlgClosing = true;
+  dlg.classList.remove('settled');   // เอาเบลอออกก่อน ขาออกจะได้เบาเหมือนขาเข้า
   dlg.classList.add('closing');
   const finish = () => {
     if(!dlgClosing) return;        // ถูกยกเลิกไปแล้ว เพราะมีกล่องใหม่มาเปิดแทน

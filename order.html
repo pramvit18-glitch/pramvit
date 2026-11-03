@@ -37,6 +37,7 @@
     --bad:#b91c1c;   --bad-ink:#b91c1c;   --bad-bg:#fdeeee;
 
     --ease:cubic-bezier(.2,.9,.3,1);
+    --sheet:cubic-bezier(.32,.72,0,1);   /* โค้งของแผ่นเลื่อน ชุดเดียวกับแอปร้าน */
     /* โค้งสปริง: วิ่งเลยจุดหมายไปนิดแล้วถอยมานิ่ง ทำให้รู้สึกมีชีวิต (ชุดเดียวกับแอปร้าน) */
     --spring:cubic-bezier(.34,1.56,.64,1);
     --tap-in:.06s;
@@ -226,19 +227,24 @@
     padding-bottom:env(safe-area-inset-bottom, 0px);
     box-shadow:0 -10px 50px rgba(22,24,28,.25);
   }
-  dialog::backdrop{
-    background:rgba(22,24,28,.34);
+  /* เบลอทีหลังตอนกล่องจอดนิ่ง ไม่เบลอระหว่างเลื่อน (วัดแล้วลดเฟรมสะดุดได้มาก)
+     ตรงกับแอปร้าน */
+  dialog::backdrop{ background:rgba(22,24,28,.34) }
+  dialog.settled::backdrop{
     -webkit-backdrop-filter:blur(7px) saturate(.9);
     backdrop-filter:blur(7px) saturate(.9);
   }
-  dialog[open]{animation:sheet .3s cubic-bezier(.17,.84,.26,1)}
-  dialog[open]::backdrop{animation:dlgfade .26s ease}
+  dialog[open]{animation:sheet .42s var(--sheet) both; will-change:transform}
+  dialog[open]::backdrop{animation:dlgfade .36s ease both}
+  /* จอดไว้นอกจอก่อนหนึ่งเฟรมให้จัดหน้าเสร็จ แล้วค่อยเริ่มเลื่อน */
+  dialog.preopen{transform:translateX(100%); animation:none}
+  dialog.preopen::backdrop{animation:none; opacity:0}
   /* เลื่อนเข้ามาจากขวา ให้ตรงกับแอปร้าน (ดูคู่มือหัวข้อ "หน้าตาต้องเหมือนแอปร้าน") */
   @keyframes sheet{from{transform:translateX(100%)} to{transform:translateX(0)}}
   @keyframes dlgfade{from{opacity:0} to{opacity:1}}
   /* ปิดกล่อง = เลื่อนออกทางขวา ย้อนทางที่เข้ามา (ตรงกับแอปร้าน) */
-  dialog[open].closing{animation:sheetout .24s var(--ease) forwards}
-  dialog[open].closing::backdrop{animation:dlgfadeout .24s ease forwards}
+  dialog[open].closing{animation:sheetout .3s var(--sheet) forwards}
+  dialog[open].closing::backdrop{animation:dlgfadeout .3s ease forwards}
   @keyframes sheetout{from{transform:translateX(0)} to{transform:translateX(100%)}}
   @keyframes dlgfadeout{from{opacity:1} to{opacity:0}}
 
@@ -448,16 +454,37 @@ let dlgClosing = false, dlgCloseTimer = null;
 const reduceMotion = () => {
   try{ return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; }
 };
+// เปิดกล่องโดยรอให้จัดหน้าเสร็จก่อนค่อยเริ่มเลื่อน จะได้ไม่สะดุดเฟรมแรก
+function openSheet(){
+  if(reduceMotion()){ dlgEl.showModal(); return; }
+  dlgEl.classList.add('preopen');
+  dlgEl.showModal();
+  let started = false;
+  const start = () => { if(started) return; started = true; dlgEl.classList.remove('preopen'); };
+  if(typeof requestAnimationFrame === 'function')
+    requestAnimationFrame(() => requestAnimationFrame(start));
+  setTimeout(start, 120);
+  // เบลอฉากหลังตอนกล่องจอดแล้ว ไม่ใช่ระหว่างเลื่อน
+  const settle = e => {
+    if(e && e.animationName !== 'sheet') return;
+    if(dlgEl.open && !dlgEl.classList.contains('closing')) dlgEl.classList.add('settled');
+  };
+  dlgEl.addEventListener('animationend', settle, { once:true });
+  setTimeout(settle, 480);
+}
+
 function closeSheet(){
   if(!dlgEl.open || dlgClosing) return;
   if(reduceMotion()) return dlgCloseNow();
   dlgClosing = true;
+  dlgEl.classList.remove('settled');
   dlgEl.classList.add('closing');
   const finish = () => {
     if(!dlgClosing) return;
     dlgClosing = false;
     clearTimeout(dlgCloseTimer);
     dlgEl.classList.remove('closing');
+    dlgEl.classList.remove('settled');
     dlgCloseNow();
   };
   dlgCloseTimer = setTimeout(finish, 340);   // เผื่อ animationend ไม่ยิง
@@ -708,7 +735,7 @@ let edit = null;    // {mi, qty, picked:Set(ชื่อไส้)}
 function pick(mi){
   edit = { mi, qty:1, picked:new Set() };
   drawSheet();
-  el('dlg').showModal();
+  openSheet();
 }
 
 function drawSheet(){
@@ -823,7 +850,7 @@ function goSend(){
       <button type="button" class="btn ghost" onclick="dlg.close()">ย้อนกลับ</button>
       <button type="button" class="btn primary" id="sendBtn" onclick="send()">ส่งเลย</button>
     </div>`;
-  el('dlg').showModal();
+  openSheet();
 }
 
 async function send(){

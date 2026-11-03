@@ -14,7 +14,14 @@ push('มีช่องไอคอนหัวหน้าต่าง', /id="
 push('มีพื้นที่ลากปิด', /id="dlgGrip"/.test(body) && /class="dlg-grip-hit"/.test(body));
 
 /* ---------- CSS ---------- */
-push('ฉากหลังเบลอ', /dialog::backdrop\{[^}]*backdrop-filter:blur/.test(css));
+/* เบลอยังอยู่ แต่ย้ายไปใส่ตอนกล่องจอดนิ่งแล้ว (คลาส settled)
+   เบลอระหว่างกล่องกำลังเลื่อนทำให้เฟรมสะดุดจาก 2 เป็น 10 บนมือถือจำลอง */
+push('ฉากหลังยังเบลอ', /dialog\.settled::backdrop\{[^}]*backdrop-filter:blur/.test(css));
+push('ไม่เบลอระหว่างกล่องกำลังเลื่อน จะได้ไม่สะดุด',
+  !/dialog::backdrop\{[^}]*backdrop-filter:blur/.test(css));
+push('มีโค้ดใส่เบลอตอนภาพเปิดเล่นจบ', /classList\.add\('settled'\)/.test(script));
+push('ปิดกล่องเอาเบลอออกก่อน ขาออกจะได้เบาด้วย',
+  /remove\('settled'\)[\s\S]{0,120}add\('closing'\)/.test(script));
 push('ฉากหลังค่อย ๆ จาง ไม่โผล่ทันที', /dialog\[open\]::backdrop\{animation:dlgfade/.test(css));
 push('หัวหน้าต่างลอยติดบน', /\.dlg-head\{[^}]*position:sticky/.test(css));
 push('เส้นใต้หัวโผล่เฉพาะตอนเลื่อน', css.includes('dialog.scrolled .dlg-head::after{opacity:1}'));

@@ -30,6 +30,11 @@ const out=[]; const ok=(n,v)=>out.push([n,!!v]);
   await p.locator('.orderbtn').click();
   await p.waitForTimeout(600);
   ok('เปิดกล่องได้', await p.evaluate(() => dlg.open));
+  /* เบลอฉากหลังทำให้เฟรมสะดุด จึงเบลอทีหลังตอนกล่องจอดแล้ว
+     ระหว่างเลื่อนต้องยังไม่เบลอ พอจอดแล้วต้องเบลอ */
+  await p.waitForTimeout(900);
+  ok('กล่องจอดแล้วฉากหลังเบลอ',
+    await p.evaluate(() => dlg.classList.contains('settled')));
 
   await p.locator('.dlg-x').click();
   await p.waitForTimeout(60);
@@ -38,6 +43,8 @@ const out=[]; const ok=(n,v)=>out.push([n,!!v]);
     return { ยังเปิดอยู่: d.open, มีคลาสปิด: d.classList.contains('closing'),
              ชื่อภาพ: getComputedStyle(d).animationName };
   });
+  ok('ปิดแล้วเอาเบลอออกก่อน ขาออกจะได้เบาด้วย',
+    !(await p.evaluate(() => dlg.classList.contains('settled'))));
   ok('กดกากบาทแล้วยังไม่หายทันที มีภาพเลื่อนออกก่อน',
     mid.ยังเปิดอยู่ && mid.มีคลาสปิด && mid.ชื่อภาพ === 'sheetout');
   await p.screenshot({path:S+'/close-mid.png'});
