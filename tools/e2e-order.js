@@ -73,6 +73,11 @@ const push = (name, v) => { ok.push([name, !!v]); };
   await cust.locator('.tops .top', { hasText: "ไข่ไก่ด'ล" }).click();
   await cust.waitForTimeout(150);
   push("ติ๊กไส้ที่ชื่อมี ' ได้", await cust.locator('.tops .top.on').count() === 1);
+  // กล่องต้องเลื่อนเข้ามาจากขวาเหมือนแอปร้าน ไม่ใช่ขึ้นจากล่างคนละจังหวะ
+  push('กล่องหน้าลูกค้าเลื่อนมาจากขวาเหมือนแอปร้าน',
+    await cust.evaluate(() => [...document.styleSheets]
+      .flatMap(s => { try{ return [...s.cssRules]; }catch(e){ return []; } })
+      .some(r => r.name === 'sheet' && /translateX\(100%\)/.test(r.cssText))));
 
   await cust.locator('.qbtn', { hasText:'+' }).click();        // 2 ชิ้น
   await cust.locator('button', { hasText:'ใส่ตะกร้า' }).click();

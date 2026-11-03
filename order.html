@@ -233,7 +233,8 @@
   }
   dialog[open]{animation:sheet .3s cubic-bezier(.17,.84,.26,1)}
   dialog[open]::backdrop{animation:dlgfade .26s ease}
-  @keyframes sheet{from{transform:translateY(100%)} to{transform:translateY(0)}}
+  /* เลื่อนเข้ามาจากขวา ให้ตรงกับแอปร้าน (ดูคู่มือหัวข้อ "หน้าตาต้องเหมือนแอปร้าน") */
+  @keyframes sheet{from{transform:translateX(100%)} to{transform:translateX(0)}}
   @keyframes dlgfade{from{opacity:0} to{opacity:1}}
 
   .dlg-grip{width:38px; height:4px; border-radius:var(--r-pill); background:var(--line); margin:11px auto 7px}

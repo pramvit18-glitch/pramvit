@@ -169,6 +169,20 @@ push('ปุ่มที่ปิดอยู่ไม่ยุบตอนก�
 // แท่งกราฟเป็น SVG ถ้าใส่ transform จุดหมุนจะเพี้ยน ต้องใช้ opacity
 push('แท่งกราฟใช้ความจางแทนการยุบ', /\.chart \.cday:active\{opacity/.test(css));
 
+/* ทิศทางต้องเป็นชุดเดียวกันทั้งแอป: เข้าไปข้างใน = ของเลื่อนมาจากขวา
+   เดิมกล่องเลื่อนขึ้นจากล่าง (translateY) ส่วนหน้าเลื่อนข้าง เป็นคนละจังหวะกัน */
+// บางอันเขียนเว้นวรรคก่อนปีกกา (@keyframes viewr {) ต้องเผื่อไว้ด้วย
+const kf = n => (css.match(new RegExp('@keyframes\\s+' + n + '\\s*\\{([^}]*\\}[^}]*)\\}')) || ['',''])[1];
+push('กล่องเลื่อนเข้ามาจากทางขวา ไม่ใช่ขึ้นจากล่าง',
+  /translateX\(100%\)/.test(kf('sheet')) && !/translateY/.test(kf('sheet')));
+push('หน้าย่อยก็เลื่อนมาจากขวาเหมือนกัน', /translateX\(26px\)/.test(kf('viewr')));
+push('จอกว้างกล่องก็มาจากขวา ไม่ใช่ซูมเข้า',
+  /translateX/.test(kf('dlgpop')) && !/scale/.test(kf('dlgpop')));
+// ลากหัวกล่องลงเพื่อปิดยังต้องใช้ได้ ตัวลากใช้ translateY คนละแกนกับตอนเปิด
+push('ยังลากหัวกล่องลงเพื่อปิดได้อยู่', /transform:translateY\(var\(--drag/.test(css));
+push('ปิดภาพเคลื่อนไหวของกล่องได้ถ้าเครื่องตั้งไว้',
+  /prefers-reduced-motion[\s\S]{0,400}dialog\[open\][^}]*animation:none/.test(css));
+
 let bad = 0;
 out.forEach(([name, v]) => { if (!v) bad++; console.log('  ' + (v ? '✓' : '✗'), name); });
 console.log(' ', bad ? bad + ' ข้อไม่ผ่าน' : 'ผ่านทุกข้อ');
