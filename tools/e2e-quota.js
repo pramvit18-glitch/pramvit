@@ -150,6 +150,60 @@ const seed = () => {
   push('แม่ค้า: ชิปเมนูโควตาไม่โชว์ราคาต่อไส้', !sChips.some(t => t.includes('+5')));
   push('แม่ค้า: ชิปยังบอกชื่อไส้ครบ', sChips.some(t => t.includes('ไส้กรอก')));
 
+  /* ---------- แถบเตือนตอนเลือกเกิน ----------
+     เจ้าของขอให้เตือนชัด ๆ ว่าต้องเก็บเงินเพิ่มเท่าไหร่
+     ตัวหนังสือสีเทาใต้หัวกล่องมันจางเกินไป มองข้ามได้ง่าย */
+  const warnOf = async pg => {
+    const box = pg.locator('#topWarn');
+    return (await box.count()) ? (await box.textContent()).replace(/\s+/g, ' ').trim() : '(ไม่มีช่องเตือน)';
+  };
+
+  // --- ฝั่งแม่ค้า ---
+  await seller.evaluate(() => { order = null; orderOpen = false; openOrderDialog(); tapMenu('m1'); });
+  await seller.waitForTimeout(1100);
+  push('ยังไม่เลือกไส้ ไม่มีแถบเตือนมากวน', (await warnOf(seller)) === '');
+
+  for(const nm of ['ไส้กรอก','ปูอัด']){
+    await seller.locator('#dlg .tops .top', { hasText:nm }).first().click();
+    await seller.waitForTimeout(250);
+  }
+  push('เลือกครบโควตาพอดี ยังไม่เตือน', (await warnOf(seller)) === '');
+
+  await seller.locator('#dlg .tops .top', { hasText:'ไก่หยอง' }).first().click();
+  await seller.waitForTimeout(350);
+  const sw = await warnOf(seller);
+  push('แม่ค้า: เกินแล้วขึ้นแถบเตือนทันที', sw.includes('เลือกเกินมา 1 อย่าง'));
+  push('แม่ค้า: แถบเตือนบอกว่าเก็บเพิ่มกี่บาท', sw.includes('5 บาท'));
+  push('แม่ค้า: แถบเตือนบอกราคารวมของจานนี้', sw.includes('15 บาท'));
+  push('แม่ค้า: แถบเตือนใช้สีเตือน ไม่ใช่กล่องขาวธรรมดา',
+    await seller.locator('#dlg .note.warn').count() === 1);
+
+  // ติ๊กออกแล้วแถบต้องหายเอง ไม่ค้าง
+  await seller.locator('#dlg .tops .top', { hasText:'ไก่หยอง' }).first().click();
+  await seller.waitForTimeout(350);
+  push('แม่ค้า: ติ๊กออกจนไม่เกินแล้ว แถบเตือนหายเอง', (await warnOf(seller)) === '');
+
+  // --- ฝั่งลูกค้า ---
+  await cust.locator('#view button.li').first().click();
+  await cust.waitForTimeout(1000);
+  push('ลูกค้า: ยังไม่เลือก ไม่มีแถบเตือน', (await warnOf(cust)) === '');
+  for(const nm of ['ไส้กรอก','ปูอัด','ไก่หยอง']){
+    await cust.locator('#dlg .tops .top', { hasText:nm }).first().click();
+    await cust.waitForTimeout(250);
+  }
+  const cw = await warnOf(cust);
+  push('ลูกค้า: เกินแล้วขึ้นแถบเตือนทันที', cw.includes('เลือกเกินมา 1 อย่าง'));
+  push('ลูกค้า: แถบเตือนบอกว่าคิดเพิ่มกี่บาท', cw.includes('5 บาท'));
+  push('ลูกค้า: แถบเตือนบอกราคารวมของจานนี้', cw.includes('15 บาท'));
+  push('ลูกค้า: ใช้สีเตือนเหมือนฝั่งแม่ค้า',
+    await cust.locator('#dlg .note.warn').count() === 1);
+
+  // สั่ง 2 จาน แถบต้องบอกยอดรวมทั้งสองจานด้วย
+  await cust.locator('.qbtn', { hasText:'+' }).first().click();
+  await cust.waitForTimeout(600);
+  const cw2 = await warnOf(cust);
+  push('ลูกค้า: สั่งหลายจาน แถบเตือนบอกยอดรวมด้วย', cw2.includes('2 จาน') && cw2.includes('30 บาท'));
+
   await b.close();
   let bad = 0;
   ok.forEach(([nm, v]) => { console.log(`  ${v ? '✓' : '✗'} ${nm}`); if(!v) bad++; });

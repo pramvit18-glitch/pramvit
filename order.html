@@ -104,6 +104,10 @@
     border-radius:var(--r); padding:13px 15px; font-weight:700; font-size:13.5px; line-height:1.55;
   }
   .note + .note{margin-top:10px}
+  /* แถบเตือน "เลือกเกินโควตา" — ส้มอำพัน ตรงกับแอปร้าน
+     ไม่ใช้แดงแบรนด์เพราะทั้งหน้าเป็นแดงอยู่แล้ว ใส่แดงอีกก็กลืน */
+  .note.warn{align-items:flex-start; background:var(--warn-bg); color:var(--warn-ink)}
+  .note.warn b{color:#8a5a06}
   .note.bad{background:var(--bad-bg); color:var(--bad-ink)}
   .note.ok{background:var(--good-bg); color:var(--good-ink)}
   .note.warn{background:var(--warn-bg); color:var(--warn-ink)}
@@ -452,7 +456,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v112';
+const PAGE_VER = 'crepe-cost-v113';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -593,6 +597,7 @@ const SVG = {
   plus:'<path d="M12 5v14M5 12h14"/>',
   chev:'<path d="m9 5 7 7-7 7"/>',
   x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  alert:'<path d="M12 9v5"/><path d="M12 17.5h.01"/><path d="M10.3 3.9 2.6 17.1A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.9L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
   trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   today:'<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/>',
   sum:'<path d="M5 20v-7M12 20V5M19 20v-4"/>'
@@ -839,6 +844,26 @@ function pick(mi){
   openSheet();
 }
 
+/* แถบเตือน "เลือกเกินแล้วนะ" — ลูกค้าต้องรู้ก่อนกดใส่ตะกร้า
+   ไม่ใช่มารู้ตอนมารับของแล้วเถียงกันหน้าร้านว่าทำไมแพงกว่าที่คิด
+   ข้อความต้องตรงกับฝั่งแม่ค้า จะได้ไม่งงกันเอง */
+function overWarnHTML(m){
+  const list = [...edit.picked].map(nm => ({ name:nm, price:n(findAddon(nm).price) }));
+  const over = addonOver(m, list);
+  if(!over) return '';
+  const add  = addonCost(m, list);
+  const each = n(m.price) + add;
+  return `<div class="note warn">${icon('alert',17)}<span>
+    <b>เลือกเกินมา ${over} อย่าง</b> — คิดเพิ่ม <b>${baht(add)} บาท</b><br>
+    จานนี้เป็น <b>${baht(each)} บาท</b>${edit.qty > 1 ? ` × ${edit.qty} จาน = ${baht(each * edit.qty)} บาท` : ''}
+  </span></div>`;
+}
+
+function paintOverWarn(){
+  const box = document.getElementById('topWarn');
+  if(box) box.innerHTML = overWarnHTML(menu.menus[edit.mi]);
+}
+
 function drawSheet(){
   const m = menu.menus[edit.mi];
   const gs = m.groups || [];
@@ -853,6 +878,7 @@ function drawSheet(){
       <button type="button" class="dlg-x" onclick="dlg.close()" aria-label="ปิด">${icon('x',16)}</button>
     </div>
     <div class="dlg-body">
+      <div id="topWarn"></div>
       ${gs.length ? gs.map(g => `
         <div class="gname">${esc(g.name)}</div>
         <div class="tops">
@@ -909,11 +935,13 @@ function tog(name, btn){
   // เปลี่ยนสีเฉพาะปุ่มที่กด ไม่วาดใหม่ทั้งกล่อง จะได้ไม่เด้งกลับขึ้นบนตอนเลื่อนหาไส้หวาน
   if(btn) btn.classList.toggle('on', edit.picked.has(name));
   el('sheetSub').textContent = sheetSub();
+  paintOverWarn();
 }
 
 function bump(d){
   edit.qty = Math.max(1, edit.qty + d);
   drawSheet();
+  paintOverWarn();     // drawSheet วาดใหม่หมด แถบเตือนหายไปด้วย ต้องคืนให้
 }
 
 function addToCart(){

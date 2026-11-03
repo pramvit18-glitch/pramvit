@@ -624,6 +624,15 @@
   .verdict.is-bad{background:var(--bad-bg); color:var(--bad-ink)}
   .note{background:var(--soft); border-left:3px solid var(--brand); border-radius:0 var(--r) var(--r) 0;
         padding:13px 15px; font-size:13px; color:var(--ink-2); margin-top:12px; line-height:1.6}
+  /* แถบเตือน "เลือกเกินโควตาแล้ว" — ส้มอำพัน ไม่ใช้แดงแบรนด์
+     เพราะทั้งแอปเป็นสีแดงอยู่แล้ว ใส่แดงอีกก็กลืนจนไม่สะดุดตา */
+  .note.warn{
+    display:flex; gap:11px; align-items:flex-start;
+    background:var(--warn-bg); color:var(--warn-ink);
+    border-left-color:#b97708; font-weight:700;
+  }
+  .note.warn svg{flex:0 0 auto; margin-top:2px}
+  .note.warn b{color:#8a5a06}
   .hint{color:var(--muted); font-size:12.5px; margin:12px 0 0; line-height:1.55}
   .panel{background:var(--soft); border-radius:var(--r); padding:15px}
 
@@ -3136,6 +3145,7 @@ const SVG = {
   edit:'<path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5 17.5 9.5"/>',
   trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  alert:'<path d="M12 9v5"/><path d="M12 17.5h.01"/><path d="M10.3 3.9 2.6 17.1A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.9L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
   box:'<path d="M3 8l9-5 9 5-9 5-9-5Z"/><path d="M3 8v8l9 5 9-5V8"/>',
   search:'<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
   store:'<path d="M4 10h16v10H4z"/><path d="M4 10 6 4h12l2 6"/><path d="M9 20v-6h6v6"/>',
@@ -3885,6 +3895,7 @@ function viewMenu(){
           <div class="li-title">${esc(m.name || '(ยังไม่มีชื่อ)')}</div>
           <div class="li-sub">${noRecipe ? 'ยังไม่ได้ใส่ว่าใช้อะไรบ้าง'
             : `ขาย ${baht(m.price)} บาท · ได้กำไรจานละ ${baht(profit(m))} บาท`}</div>
+          ${n(m.incl) > 0 ? `<div class="li-sub">รวมไส้ ${n(m.incl)} อย่าง · เกินคิดเพิ่มอันละ ${baht(m.extraTop)} บาท</div>` : ''}
         </div>
         <div class="li-end">
           <span class="status is-${noRecipe ? 'warn' : st.lv}">${noRecipe ? 'ยังไม่ครบ' : st.word}</span>
@@ -4406,8 +4417,9 @@ function lineAddons(lid, backTo){
     },
     foot:[{label:'เสร็จแล้ว', cls:'primary wide', fn:`doneAddons('${lid}')`}]
   });
-  l._draw = draw;
+  l._draw = () => { draw(); paintOverWarn(l); };
   draw();
+  paintOverWarn(l);      // กลับมาแก้ไส้ทีหลังแล้วยังเกินอยู่ ต้องเห็นเตือนทันที
 }
 
 // บรรทัดสรุปใต้หัวกล่อง บอกว่าตอนนี้เลือกอะไรไปแล้วบ้าง บวกเงินเท่าไร
@@ -4430,6 +4442,26 @@ function topSumText(l){
     : (extra ? ` · +${baht(extra)} บาท` : '');
   return picked.map(a => a.name).join(' · ') + tail;
 }
+/* แถบเตือน "เลือกเกินแล้วนะ" — ตัวหนังสือสีเทาใต้หัวกล่องมันจางเกินไป
+   เจ้าของขอให้เตือนชัด ๆ ว่าต้องเก็บเงินเพิ่มเท่าไหร่
+   คืนค่าว่างถ้าไม่ใช่เมนูโควตาหรือยังไม่เกิน จะได้ไม่รกตอนปกติ */
+function overWarnHTML(m, addons, price, qty){
+  const over = addonOver(m, addons);
+  if(!over) return '';
+  const add  = addonCost(m, addons);
+  const each = n(price) + add;
+  return `<div class="note warn">${icon('alert',17)}<span>
+    <b>เลือกเกินมา ${over} อย่าง</b> — ต้องเก็บเงินเพิ่ม <b>${baht(add)} บาท</b><br>
+    จานนี้เป็น <b>${baht(each)} บาท</b>${n(qty) > 1 ? ` × ${n(qty)} จาน = ${baht(each * n(qty))} บาท` : ''}
+  </span></div>`;
+}
+
+// วาดแถบเตือนใหม่โดยไม่แตะส่วนอื่นของกล่อง จะได้ไม่เด้งกลับขึ้นบนตอนเลื่อนหาไส้
+function paintOverWarn(l){
+  const box = document.getElementById('topWarn');
+  if(box) box.innerHTML = overWarnHTML(findMenu(l.menuId), l.addons, l.price, l.qty);
+}
+
 function pickLineTop(lid, name, btn){
   const l = order.lines.find(x => x.lid === lid); if(!l) return;
   const m = findMenu(l.menuId);
@@ -4443,6 +4475,7 @@ function pickLineTop(lid, name, btn){
   else if(l._draw) l._draw();
   const sub = document.getElementById('dlgSub');
   if(sub) sub.textContent = topSumText(l);
+  paintOverWarn(l);
 }
 
 function payBill(){
@@ -4935,7 +4968,8 @@ function topsHTML(tops, picked, lid, quota){
     if(!row) groups.push(row = {g, list:[]});
     row.list.push(a);
   });
-  return groups.map(row => `
+  // ช่องว่างไว้ขึ้นแถบเตือนตอนเลือกเกินโควตา — อัปเดตสดตอนติ๊ก ไม่วาดกล่องใหม่
+  return `<div id="topWarn"></div>` + groups.map(row => `
     ${row.g ? `<div class="sec">${esc(row.g)}</div>` : ''}
     <div class="tops">${row.list.map(a => `
       <button type="button" class="top${picked.has(a.name) ? ' on' : ''}" aria-pressed="${picked.has(a.name)}" onclick="pickLineTop('${lid}','${jsq(a.name)}',this)">
