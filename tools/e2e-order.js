@@ -223,10 +223,33 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('ลูกค้าเห็นว่ากำลังทำอยู่', (await cust.textContent('.steps')).includes('กำลังทำ'));
   /* ตอนร้านกำลังทำ โชว์ภาพเตาเครปที่ขยับ ลูกค้าจะได้เห็นว่าของกำลังทำอยู่จริง */
   push('ตอนกำลังทำ มีภาพเตาเครปโผล่มา', await cust.locator('.cookpic').count() === 1);
-  push('ไม้ปาดหมุนจริง ไม่ใช่แค่มีรูป',
+  push('ไม้ปาดขยับจริง ไม่ใช่แค่มีรูป',
     await cust.evaluate(() => {
       const el = document.querySelector('.cookpic .spread');
       return !!el && getComputedStyle(el).animationName === 'spread';
+    }));
+  /* เจ้าของขอว่าอย่าให้หมุนรอบวง เดิมหมุนครบ 360 แล้วดูเหมือนเข็มนาฬิกา
+     ตอนนี้ต้องกวาดไปมา: มุมต้องวิ่งกลับไปกลับมา ไม่ใช่เพิ่มทางเดียวจนครบรอบ */
+  push('ไม้ปาดกวาดไปมา ไม่หมุนรอบวง',
+    await cust.evaluate(async () => {
+      const el = document.querySelector('.cookpic .spread');
+      if(!el) return false;
+      // อ่านมุมจริงจาก matrix ที่เบราว์เซอร์คำนวณให้ ตลอดช่วงหนึ่งรอบเต็ม
+      const angle = () => {
+        const m = new DOMMatrix(getComputedStyle(el).transform);
+        return Math.atan2(m.b, m.a) * 180 / Math.PI;
+      };
+      const seen = [];
+      for(let i = 0; i < 30; i++){
+        seen.push(angle());
+        await new Promise(r => setTimeout(r, 100));
+      }
+      const lo = Math.min(...seen), hi = Math.max(...seen);
+      // กวาดไปมา = มุมอยู่ในช่วงแคบ ๆ และต้องเคยถอยกลับอย่างน้อยหนึ่งครั้ง
+      const turnedBack = seen.some((v, i) => i > 1 &&
+        Math.sign(v - seen[i-1]) !== 0 &&
+        Math.sign(v - seen[i-1]) !== Math.sign(seen[i-1] - seen[i-2]));
+      return hi - lo < 120 && turnedBack;
     }));
   push('ไอน้ำลอยจริง',
     await cust.evaluate(() => {
@@ -235,7 +258,7 @@ const push = (name, v) => { ok.push([name, !!v]); };
     }));
   // ไม่มีรูป = querySelector คืน null แล้ว getComputedStyle โยน error ทำให้ล้มทั้งชุด
   // ต้องเช็กก่อน จะได้รายงานเป็นข้อตกแทน
-  push('ไม้ปาดหมุนรอบกลางเตา ไม่ใช่รอบมุมกรอบ',
+  push('ไม้ปาดขยับรอบกลางเตา ไม่ใช่รอบมุมกรอบ',
     await cust.evaluate(() => {
       const el = document.querySelector('.cookpic .spread');
       if(!el) return false;

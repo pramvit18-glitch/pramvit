@@ -274,14 +274,19 @@
   .cookpic{width:168px; height:122px; color:var(--brand)}
   .cookpic .batter{stroke:var(--brand-l)}
 
-  /* ไม้ปาดหมุนรอบเตา เหมือนตอนปาดแป้งจริง
+  /* ไม้ปาดกวาดไปมาบนแป้ง เหมือนตอนปาดแป้งจริง
+     เดิมให้หมุนรอบเตาครบวง เจ้าของดูแล้วเหมือนเข็มนาฬิกามากกว่าคนปาดแป้ง
+     ตอนนี้กวาดซ้าย-ขวาแล้วย้อนกลับ ช้าลงตรงปลายทางสองข้างเหมือนมือคนจริง
      ต้องใช้ transform-box:view-box ถึงจะหมุนรอบจุดกลางเตาได้
      (ปริยายมันหมุนรอบมุมบนซ้ายของกรอบตัวเอง ซึ่งเพี้ยน) */
   .cookpic .spread{
     transform-box:view-box; transform-origin:70px 69px;
-    animation:spread 3.2s linear infinite;
+    animation:spread 2.6s ease-in-out infinite;
   }
-  @keyframes spread{from{transform:rotate(0)} to{transform:rotate(360deg)}}
+  @keyframes spread{
+    0%,100%{transform:rotate(-34deg)}
+    50%    {transform:rotate(34deg)}
+  }
 
   /* ไอน้ำลอยขึ้นแล้วจางหาย ไล่กันทีละเส้น */
   .cookpic .st{opacity:0; stroke:var(--brand-l); animation:steam 2.6s ease-in-out infinite}
@@ -447,7 +452,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v101';
+const PAGE_VER = 'crepe-cost-v102';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -1021,7 +1026,7 @@ function cookScene(){
       <path d="M117 72c6 0 10 3 10 7"/>
       <!-- แป้งที่ปาดไว้ -->
       <ellipse class="batter" cx="70" cy="69" rx="33" ry="9.5"/>
-      <!-- ไม้ปาด วางอยู่บนแป้ง ไม่ลอยเหนือเตา -->
+      <!-- ไม้ปาด วางอยู่บนแป้ง ไม่ลอยเหนือเตา · กวาดไปมา ไม่หมุนรอบวง -->
       <g class="spread">
         <line x1="70" y1="69" x2="70" y2="55"/>
         <line x1="58" y1="55" x2="82" y2="55"/>
