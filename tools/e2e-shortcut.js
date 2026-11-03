@@ -49,31 +49,37 @@ const state = pg => pg.evaluate(() => ({
   }
 
   // ทางเข้าทั้งสามเส้น ชื่อ + วิธีกด
-  // [ชื่อเส้น, วิธีกด, หน้าที่กดมา — ยกเลิกแล้วต้องกลับไปหน้านี้]
+  /* [ชื่อเส้น, หน้าที่กดมา, วิธีกด]
+     แยก "ไปหน้าที่กดมา" ออกจาก "กด" เพราะตัวดักต้องนับเฉพาะ go() ที่แอปเรียกเอง
+     ไม่ใช่ go() ที่เทสต์เรียกเองตอนพาไปตั้งต้น */
   const ways = [
-    ['เมนูลัดหน้าขาย', async pg => {
-      await pg.evaluate(() => go('sale'));
-      await pg.waitForTimeout(500);
-      await pg.locator('#view .qmenu-b').first().click();
-    }, 'sale'],
-    ['ขายดีบนแดชบอร์ด', async pg => {
-      await pg.evaluate(() => go('today'));
-      await pg.waitForTimeout(500);
-      await pg.locator('.hil-b:not([disabled])').first().click();
-    }, 'today'],
-    ['ผลค้นหาเมนู', async pg => {
-      await pg.evaluate(() => go('today'));
-      await pg.waitForTimeout(400);
+    ['เมนูลัดหน้าขาย', 'sale', pg => pg.locator('#view .qmenu-b').first().click()],
+    ['ขายดีบนแดชบอร์ด', 'today', pg => pg.locator('.hil-b:not([disabled])').first().click()],
+    ['ผลค้นหาเมนู', 'today', async pg => {
       await pg.locator('#searchQ').fill('เครปกรอบ');
       await pg.waitForTimeout(600);
       await pg.locator('[onclick^="searchMenu"]').first().click();
-    }, 'today']
+    }]
   ];
 
-  for(const [name, tap, home] of ways){
-    /* ---------- กดกากบาท = ยกเลิก ต้องกลับหน้าขาย ไม่เหลืออะไรค้าง ---------- */
+  // พาไปหน้าตั้งต้นก่อน แล้วค่อยกด
+  const goTap = async (pg, home, click) => {
+    await pg.evaluate(t => go(t), home);
+    await pg.waitForTimeout(500);
+    await click(pg);
+  };
+
+  // ดักดูทุกครั้งที่แท็บเปลี่ยน — ใช้จับ "จอกระพริบ" ที่ปลายทางถูกแต่ระหว่างทางเด้ง
+  const watchTabs = pg => pg.evaluate(() => {
+    window.__tabs = [];
+    const realGo = window.go;
+    window.go = function(t){ window.__tabs.push(t); return realGo.apply(this, arguments); };
+  });
+
+  for(const [name, home, click] of ways){
+    /* ---------- กดกากบาท = ยกเลิก ต้องกลับหน้าเดิม ไม่เหลืออะไรค้าง ---------- */
     let pg = await fresh();
-    await tap(pg);
+    await goTap(pg, home, click);
     await pg.waitForTimeout(1100);
     let s = await state(pg);
     push(`${name}: กดแล้วได้กล่องเลือกไส้`, s.dlgOpen && s.title.includes('เลือกไส้'));
@@ -90,9 +96,29 @@ const state = pg => pg.evaluate(() => ({
     push(`${name}: ยกเลิกแล้วกลับไปหน้าที่กดมา (${home})`, s.tab === home);
     await pg.close();
 
+    /* ---------- ห้ามย้ายแท็บเลยตลอดทาง ----------
+       เจ้าของเจอว่าปลายทางถูกแล้วก็จริง แต่ระหว่างทางมัน **แวะหน้าขายให้เห็นแวบหนึ่ง**
+       แล้วค่อยเด้งกลับ เห็นเป็นจอกระพริบ ทั้งที่แค่จะกดสั่งของจานเดียว
+       หน้าต่างสั่งสินค้าเป็นกล่องลอย เปิดทับหน้าไหนก็ได้ ไม่ต้องย้ายแท็บเลย */
+    pg = await fresh();
+    await pg.evaluate(t => go(t), home);
+    await pg.waitForTimeout(500);
+    await watchTabs(pg);                 // เริ่มนับหลังพาไปหน้าตั้งต้นแล้ว
+    await click(pg);
+    await pg.waitForTimeout(1100);
+    const moved = await pg.evaluate(() => window.__tabs);
+    push(`${name}: กดแล้วไม่แวะหน้าอื่นให้เห็นแวบ ๆ`, moved.length === 0);
+    await pg.locator('#dlg .dlg-x').click();
+    await pg.waitForTimeout(1100);
+    push(`${name}: ตลอดทางไม่ย้ายแท็บเลยสักครั้ง`,
+      (await pg.evaluate(() => window.__tabs)).length === 0);
+    push(`${name}: ยังอยู่หน้าเดิมตั้งแต่ต้นจนจบ`,
+      await pg.evaluate(() => tab) === home);
+    await pg.close();
+
     /* ---------- กด "เสร็จแล้ว" = ไปต่อที่หน้าต่างสั่งสินค้า ---------- */
     pg = await fresh();
-    await tap(pg);
+    await goTap(pg, home, click);
     await pg.waitForTimeout(1100);
     const chip = pg.locator('#dlg .tops .top').first();
     if(await chip.count()) { await chip.click(); await pg.waitForTimeout(300); }
@@ -104,8 +130,8 @@ const state = pg => pg.evaluate(() => ({
     push(`${name}: ของที่เลือกอยู่ในบิลจริง`, s.lines === 1);
     push(`${name}: ไส้ที่ติ๊กไว้ติดไปด้วย`,
       await pg.evaluate(() => !!(order && order.lines[0] && (order.lines[0].addons||[]).length)));
-    // กดเสร็จแล้วต้องมาอยู่หน้าขาย เพราะบิลที่กำลังทำอยู่ที่นั่น คนละเรื่องกับกดยกเลิก
-    push(`${name}: กดเสร็จแล้วมาอยู่หน้าขาย (บิลอยู่ที่นั่น)`, s.tab === 'sale');
+    // กดเสร็จแล้วก็ไม่ย้ายแท็บ บิลอยู่ในกล่องลอยที่เปิดทับอยู่แล้ว
+    push(`${name}: กดเสร็จแล้วก็ยังอยู่หน้าเดิม ไม่เด้งไปไหน`, s.tab === home);
     await pg.close();
   }
 
