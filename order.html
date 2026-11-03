@@ -280,11 +280,28 @@
     letter-spacing:-.03em; color:var(--ink); font-variant-numeric:tabular-nums;
   }
   .paytip{display:block; margin-top:4px; font-size:12.5px; color:var(--muted); font-weight:700}
-  .slipprev{display:flex; gap:12px; align-items:center; margin-top:10px}
+  /* ปุ่มแนบสลิป — ช่องเลือกไฟล์ของเบราว์เซอร์หน้าตาคนละเรื่องกับแอป
+     และเขียนว่า "Choose File" เป็นภาษาอังกฤษ จึงซ่อนไว้แล้วทำปุ่มเองให้เหมือนแอป */
+  .slip-add{
+    display:flex; align-items:center; gap:12px; width:100%; margin-top:14px;
+    padding:12px 14px; border:0; cursor:pointer; text-align:left;
+    background:var(--soft); border-radius:var(--r); color:var(--ink);
+    font-family:inherit; transition:transform .12s ease, background .15s ease;
+  }
+  .slip-add:active{transform:scale(.985)}
+  .slip-add-t{display:flex; flex-direction:column; gap:1px; min-width:0}
+  .slip-add-t b{font-size:14.5px; font-weight:800}
+  .slip-add-t i{font-style:normal; font-size:12px; color:var(--muted); font-weight:700}
+  .slipprev{display:flex; gap:12px; align-items:center; margin-top:14px}
   .slipprev img{
     width:74px; height:96px; object-fit:cover; border-radius:var(--r);
     background:var(--soft); flex:0 0 auto;
   }
+  .slipprev-t{display:flex; flex-direction:column; gap:8px; min-width:0}
+  .slipprev-t b{display:flex; align-items:center; gap:6px; font-size:14px; font-weight:800}
+  .slipprev-a{display:flex; gap:8px; flex-wrap:wrap}
+  /* ปุ่มเล็กสองตัวนี้ต้องดูเป็นปุ่ม ไม่ใช่ตัวหนังสือลอย ๆ */
+  .slipprev-a .btn.ghost{background:var(--soft); color:var(--ink-2)}
   .btn.sm{padding:9px 14px; font-size:13px}
 
   /* ---------- ภาพเตาเครปกำลังทำ ---------- */
@@ -497,7 +514,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v118';
+const PAGE_VER = 'crepe-cost-v120';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -642,7 +659,8 @@ const SVG = {
   alert:'<path d="M12 9v5"/><path d="M12 17.5h.01"/><path d="M10.3 3.9 2.6 17.1A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.9L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
   trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   today:'<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/>',
-  sum:'<path d="M5 20v-7M12 20V5M19 20v-4"/>'
+  sum:'<path d="M5 20v-7M12 20V5M19 20v-4"/>',
+  slip:'<rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 4.5-4.5 3 3L15 12l5 5"/>'
 };
 const icon = (k,s=18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SVG[k]||''}</svg>`;
 
@@ -1004,9 +1022,27 @@ function drawSlipPrev(){
   box.innerHTML = slipData
     ? `<div class="slipprev">
          <img src="${slipData}" alt="สลิปที่แนบ">
-         <button type="button" class="btn ghost sm" onclick="clearSlip()">เอาสลิปออก</button>
+         <div class="slipprev-t">
+           <b>${icon('check',15)} แนบสลิปแล้ว</b>
+           <div class="slipprev-a">
+             <button type="button" class="btn ghost sm" onclick="pickAnotherSlip()">เปลี่ยนรูป</button>
+             <button type="button" class="btn ghost sm" onclick="clearSlip()">เอาสลิปออก</button>
+           </div>
+         </div>
        </div>`
-    : '';
+    : `<button type="button" class="slip-add" onclick="pickAnotherSlip()">
+         <span class="ic-tile">${icon('slip',18)}</span>
+         <span class="slip-add-t">
+           <b>แนบสลิปที่โอน</b>
+           <i>ไม่แนบก็ส่งได้ · แนบไว้ร้านหาเจอง่ายขึ้น</i>
+         </span>
+       </button>`;
+}
+
+// ช่องเลือกไฟล์ซ่อนอยู่ ปุ่มที่เห็นจึงต้องสั่งเปิดให้
+function pickAnotherSlip(){
+  const i = el('slipPick');
+  if(i) i.click();
 }
 
 /* ---------- คุยกับที่เก็บออเดอร์ ---------- */
@@ -1420,10 +1456,7 @@ function goPay(){
       <div class="note warn">${icon('alert',17)}<span>
         <b>โอนเสร็จแล้วค่อยกดปุ่มข้างล่าง</b> ทางร้านจะเช็กยอดในแอปธนาคารก่อนเริ่มทำ
       </span></div>
-      <div class="f" style="margin-top:14px">
-        <label for="slipPick">แนบสลิปด้วยก็ได้ (ช่วยให้ร้านหาเจอง่ายขึ้น)</label>
-        <input type="file" id="slipPick" accept="image/*" onchange="pickSlip(this)">
-      </div>
+      <input type="file" id="slipPick" accept="image/*" onchange="pickSlip(this)" hidden>
       <div id="slipPrev"></div>
     </div>
     <div class="dlg-foot">

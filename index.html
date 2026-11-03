@@ -420,7 +420,12 @@
   /* สลิปซ้ำ = แดงเต็ม ต้องสะดุดตากว่าป้ายอื่นทั้งหมดบนการ์ด */
   .ord-slip.dup{background:var(--bad-bg); color:var(--bad-ink)}
   .slipview{text-align:center; min-height:180px}
-  .slipview img{max-width:100%; border-radius:var(--r); background:var(--soft)}
+  /* สลิปเป็นรูปแนวตั้งยาว ถ้าปล่อยเต็มความสูงมันดันทุกอย่างตกจอ
+     จำกัดไว้ครึ่งจอ แตะที่รูปเพื่อเปิดดูเต็ม ๆ ในแท็บใหม่ได้ */
+  .slipview img{
+    max-width:100%; max-height:46vh; width:auto; border-radius:var(--r);
+    background:var(--soft); cursor:zoom-in;
+  }
   .ord-act{display:flex; gap:9px; margin-top:12px}
   .ord-act .btn{flex:0 0 auto}
   .ord-act .btn.primary, .ord-act .btn.wide{flex:1}
@@ -2810,11 +2815,13 @@ async function viewSlip(id){
   const dup = o && o.slip ? slipSeenBefore(o.slip, id) : null;
   openDialog({ icon:'cart', title:'สลิปที่ลูกค้าแนบมา',
     sub: o ? `${money(n(o.total))}${o.who ? ' · ' + esc(o.who) : ''}` : '',
-    html:`<div id="slipBox" class="slipview"><div class="empty"><p>กำลังโหลดรูป…</p></div></div>
-      ${dup ? `<div class="note bad">${icon('alert',17)}<span>
+    /* คำเตือนต้องอยู่ **เหนือรูป** รูปสลิปสูงกว่าจอ ถ้าเอาไว้ใต้รูป
+       แม่ค้าต้องเลื่อนลงไปหา แล้วจะไม่มีใครเห็น — เท่ากับไม่ได้เตือน */
+    html:`${dup ? `<div class="note bad" style="margin-bottom:12px">${icon('alert',17)}<span>
         <b>สลิปใบนี้เคยใช้มาแล้ว</b> เมื่อ ${esc(whenText(dup.at))} ยอด ${money(dup.total)}<br>
         อาจเป็นการเอาสลิปเดิมมาใช้ซ้ำ — เช็กแอปธนาคารให้ดีก่อนนะครับ
       </span></div>` : ''}
+      <div id="slipBox" class="slipview"><div class="empty"><p>กำลังโหลดรูป…</p></div></div>
       <p class="hint" style="margin:12px 0 0"><b>สลิปปลอมทำได้เหมือนจริงมาก</b>
         รูปนี้ใช้ดูประกอบเฉย ๆ ยืนยันเงินเข้าได้จากแอปธนาคารอย่างเดียว</p>`,
     foot:[{label:'ปิด', cls:'primary wide', fn:'dlg.close()'}]
@@ -2824,8 +2831,24 @@ async function viewSlip(id){
   const box = document.getElementById('slipBox');
   if(!box) return;
   box.innerHTML = img
-    ? `<img src="${esc(img)}" alt="สลิปที่ลูกค้าแนบ">`
+    ? `<img src="${esc(img)}" alt="สลิปที่ลูกค้าแนบ" onclick="openSlipFull()">
+       <p class="hint" style="margin:8px 0 0">แตะที่รูปเพื่อดูใหญ่เต็มจอ</p>`
     : `<div class="empty"><p>โหลดรูปไม่ขึ้น — อาจส่งไม่ถึงตอนเน็ตหลุด หรือถูกลบไปแล้ว</p></div>`;
+}
+
+/* เปิดรูปเต็มจอในแท็บใหม่ — สลิปตัวหนังสือเล็ก ย่อไว้ครึ่งจอแล้วอ่านเลขอ้างอิงไม่ออก
+   ใช้ blob ไม่ใช่ data: เพราะเบราว์เซอร์หลายตัวไม่ยอมเปิดแท็บจาก data: */
+function openSlipFull(){
+  const im = document.querySelector('.slipview img');
+  if(!im) return;
+  try{
+    const b = atob(String(im.src).split(',')[1] || '');
+    const u8 = new Uint8Array(b.length);
+    for(let i = 0; i < b.length; i++) u8[i] = b.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([u8], {type:'image/jpeg'}));
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }catch(e){ toast('เปิดรูปใหญ่ไม่ได้'); }
 }
 
 // บอกเวลาแบบคนพูด ไม่ใช่ timestamp

@@ -17,7 +17,7 @@ const os   = require('os');
 const path = require('path');
 const fs   = require('fs');
 
-const APP   = 'http://127.0.0.1:8787';
+const APP   = process.env.APP_URL || 'http://127.0.0.1:8787';   // ชี้ไปที่ของที่โหลดมาจากเว็บจริงได้
 const CLOUD = 'http://127.0.0.1:8788';
 const KEY   = 'slipkey1';
 const SHOT  = process.env.SHOT_DIR || os.tmpdir();
@@ -191,6 +191,15 @@ const IMG_B  = file('b.png',  slipB);
   push('หน้าสแกนจ่ายมีช่องแนบสลิป', await cust.locator('#slipPick').count() === 1);
   push('บอกว่าแนบสลิปไว้ช่วยอะไร',
     (await cust.textContent('#dlg')).includes('แนบสลิป'));
+  /* ช่องเลือกไฟล์ของเบราว์เซอร์หน้าตาคนละเรื่องกับแอป แถมเขียน "Choose File"
+     เป็นภาษาอังกฤษ จึงต้องซ่อนไว้แล้วทำปุ่มเองให้เหมือนแอป */
+  push('ปุ่มแนบสลิปเป็นปุ่มของแอป ไม่ใช่ช่องเลือกไฟล์ของเบราว์เซอร์',
+    await cust.locator('.slip-add').count() === 1
+    && !(await cust.locator('#slipPick').isVisible()));
+  push('บอกชัดว่าไม่แนบก็ส่งได้',
+    (await cust.textContent('.slip-add')).includes('ไม่แนบก็ส่งได้'));
+
+  await cust.screenshot({ path: SHOT + '/slip-ask.png' });
 
   await cust.setInputFiles('#slipPick', IMG_A);
   await cust.waitForTimeout(800);
@@ -201,6 +210,9 @@ const IMG_B  = file('b.png',  slipB);
   const kb = await cust.evaluate(() => Math.round((slipData || '').length / 1024));
   push(`รูปที่จะส่งเล็กพอ (${kb}KB ไม่เกิน 300KB)`, kb > 0 && kb < 300);
   push('ได้ลายนิ้วมือ 16 ตัว', await cust.evaluate(() => /^[0-9a-f]{16}$/.test(slipHash)));
+  push('แนบแล้วบอกว่าแนบแล้ว และเปลี่ยนรูปได้',
+    (await cust.textContent('.slipprev')).includes('แนบสลิปแล้ว')
+    && await cust.locator('button', { hasText:'เปลี่ยนรูป' }).count() === 1);
   await cust.screenshot({ path: SHOT + '/slip-pay.png' });
 
   // เอาออกได้ ถ้าแนบผิดใบ
@@ -268,10 +280,28 @@ const IMG_B  = file('b.png',  slipB);
     (await seller.textContent('#view')).includes('สลิปซ้ำ'));
   push('ปุ่มสลิปซ้ำเป็นสีเตือน ไม่ใช่ปุ่มเทา ๆ เหมือนเดิม',
     await seller.locator('.ord-slip.dup').count() >= 1);
+  await seller.screenshot({ path: SHOT + '/slip-cards.png' });
   const openedDup = await tap(seller.locator('.ord-slip.dup'), 'กดปุ่มสลิปซ้ำเข้าไปดูได้');
   await seller.waitForTimeout(900);
   const dupTxt = openedDup ? await seller.textContent('#dlg') : '';
   push('กล่องบอกว่าเคยใช้มาแล้วเมื่อไหร่ ยอดเท่าไหร่', dupTxt.includes('เคยใช้มาแล้ว') && dupTxt.includes('ยอด'));
+  /* สลิปเป็นรูปแนวตั้งยาวกว่าจอ เคยวางคำเตือนไว้ใต้รูป แม่ค้าต้องเลื่อนลงไปหา
+     เท่ากับไม่ได้เตือน — คำเตือนต้องอยู่เหนือรูปและเห็นได้โดยไม่ต้องเลื่อน */
+  const seen = await seller.evaluate(() => {
+    const w = document.querySelector('#dlg .note.bad');
+    const im = document.querySelector('.slipview img');
+    if(!w) return null;
+    const a = w.getBoundingClientRect(), b = im ? im.getBoundingClientRect() : null;
+    return { top:a.top, bottom:a.bottom, imgTop: b ? b.top : null,
+             imgH: b ? b.height : 0, vh: innerHeight };
+  });
+  push('คำเตือนสลิปซ้ำอยู่เหนือรูป ไม่ใช่ใต้รูป',
+    !!seen && seen.imgTop !== null && seen.top < seen.imgTop);
+  push('คำเตือนอยู่ในจอ ไม่ต้องเลื่อนหา',
+    !!seen && seen.top >= 0 && seen.bottom <= seen.vh);
+  push('รูปสลิปสูงไม่เกินครึ่งจอ ไม่ดันของอื่นตกจอ',
+    !!seen && seen.imgH > 0 && seen.imgH <= seen.vh * 0.5);
+  push('บอกวิธีดูรูปใหญ่เต็มจอ', dupTxt.includes('แตะที่รูปเพื่อดูใหญ่'));
   await seller.screenshot({ path: SHOT + '/slip-dup.png' });
   await seller.evaluate(() => dlg.close());
   await seller.waitForTimeout(900);
