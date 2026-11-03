@@ -452,7 +452,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v102';
+const PAGE_VER = 'crepe-cost-v103';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -645,9 +645,10 @@ function saveSent(){
   try{ localStorage.setItem(SENT_KEY, JSON.stringify(sentList)); }catch(e){}
 }
 // ออเดอร์ที่ยังไม่จบ — ใช้ตัดสินว่าต้องถามที่เก็บต่อไหม และโชว์ป้ายค้างไหม
+const DEAD = ['done', 'rej', 'gone'];   // จบแล้ว · ร้านไม่รับ · ร้านลบทิ้ง
 const liveOrders = () => sentList.filter(x => {
   const o = mineMap[x.id];
-  return !o || (o.status !== 'done' && o.status !== 'rej');
+  return !o || !DEAD.includes(o.status);
 });
 
 /* ===================== เริ่มทำงาน ===================== */
@@ -976,7 +977,14 @@ async function refreshMine(){
   if(!live.length){ clearInterval(poll); return; }
   // ถามเฉพาะออเดอร์ที่ยังไม่จบ ที่จบแล้วไม่ต้องถามซ้ำให้เปลืองโควตา
   for(const x of live){
-    try{ mineMap[x.id] = await cloud('GET', `s/${SHOP}/orders/${x.id}`); }catch(e){}
+    try{
+      const o = await cloud('GET', `s/${SHOP}/orders/${x.id}`);
+      /* อ่านได้สำเร็จแต่ไม่มีของ = ทางร้านลบออเดอร์นี้ทิ้งแล้ว ต้องบอกลูกค้า
+         ไม่งั้นหน้านี้จะค้างอยู่ที่ "รอร้านกดรับออเดอร์" พร้อมจุดเด้งไม่มีวันจบ
+         เน็ตหลุดจะโยน error ลงไปที่ catch ไม่มาถึงบรรทัดนี้
+         จึงไม่มีทางเข้าใจผิดว่าถูกลบทั้งที่แค่เน็ตสะดุด */
+      mineMap[x.id] = o || { status:'gone', at:x.at };
+    }catch(e){}
   }
   if(mode === 'queue') drawMine(); else draw();
   if(!liveOrders().length) clearInterval(poll);
@@ -1039,6 +1047,13 @@ function cookScene(){
 // การ์ดของออเดอร์หนึ่งใบ — เลขคิว ขั้นตอน และรายการที่สั่ง
 function queueCard(o){
   const st = (o && o.status) || 'new';
+
+  if(st === 'gone'){
+    return `<div class="card">
+      ${cardHead('x', 'ออเดอร์นี้ถูกยกเลิกแล้ว', 'สอบถามที่ร้านได้เลยครับ')}
+      <div class="note">${icon('store',17)}<span>ทางร้านเอาออเดอร์นี้ออกไปแล้วครับ ถ้ายังอยากได้ กดสั่งใหม่ได้เลย</span></div>
+    </div>`;
+  }
 
   if(st === 'rej'){
     return `<div class="card">

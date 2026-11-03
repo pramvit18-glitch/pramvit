@@ -2530,6 +2530,59 @@ async function finishOrder(id){
   toast(`รับเงินแล้ว ${baht(n(o.total))} บาท`);
 }
 
+/* ลบออเดอร์ทิ้งทั้งใบ — ต่างจาก "ไม่รับ" ตรงที่หายไปเลย ไม่เหลือค้างในที่เก็บ
+   ใช้ตอนลูกค้าสั่งแล้วไม่มารับ หรือเป็นออเดอร์ที่ลองกดเล่น
+   ถ้าไม่มีปุ่มนี้ ออเดอร์ที่กดรับไปแล้วจะค้างอยู่จนกว่าจะกด "เสร็จแล้ว · รับเงิน"
+   ซึ่งจะกลายเป็นยอดขายปลอม เงินในสรุปวันนี้เพี้ยนทันที */
+function deleteOrder(id){
+  const o = cloudOrders.find(x => x.id === id); if(!o) return;
+  askConfirm(o.no ? `ลบออเดอร์ คิวที่ ${esc(String(o.no))} ทิ้ง?` : 'ลบออเดอร์นี้ทิ้ง?',
+    'ออเดอร์นี้จะหายไปเลย และไม่ถูกบันทึกเป็นยอดขาย · ลูกค้าจะเห็นว่าออเดอร์ถูกยกเลิก',
+    'ลบทิ้ง', async () => {
+      // ส่ง null = สั่งลบ (ที่เก็บออเดอร์รับคำสั่งลบแบบนี้)
+      try{ await cloudReq('PATCH', `s/${db.orderKey}/orders`, { [id]: null }); }
+      catch(e){ toast('ลบไม่สำเร็จ เน็ตอาจหลุด'); return; }
+      cloudOrders = cloudOrders.filter(x => x.id !== id);
+      render();
+      toast('ลบออเดอร์แล้ว');
+    });
+}
+
+/* ล้างออเดอร์ของวันนี้ทีเดียวทั้งหมด
+   ใช้ตอนลองเล่นจนมีออเดอร์ปลอมกองอยู่ แล้วอยากเริ่มวันใหม่ให้สะอาด
+
+   สำคัญ: **ไม่แตะยอดขาย** ที่รับเงินไปแล้ววันนี้ยังอยู่ครบ
+   ลบแค่ใบออเดอร์ในที่เก็บ ไม่ใช่เงินที่บันทึกไว้ในเครื่อง
+   และคืนเลขคิวให้เริ่มนับ 1 ใหม่ ไม่งั้นลูกค้าคนแรกของวันจะได้คิวที่ 8 */
+async function clearTodayOrders(){
+  if(!cloudReady() || !db.orderKey){ toast('ยังไม่ได้เปิดรับออเดอร์'); return; }
+  let data;
+  try{ data = await cloudReq('GET', `s/${db.orderKey}/orders`); }
+  catch(e){ toast('ต่อที่เก็บออเดอร์ไม่ติด'); return; }
+
+  const today = dayKey();
+  const ids = Object.entries(data || {})
+    .filter(([, o]) => o && dayKey(new Date(n(o.at))) === today)
+    .map(([id]) => id);
+
+  if(!ids.length){ toast('วันนี้ยังไม่มีออเดอร์ให้ล้าง'); return; }
+
+  askConfirm(`ล้างออเดอร์วันนี้ ${ids.length} ใบ?`,
+    'ออเดอร์ของวันนี้จะหายหมด และเลขคิวจะเริ่มนับ 1 ใหม่ · ' +
+    'ยอดขายที่รับเงินไปแล้ววันนี้ยังอยู่ครบ ไม่ถูกลบไปด้วย',
+    'ล้างเลย', async () => {
+      const patch = {};
+      ids.forEach(id => { patch[id] = null; });
+      try{ await cloudReq('PATCH', `s/${db.orderKey}/orders`, patch); }
+      catch(e){ toast('ล้างไม่สำเร็จ เน็ตอาจหลุด'); return; }
+      db.queueDay = today; db.queueNo = 0; save();
+      cloudOrders = [];
+      await pollOrders();
+      render();
+      toast(`ล้างออเดอร์วันนี้แล้ว ${ids.length} ใบ · เลขคิวเริ่มที่ 1 ใหม่`);
+    });
+}
+
 /* ---------- การ์ดออเดอร์บนหน้าแรก ---------- */
 /* ---------- กระดิ่งแจ้งออเดอร์ มุมบนขวา ----------
    อยู่คู่กับแถบแดง: แถบบอกรายละเอียด กระดิ่งเป็นทางเข้าที่อยู่ที่เดิมตลอด
@@ -2591,7 +2644,7 @@ function viewOrders(){
         <h3>ไม่มีออเดอร์ค้าง</h3>
         <p>ทำครบหมดแล้ว · ออเดอร์ใหม่จะเด้งขึ้นมาเองพร้อมเสียงเตือน</p>
       </div>
-    </div>`;
+    </div>` + clearTodayCard();
   }
 
   const fresh = cloudOrders.filter(o => o.status === 'new');
@@ -2603,7 +2656,20 @@ function viewOrders(){
 
   return back
     + sec(fresh, 'cart', 'ออเดอร์ใหม่ รอรับ', 'กดรับแล้วลูกค้าเห็นเลขคิว')
-    + sec(cook,  'today', 'กำลังทำอยู่',      'ลูกค้ามารับแล้วกดเสร็จ · รับเงิน');
+    + sec(cook,  'today', 'กำลังทำอยู่',      'ลูกค้ามารับแล้วกดเสร็จ · รับเงิน')
+    + clearTodayCard();
+}
+
+/* กล่องล้างออเดอร์วันนี้ อยู่ท้ายหน้าออเดอร์เสมอ
+   วางไว้ล่างสุดตั้งใจ — เป็นของที่นาน ๆ ใช้ที ไม่ควรอยู่ใกล้ปุ่มรับออเดอร์
+   ที่แม่ค้ากดรัว ๆ ตอนยืนทอด จะได้ไม่กดโดนตอนมือเปื้อนแป้ง */
+function clearTodayCard(){
+  return `<div class="card">
+    <p class="hint" style="margin:0">ลองกดเล่นจนมีออเดอร์ปลอมกองอยู่?
+      ล้างทิ้งทั้งวันได้ <b>ยอดขายที่รับเงินไปแล้วไม่หาย</b> และเลขคิวจะเริ่มนับ 1 ใหม่ ·
+      <button type="button" class="seeall" style="margin-top:8px"
+              onclick="clearTodayOrders()">ล้างออเดอร์วันนี้</button></p>
+  </div>`;
 }
 
 /* ปุ่มสองปุ่มกับราคาเบียดกันไม่ลงในแถว .li ปกติ (ราคาถูกบีบจนหาย)
@@ -2632,7 +2698,8 @@ function orderRowHTML(o){
     </div>
     <div class="ord-act">
       ${cook
-        ? `<button type="button" class="btn primary wide" onclick="finishOrder('${jsq(o.id)}')">เสร็จแล้ว · รับเงิน</button>`
+        ? `<button type="button" class="btn ghost" onclick="deleteOrder('${jsq(o.id)}')">ลบทิ้ง</button>
+           <button type="button" class="btn primary wide" onclick="finishOrder('${jsq(o.id)}')">เสร็จแล้ว · รับเงิน</button>`
         : `<button type="button" class="btn ghost" onclick="rejectOrder('${jsq(o.id)}')">ไม่รับ</button>
            <button type="button" class="btn primary" onclick="takeOrder('${jsq(o.id)}')">รับออเดอร์</button>`}
     </div>
@@ -2680,7 +2747,9 @@ function orderSetupDialog(){
       </div>` : ''}
       ${on ? `<p class="hint" style="margin:12px 0 0">ออเดอร์ที่จบแล้วถูกลบทิ้งให้เองหลังผ่านไป 12 ชั่วโมง
         ที่เก็บจึงไม่มีวันเต็ม · <button type="button" class="seeall" style="margin-top:8px"
-        onclick="clearOldOrders()">ล้างออเดอร์เก่าเดี๋ยวนี้</button></p>` : ''}
+        onclick="clearOldOrders()">ล้างออเดอร์เก่าเดี๋ยวนี้</button>
+        <button type="button" class="seeall" style="margin-top:8px"
+        onclick="dlg.close(); clearTodayOrders()">ล้างออเดอร์วันนี้</button></p>` : ''}
       <p class="hint" style="margin:12px 0 0">พิมพ์แค่<b>ชื่อโปรเจกต์</b>ก็พอ แอปจะหา URL เต็มให้เอง ·
         ยังไม่มี? สร้างฟรีที่ console.firebase.google.com → Realtime Database → Create Database</p>`,
     foot: [

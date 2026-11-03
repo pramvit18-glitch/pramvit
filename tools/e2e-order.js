@@ -326,6 +326,85 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('หน้าคิวโชว์ออเดอร์ครบทุกใบ',
     await cust.locator('#view .qbig').count() === 2);
 
+  /* ---------- แม่ค้าลบออเดอร์ทิ้งเองได้ ----------
+     เดิมออเดอร์ที่กดรับไปแล้วแต่ลูกค้าไม่มารับ จะค้างอยู่จนกว่าจะกด "เสร็จแล้ว · รับเงิน"
+     ซึ่งจะกลายเป็นยอดขายปลอม เงินในสรุปวันนี้เพี้ยนทันที */
+  const liveId   = await seller.evaluate(() => cloudOrders[0] && cloudOrders[0].id);
+  const salesWas = await seller.evaluate(() => (db.sales||[]).length);
+  push('มีออเดอร์ค้างอยู่ให้ลบ', !!liveId);
+
+  await seller.evaluate(id => deleteOrder(id), liveId);
+  await seller.waitForTimeout(900);
+  push('กดลบแล้วมีกล่องถามยืนยันก่อน',
+    (await seller.textContent('#dlg')).includes('ไม่ถูกบันทึกเป็นยอดขาย'));
+  await seller.locator('#dlg button', { hasText:'ลบทิ้ง' }).click();
+  await seller.waitForTimeout(900);
+
+  const goneInCloud = await (await fetch(`${CLOUD}/s/${key}/orders/${liveId}.json`)).json();
+  push('ลบแล้วออเดอร์หายจากที่เก็บจริง', goneInCloud === null);
+  push('ลบแล้วหายจากรายการค้างของแม่ค้า',
+    await seller.evaluate(id => !cloudOrders.some(o => o.id === id), liveId));
+  push('ลบออเดอร์แล้ว **ไม่ถูกนับเป็นยอดขาย**',
+    await seller.evaluate(() => (db.sales||[]).length) === salesWas);
+
+  // ลูกค้าต้องรู้ด้วย ไม่ใช่ค้างหมุนรอไม่มีวันจบ
+  await cust.evaluate(() => refreshMine());
+  await cust.waitForTimeout(600);
+  const goneTxt = await cust.textContent('#view');
+  push('ลูกค้าเห็นว่าออเดอร์ถูกยกเลิก ไม่ค้างรอเก้อ', goneTxt.includes('ถูกยกเลิกแล้ว'));
+  push('ออเดอร์ที่ถูกลบ ไม่นับว่ายังค้างอยู่',
+    await cust.evaluate(() => liveOrders().length) === 0);
+  push('ออเดอร์ที่ถูกลบ ไม่มีจุดเด้งค้างอยู่',
+    await cust.locator('#view .qbig .dots').count() === 0);
+
+  /* ---------- ล้างออเดอร์วันนี้ทีเดียวทั้งหมด ---------- */
+  // สั่งใหม่หนึ่งใบไว้ให้มีของให้ล้าง
+  await cust.evaluate(() => backToMenu());
+  await cust.waitForTimeout(300);
+  await cust.locator('#view button.li').first().click();
+  await cust.waitForTimeout(300);
+  await cust.locator('button', { hasText:'ใส่ตะกร้า' }).click();
+  await cust.waitForTimeout(300);
+  await cust.locator('#barBtn').click();
+  await cust.waitForTimeout(300);
+  await cust.locator('#sendBtn').click();
+  await cust.waitForTimeout(1200);
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(600);
+
+  const salesBefore = await seller.evaluate(() => (db.sales||[]).length);
+  push('มีออเดอร์ใหม่เข้ามาให้ล้าง',
+    await seller.evaluate(() => cloudOrders.length) >= 1);
+  push('ก่อนล้าง เลขคิวเดินไปแล้ว',
+    await seller.evaluate(() => n(db.queueNo)) > 0);
+
+  await seller.evaluate(() => clearTodayOrders());
+  await seller.waitForTimeout(1200);
+  const warn = await seller.textContent('#dlg');
+  push('กล่องยืนยันบอกชัดว่ายอดขายไม่หายไปด้วย', warn.includes('ยอดขายที่รับเงินไปแล้ววันนี้ยังอยู่ครบ'));
+  push('กล่องยืนยันบอกว่าเลขคิวจะเริ่มใหม่', warn.includes('เลขคิวจะเริ่มนับ 1 ใหม่'));
+  await seller.locator('#dlg button', { hasText:'ล้างเลย' }).click();
+  await seller.waitForTimeout(1200);
+
+  const leftInCloud = await (await fetch(`${CLOUD}/s/${key}/orders.json`)).json();
+  const today = new Date();
+  const dk = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const leftToday = Object.values(leftInCloud || {}).filter(o => o && dk(new Date(o.at)) === dk(today));
+  push('ล้างแล้วออเดอร์วันนี้หมดเกลี้ยงจากที่เก็บ', leftToday.length === 0);
+  push('ล้างแล้วรายการค้างของแม่ค้าว่าง',
+    await seller.evaluate(() => cloudOrders.length) === 0);
+  push('ล้างแล้วเลขคิวเริ่มนับ 1 ใหม่',
+    await seller.evaluate(() => n(db.queueNo)) === 0);
+  // ข้อสำคัญที่สุด: เงินต้องไม่หายไปกับการล้าง
+  push('ล้างออเดอร์แล้ว **ยอดขายที่รับเงินไปแล้วยังอยู่ครบ**',
+    await seller.evaluate(() => (db.sales||[]).length) === salesBefore && salesBefore > 0);
+
+  // หน้าออเดอร์ตอนว่าง ก็ต้องยังกดล้างได้
+  await seller.evaluate(() => go('orders'));
+  await seller.waitForTimeout(500);
+  push('หน้าออเดอร์ตอนว่าง ยังมีปุ่มล้างออเดอร์วันนี้',
+    await seller.locator('#view button', { hasText:'ล้างออเดอร์วันนี้' }).count() === 1);
+
   /* ---------- ร้านปิด = สั่งไม่ได้ ---------- */
   await seller.evaluate(async () => { db.shopOpen = 0; save(); await publishMenu(); });
   const cust2 = await b.newPage({ viewport:{width:390,height:844} });
