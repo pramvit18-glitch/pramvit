@@ -501,6 +501,23 @@ const IMG_C  = SLIPS.c;
   push('ล้างประวัติแล้ว การกันสลิปซ้ำยังทำงานอยู่',
     await seller.evaluate(() => (db.slipSeen || []).length) > 0);
 
+  /* ---------- ทางเข้าต้องอยู่ตลอด แม้ยังไม่มีประวัติสักรายการ ----------
+     เจ้าของถามว่า "เมนูออเดอร์ที่มีปัญหาอยู่ไหน" เพราะของเดิมซ่อนตัวเองตอนว่าง
+     เครื่องที่ยังไม่เคยมีปัญหาจึงหาไม่เจอสักที่ แล้วไม่รู้ว่าของมาแล้วหรือยัง
+     (ข้อนี้อยู่ท้ายสุดเพราะต้องการสภาพ "ประวัติว่าง" ซึ่งเพิ่งล้างไป) */
+  await seller.evaluate(() => orderSetupDialog());
+  await seller.waitForTimeout(1000);
+  const setupTxt = (await seller.textContent('#dlg')).replace(/\s+/g, ' ');
+  push('ประวัติว่างอยู่ แต่ในกล่องตั้งค่ายังมีปุ่มเข้าไปดูได้',
+    await seller.locator('#dlg button', { hasText:'ดูประวัติออเดอร์มีปัญหา' }).count() === 1);
+  push('และบอกด้วยว่ายังไม่มี ไม่ใช่เงียบไปเฉย ๆ',
+    setupTxt.includes('ยังไม่มีออเดอร์ที่มีปัญหา'));
+  await tap(seller.locator('#dlg button', { hasText:'ดูประวัติออเดอร์มีปัญหา' }), 'กดเข้าไปดูได้');
+  await seller.waitForTimeout(1100);
+  push('เปิดเข้าไปแล้วบอกว่ายังไม่มี ไม่ใช่กล่องเปล่า',
+    (await seller.textContent('#dlg')).includes('ยังไม่มีออเดอร์ที่มีปัญหา'));
+  await seller.screenshot({ path: SHOT + '/slip-trouble-empty.png' });
+
   await b.close();
   try{ fs.rmSync(SLIPS.dir, { recursive:true, force:true }); }catch(e){}
 

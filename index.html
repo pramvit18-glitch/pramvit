@@ -3521,10 +3521,13 @@ function orderSetupDialog(){
         onclick="clearOldOrders()">ล้างออเดอร์เก่าเดี๋ยวนี้</button>
         <button type="button" class="seeall" style="margin-top:8px"
         onclick="dlg.close(); clearTodayOrders()">ล้างออเดอร์วันนี้</button></p>` : ''}
-      ${troubleList().length ? `<p class="hint" style="margin:12px 0 0">เคยมีออเดอร์ที่มีปัญหา
-        <b>${troubleList().length} ราย</b> (ไม่รับ · ยอดไม่ตรง · สลิปซ้ำ) เก็บไว้ในเครื่องนี้
-        ไม่หายไปพร้อมออเดอร์ · <button type="button" class="seeall" style="margin-top:8px"
-        onclick="dlg.close(); troubleDialog()">ดูประวัติออเดอร์มีปัญหา</button></p>` : ''}
+      <p class="hint" style="margin:12px 0 0">${troubleList().length
+        ? `เคยมีออเดอร์ที่มีปัญหา <b>${troubleList().length} ราย</b> (ไม่รับ · ยอดไม่ตรง · สลิปซ้ำ)
+           เก็บไว้ในเครื่องนี้ ไม่หายไปพร้อมออเดอร์`
+        : `<b>ยังไม่มีออเดอร์ที่มีปัญหา</b> ถ้ามีคนโดนปฏิเสธ ยอดโอนไม่ตรง
+           หรือเอาสลิปใบเดิมมาใช้ซ้ำ จะมาโผล่ที่นี่ให้เองโดยไม่ต้องกดอะไร`}
+        · <button type="button" class="seeall" style="margin-top:8px"
+        onclick="dlg.close(); troubleDialog()">ดูประวัติออเดอร์มีปัญหา</button></p>
       <p class="hint" style="margin:12px 0 0">พิมพ์แค่<b>ชื่อโปรเจกต์</b>ก็พอ แอปจะหา URL เต็มให้เอง ·
         ยังไม่มี? สร้างฟรีที่ console.firebase.google.com → Realtime Database → Create Database</p>`,
     foot: [
