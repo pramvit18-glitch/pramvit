@@ -2132,6 +2132,11 @@ const CLOUD_PROJECT = 'pramvit-order';  // ชื่อโปรเจกต์ 
 const CLOUD_BASE = 'https://pramvit-order-default-rtdb.asia-southeast1.firebasedatabase.app';   // ที่เก็บจริงของร้าน (ถ้าว่าง จะไปไล่หาจาก CLOUD_PROJECT เอง)
 const CLOUD_KEY  = 'crepe-cloud';   // ที่เก็บที่ตั้งเองจากหน้าตั้งค่า (ของเครื่องนี้)
 
+/* เตือนให้สำรองข้อมูลทุกกี่วัน — ข้อมูลอยู่ในเครื่องเดียว ไม่มีบัญชีผู้ใช้
+   มือถือหาย ตกน้ำ หรือเผลอล้างข้อมูลเบราว์เซอร์ = ยอดขายกับต้นทุนหายหมด
+   และการสำรองต้องกดเอง ซึ่งไม่มีใครนึกถึงจนกว่าจะสายไปแล้ว */
+const BK_NAG_DAYS = 7;
+
 // store = ก้อนใหญ่ที่เก็บทุกร้าน / db = ร้านที่กำลังใช้อยู่ (โค้ดที่เหลือใช้ db เหมือนเดิม)
 let store = null;
 const UNITS = ['กรัม','มิลลิลิตร','ชิ้น','แผ่น','ใบ','ช้อนโต๊ะ'];
@@ -2209,6 +2214,7 @@ function load(){
         store = { shops: st.shops.map((x,i) => fixShop(x, 'ร้านที่ ' + (i+1))), active: st.active };
         if(st.locked && st.shops.some(x => x.id === st.locked)) store.locked = st.locked;
         if(st.pin && st.pin.h) store.pin = st.pin;          // รหัสคนดูแลเป็นของเครื่อง ไม่ใช่ของร้านใดร้านหนึ่ง
+        if(n(st.bkAt)) store.bkAt = n(st.bkAt);              // สำรองข้อมูลครั้งล่าสุดเมื่อไหร่ (ของเครื่องเหมือนกัน)
         if(!store.shops.some(x => x.id === store.active)) store.active = store.shops[0].id;
         if(store.locked) store.active = store.locked;      // เครื่องที่ผูกไว้ เปิดมาเจอร้านนั้นเสมอ
         return store.shops.find(x => x.id === store.active);
@@ -2264,6 +2270,30 @@ function menuAddons(m){
   return out;
 }
 const findGroup = id => (db.groups||[]).find(g => g.id === id);
+
+/* ===================== เตือนให้สำรองข้อมูล =====================
+   ข้อเสียที่ใหญ่ที่สุดของการเก็บข้อมูลไว้ในเครื่องอย่างเดียวคือ **มือถือหายแล้วหายหมด**
+   แอปช่วยอะไรไม่ได้มากไปกว่าการคอยสะกิดให้กดสำรอง — แต่แค่นั้นก็ช่วยได้จริง
+   จำไว้ที่ store ไม่ใช่ที่ db เพราะก้อนที่สำรองคือทุกร้านรวมกัน ไม่ใช่ร้านใดร้านหนึ่ง */
+function markBackedUp(){
+  if(!store) return;
+  store.bkAt = Date.now();
+  save();
+  renderHome();            // แถบเตือนบนหน้าแรกต้องหายทันที ไม่ใช่รอเปิดแอปใหม่
+}
+
+// สำรองครั้งล่าสุดกี่วันมาแล้ว · ยังไม่เคยสำรอง = null
+function daysSinceBackup(){
+  const at = n(store && store.bkAt);
+  if(!at) return null;
+  return Math.floor((Date.now() - at) / 86400000);
+}
+
+/* ยังไม่มีอะไรจะเสียก็ไม่ต้องสะกิด เครื่องที่เพิ่งลงแอปจะได้ไม่โดนเตือนตั้งแต่วันแรก */
+function hasWorthKeeping(){
+  return ((store && store.shops) || []).some(sh =>
+    (sh.sales || []).length || (sh.menus || []).length || (sh.ingredients || []).length);
+}
 
 let saveWarned = false;
 function save(){
@@ -6102,6 +6132,17 @@ function statusHTML(){
     'ดู', `dayMoneyDialog('${key}')`);
 }
 
+/* สะกิดเรื่องสำรองข้อมูล — ว่างเปล่าเมื่อเพิ่งสำรองไป หรือยังไม่มีอะไรจะเสีย */
+function backupWarnHTML(){
+  if(!hasWorthKeeping()) return '';
+  const d = daysSinceBackup();
+  if(d !== null && d < BK_NAG_DAYS) return '';
+  return srow('warn', 'box',
+    d === null ? 'ยังไม่เคยสำรองข้อมูล' : `ไม่ได้สำรองข้อมูล ${d} วัน`,
+    'มือถือหาย = ข้อมูลหายหมด',
+    'สำรองเลย', 'openBackup()');
+}
+
 /* ---------- แถวเมนูขายดี ---------- */
 function hiliteHTML(){
   const top = topMenus(dashDay).slice(0,8);
@@ -6190,7 +6231,7 @@ function searchMenu(id){ clearSearch(); posQuick(id); }
 function renderHome(){
   document.getElementById('quickRow').innerHTML   = quickHTML();
   paintWeek();
-  document.getElementById('statusRow').innerHTML  = statusHTML();
+  document.getElementById('statusRow').innerHTML  = statusHTML() + backupWarnHTML();
   document.getElementById('hiliteWrap').innerHTML = hiliteHTML();
   runSearch(homeQ);
 }
@@ -7364,6 +7405,7 @@ async function copyDump(){
   const ta = document.getElementById('dump');
   try{
     await navigator.clipboard.writeText(ta.value);
+    markBackedUp();
     bkMsg('คัดลอกแล้ว — เอาไปวางเก็บไว้ที่ไหนก็ได้');
   }catch(e){
     ta.select(); bkMsg('กดค้างที่ข้อความแล้วเลือก "คัดลอก" เองนะครับ');
@@ -7386,12 +7428,12 @@ function applyData(raw){
       if(data.pin && data.pin.h) store.pin = data.pin; else if(keepPin) store.pin = keepPin;
       if(wasLocked && store.shops.some(x => x.id === wasLocked)){ store.locked = wasLocked; store.active = wasLocked; }
       if(!store.shops.some(x => x.id === store.active)) store.active = store.shops[0].id;
-      db = curShop(); save(); render();
+      db = curShop(); markBackedUp(); render();
       toast('กู้คืนข้อมูลแล้ว ' + store.shops.length + ' ร้าน');
       return true;
     }
     if(!data || !Array.isArray(data.ingredients)) return false;
-    setShopData(data); render();
+    setShopData(data); markBackedUp(); render();
     toast('กู้คืนข้อมูลลงร้าน "' + cut(db.shopName) + '" แล้ว');
     return true;
   }catch(e){ return false; }
@@ -7402,6 +7444,7 @@ function exportJSON(){
   a.href = URL.createObjectURL(blob);
   a.download = `สมุดร้าน-${new Date().toISOString().slice(0,10)}.json`;
   a.click(); URL.revokeObjectURL(a.href);
+  markBackedUp();
 }
 function importJSON(input){
   const file = input.files[0]; if(!file) return;

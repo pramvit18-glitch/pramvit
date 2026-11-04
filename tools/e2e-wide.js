@@ -56,6 +56,35 @@ const MIN_4COL = 860;
   push('มือถือ: ไม่มีกล่องเมนูย่อยมาโผล่ (ไม่มีเมาส์ให้ชี้)',
     (await box(pg, '.navfly')).display === 'none');
   push('มือถือ: ไม่ล้นออกข้าง', !(await spills(pg)));
+
+  /* ---------- แถบสะกิดให้สำรองข้อมูล ต้องอ่านได้ครบบนมือถือ ----------
+     .srow-t span เป็นบรรทัดเดียว ตัดท้ายด้วย ... ข้อความยาวเกินจะหายไปเงียบ ๆ
+     เคยเขียนยาวจนประโยคที่สำคัญที่สุดถูกตัดทิ้ง = เตือนแล้วแต่อ่านไม่ได้
+     เทสต์ที่ดูแต่ข้อความในโค้ดจับไม่ได้ ต้องวัดของจริงจากเบราว์เซอร์ */
+  const bkRow = await pg.evaluate(() => {
+    store.bkAt = Date.now() - 9 * 86400000;
+    save(); render();
+    const r = document.querySelector('#statusRow .srow.warn');
+    if(!r) return null;
+    const t = r.querySelector('.srow-t b'), sp = r.querySelector('.srow-t span');
+    const lh = parseFloat(getComputedStyle(t).lineHeight) || 20;
+    return {
+      title: t.textContent,
+      lines: Math.round(t.getBoundingClientRect().height / lh),
+      titleCut: t.scrollWidth > t.clientWidth + 1,
+      subCut: sp.scrollWidth > sp.clientWidth + 1,
+      need: sp.scrollWidth, has: sp.clientWidth,
+      hasBtn: !!r.querySelector('.srow-a')
+    };
+  });
+  push('มือถือ: ไม่ได้สำรองนานแล้วต้องมีแถบสะกิด', !!bkRow);
+  push(`มือถือ: หัวข้อสะกิดอยู่บรรทัดเดียว ไม่ตกบรรทัด (${bkRow ? bkRow.title : '-'})`,
+    !!bkRow && bkRow.lines === 1 && !bkRow.titleCut);
+  push(`มือถือ: คำเตือนไม่โดนตัดท้าย (ต้องการ ${bkRow ? bkRow.need : 0}px มีให้ ${bkRow ? bkRow.has : 0}px)`,
+    !!bkRow && !bkRow.subCut);
+  push('มือถือ: แถบสะกิดมีปุ่มพาไปสำรอง', !!bkRow && bkRow.hasBtn);
+  push('มือถือ: มีแถบสะกิดแล้วยังไม่ล้นออกข้าง', !(await spills(pg)));
+
   await pg.close();
 
   /* ---------- จอกลาง ยังไม่ถึงจุดเปลี่ยน ---------- */

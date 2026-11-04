@@ -97,8 +97,57 @@ const probe = `
   out.push(['แถวเมนูขายดีมีของให้กด', hiliteHTML().indexOf('hil-b') >= 0]);
   out.push(['แถวเมนูขายดีแท็กปิดครบ', bal(hiliteHTML())]);
 
+  /* ---- สะกิดให้สำรองข้อมูล ----
+     ข้อมูลอยู่ในเครื่องเดียว ไม่มีบัญชีผู้ใช้ มือถือหาย = หายหมด
+     และการสำรองต้องกดเอง ซึ่งไม่มีใครนึกถึงจนกว่าจะสายไปแล้ว */
+  const DAY = 86400000;
+  const bkWas = store.bkAt;
+
+  store.bkAt = Date.now();
+  out.push(['เพิ่งสำรองไป ไม่ต้องสะกิด', backupWarnHTML() === '']);
+  out.push(['นับวันได้ถูก', daysSinceBackup() === 0]);
+
+  store.bkAt = Date.now() - 3 * DAY;
+  out.push(['สำรอง 3 วันที่แล้ว ยังไม่ต้องสะกิด', backupWarnHTML() === '']);
+
+  store.bkAt = Date.now() - 9 * DAY;
+  const nag = backupWarnHTML();
+  out.push(['เกิน 7 วันแล้วต้องสะกิด', nag.indexOf('9 วัน') >= 0]);
+  out.push(['สะกิดเป็นแถบเตือน ไม่ใช่แถวธรรมดา', nag.indexOf('srow warn') >= 0]);
+  out.push(['บอกด้วยว่าไม่สำรองแล้วเสียอะไร', nag.indexOf('หายหมด') >= 0]);
+  out.push(['มีปุ่มพาไปสำรองเลย', nag.indexOf('openBackup()') >= 0]);
+  out.push(['แถบสะกิดแท็กปิดครบ', bal(nag)]);
+
+  delete store.bkAt;
+  out.push(['ยังไม่เคยสำรองเลย ต้องสะกิด', backupWarnHTML().indexOf('ยังไม่เคยสำรอง') >= 0]);
+  out.push(['ยังไม่เคยสำรอง = ไม่มีจำนวนวัน', daysSinceBackup() === null]);
+
+  /* เครื่องที่เพิ่งลงแอปยังไม่มีอะไรจะเสีย อย่าไปเตือนตั้งแต่วันแรก */
+  const shopsWas = store.shops;
+  store.shops = [{ id:'empty', sales:[], menus:[], ingredients:[] }];
+  out.push(['ยังไม่มีอะไรจะเสีย ไม่ต้องเตือน', backupWarnHTML() === '']);
+  store.shops = shopsWas;
+
+  /* การ์ดสถานะเดิมต้องไม่ถูกแถบสะกิดเบียดหาย — ของเดิมคือยอดขายวันนี้ ต้องเห็นทุกวัน */
+  out.push(['สะกิดแล้วได้สองแถว ไม่ใช่แถวเดียว',
+    (statusHTML() + backupWarnHTML()).match(/<div class="srow /g).length === 2]);
+  out.push(['หน้าแรกต่อแถบสะกิดท้ายการ์ดสถานะจริง ไม่ใช่เอาไปแทนที่',
+    renderHome.toString().replace(/\\s/g, '').indexOf('statusHTML()+backupWarnHTML()') >= 0]);
+
+  /* ต้องรอดจากการปิด-เปิดแอป เหมือน locked กับ pin
+     load() สร้าง store ขึ้นใหม่ทุกครั้ง ลืมคัดลอกค่านี้มาเมื่อไหร่
+     ก็จะนับหนึ่งใหม่ทุกเช้า แล้วเตือนทั้งที่เพิ่งสำรองไปเมื่อวาน
+     (สองตัวนั้นเคยหลุดมาแล้วสองรอบ ข้อนี้กันไว้ไม่ให้เป็นรอบที่สาม) */
+  store.bkAt = Date.now() - 2 * DAY;
+  save();
+  load();
+  out.push(['ปิด-เปิดแอปแล้วยังจำได้ว่าสำรองไปเมื่อไหร่', daysSinceBackup() === 2]);
+  db = curShop();
+
+  store.bkAt = bkWas;
+
   /* ---- ปุ่มทุกอันต้องมีฟังก์ชันรองรับ ---- */
-  const all = wkHTML() + quickHTML() + statusHTML() + hiliteHTML() + viewToday();
+  const all = wkHTML() + quickHTML() + statusHTML() + backupWarnHTML() + hiliteHTML() + viewToday();
   const miss = [...new Set([...all.matchAll(/onclick="([A-Za-z_$][A-Za-z0-9_$]*)[(]/g)].map(m => m[1]))]
     .filter(f => typeof eval(f) !== 'function');
   out.push(['ทุกปุ่มบนหน้าแรกมีฟังก์ชันรองรับ' + (miss.length ? ' — ขาด ' + miss.join(', ') : ''), !miss.length]);
