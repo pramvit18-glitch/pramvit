@@ -1047,8 +1047,10 @@
     from{opacity:0; transform:translate(-50%, -50%) scale(.88)}
     to  {opacity:1; transform:translate(-50%, -50%) scale(1)}
   }
-  .tour-end{
-    text-align:center; padding:22px 20px 16px; width:min(320px, calc(100vw - 32px));
+  /* ต้องเจาะ .tour-tip.tour-end เพราะ .tour-tip ถูกประกาศทีหลัง
+     specificity เท่ากันแล้วตัวหลังชนะ ขนาดที่ตั้งตรงนี้จะไม่มีผลเลย (เคยพลาดมาแล้ว) */
+  .tour-tip.tour-end{
+    text-align:center; padding:18px 18px 14px; width:min(280px, calc(100vw - 48px));
     animation:tourPop .42s var(--ease) both;
   }
   /* ป๊อปเปอร์เด้งขึ้นมาทีหนึ่งแล้วอยู่นิ่ง ไม่กระพริบวนไปเรื่อย ๆ จนกวนตา */
@@ -1059,8 +1061,8 @@
     100%{transform:scale(1) rotate(0)}
   }
   .tour-end .tour-ic{
-    width:64px; height:64px; margin:0 auto 8px;
-    display:grid; place-items:center; font-size:38px; line-height:1;
+    width:48px; height:48px; margin:0 auto 4px;
+    display:grid; place-items:center; font-size:32px; line-height:1;
     animation:tourYay .6s var(--ease) .12s both;
   }
   /* กระดาษหล่นฉลอง — ร่วงทั้งจอ ไม่ใช่แค่ในการ์ด
@@ -1076,12 +1078,7 @@
   }
   .tour-end h3{margin:0 0 4px; font-size:17px; font-weight:800; letter-spacing:-.02em}
   .tour-end p{margin:0; font-size:13.5px; color:var(--ink-2); line-height:1.6}
-  .tour-end .tour-more{
-    margin-top:14px; padding-top:13px; border-top:1px solid var(--line);
-    font-size:12.5px; font-weight:800; color:var(--muted); text-align:left;
-  }
-  .tour-end .tourpick-r{margin-top:9px}
-  .tour-end .tour-foot{justify-content:center; margin-top:14px}
+  .tour-end .tour-foot{justify-content:center; margin-top:13px}
 
   #tour{position:fixed; inset:0; z-index:70}
   .tour-hole{
@@ -5208,7 +5205,6 @@ const tourNow = () => tourList.filter(([sel]) => tourVisible(sel));
 function tourFinish(){
   const t = TOURS.find(x => x[0] === tourWhich) || TOURS[0];
   markTourSeen(tourWhich);
-  const left = TOURS.filter(x => x[0] !== tourWhich && !tourSeen(x[0]));
   const hole = document.getElementById('tourHole');
   // หุบรูให้หายไป จะได้ไม่มีกรอบค้างชี้ปุ่มสุดท้ายอยู่ตอนอ่านการ์ดจบ
   hole.style.width = hole.style.height = '0px';
@@ -5219,13 +5215,8 @@ function tourFinish(){
   tip.classList.add('tour-end');
   tip.innerHTML = `<div class="tour-ic">🎉</div>
     <h3>ดูจบแล้ว</h3>
-    <p>ทัวร์<b>${esc(t[1])}</b> ดูครบแล้ว · เปิดดูซ้ำได้ตลอดจากปุ่ม ? มุมขวาบน</p>
-    ${left.length ? `<div class="tour-more">ยังมีหน้าอื่นที่ยังไม่ได้ดู
-      <div class="tourpick-r">${left.map(([k, name]) =>
-        `<button type="button" class="tourpick-b" onclick="startTour('${k}')">${esc(name)}</button>`).join('')}</div>
-    </div>` : `<div class="tour-more">ดูครบทุกหน้าแล้ว ขอบคุณที่อดทนดูจนจบนะครับ</div>`}
+    <p>ทัวร์<b>${esc(t[1])}</b> · กดปุ่ม ? มุมขวาบนเพื่อดูซ้ำหรือดูหน้าอื่น</p>
     <div class="tour-foot">
-      <button type="button" class="tour-b" onclick="endTour(); openHelp()">เปิดคู่มือ</button>
       <button type="button" class="tour-b go" onclick="endTour()">เริ่มใช้งานเลย</button>
     </div>`;
   // การ์ดจบลอยกลางจอ ไม่ได้เกาะปุ่มไหนแล้ว

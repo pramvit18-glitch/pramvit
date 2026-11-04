@@ -237,14 +237,17 @@ async function tap(loc, why){
       conf: document.querySelectorAll('.tour-conf i').length,
       // การ์ดต้องอยู่กลางจอจริง ไม่ใช่หลุดไปมุมเพราะคีย์เฟรมทับ transform จัดกลาง
       centered: Math.abs((r.top + r.height/2) - innerHeight/2) < 10
-             && Math.abs((r.left + r.width/2) - innerWidth/2) < 10
+             && Math.abs((r.left + r.width/2) - innerWidth/2) < 10,
+      h: Math.round(r.height), w: Math.round(r.width)
     };
   });
   ok('ดูจบแล้วมีการ์ดบอกว่าจบ ไม่ใช่หายไปเฉย ๆ', fin.shown && /จบ/.test(fin.head));
   ok('การ์ดดูจบอยู่ในจอทั้งใบ', fin.inView);
   ok('การ์ดดูจบไม่มีกรอบชี้ปุ่มค้างอยู่', fin.holeGone);
-  ok('การ์ดดูจบมีปุ่มปิดให้กด', fin.btns.some(x => /เริ่มใช้งาน/.test(x)));
-  ok('การ์ดดูจบชวนดูทัวร์หน้าที่ยังไม่ได้ดูต่อ', fin.btns.some(x => /หน้ารายจ่าย/.test(x)));
+  ok(`การ์ดดูจบเหลือปุ่มเดียว (${fin.btns.join(' / ')})`,
+    fin.btns.length === 1 && /เริ่มใช้งาน/.test(fin.btns[0]));
+  ok(`การ์ดดูจบตัวเล็ก ไม่กินจอ (${fin.w}x${fin.h}px)`,
+    fin.h > 0 && fin.h <= 240 && fin.w > 0 && fin.w <= 300);
   ok('จำไว้ว่าดูทัวร์ชุดนี้จบแล้ว', fin.seen.includes('sale'));
   /* เจ้าของขอ 🎉 กับภาพเคลื่อนไหวตอนดูจบ */
   ok(`การ์ดดูจบมีป๊อปเปอร์ฉลอง (${fin.icon})`, fin.icon.includes('🎉'));
@@ -267,13 +270,14 @@ async function tap(loc, why){
     await p.evaluate(() => !document.querySelector('.tour-conf')));
   await p.screenshot({ path: S + '/tour-end.png' });
 
-  // กดทัวร์ต่อจากการ์ดจบ ต้องเริ่มชุดใหม่จริง ไม่ใช่ค้างอยู่ที่การ์ดเดิม
-  if(await tap(p.locator('#tourTip button', { hasText:'หน้ารายจ่าย' }), 'กดดูทัวร์ต่อจากการ์ดจบได้')){
-    await p.waitForTimeout(1800);
-    const nx = await p.evaluate(() => ({ which: tourWhich,
-      end: document.getElementById('tourTip').classList.contains('tour-end') }));
-    ok('กดทัวร์ต่อแล้วเริ่มชุดใหม่จริง ไม่ค้างที่การ์ดจบ', nx.which === 'money' && !nx.end);
-  }
+  // เปิดทัวร์ชุดใหม่ทั้งที่การ์ดจบยังค้างอยู่ ต้องล้างสภาพการ์ดทิ้งก่อน
+  await p.evaluate(() => startTour('money'));
+  await p.waitForTimeout(1800);
+  const nx = await p.evaluate(() => ({ which: tourWhich,
+    end: document.getElementById('tourTip').classList.contains('tour-end'),
+    no: (document.querySelector('.tour-no') || {}).textContent || '' }));
+  ok(`เปิดทัวร์ชุดใหม่แล้วไม่ค้างที่การ์ดจบ (${nx.no})`,
+    nx.which === 'money' && !nx.end && /1 \//.test(nx.no));
   await p.evaluate(() => endTour());
   await p.waitForTimeout(300);
 
