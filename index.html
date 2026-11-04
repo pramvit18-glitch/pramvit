@@ -3156,7 +3156,7 @@ function troubleDialog(){
     const ของ = t.what ? esc(t.what) : '(ไม่มีรายการ)';
     const ซ้ำกับ = t.kind === 'dup' && t.ofAt
       ? `<i class="of">ใช้ซ้ำกับ ${t.ofNo ? 'คิวที่ ' + esc(String(t.ofNo)) : 'ออเดอร์'}${
-          t.ofWho ? ' ของ' + esc(t.ofWho) : ''} เมื่อ ${esc(whenText(t.ofAt))} ยอด ${money(n(t.ofTotal))}</i>`
+          t.ofWho ? ' ของ' + esc(t.ofWho) : ''} ${esc(whenText(t.ofAt))} ยอด ${money(n(t.ofTotal))}</i>`
       : '';
     return `<div class="tr-row">
       <span class="tr-tag ${cls}">${esc(TROUBLE_NAME[t.kind] || t.kind)}</span>
@@ -3201,7 +3201,7 @@ async function viewSlip(id){
        แม่ค้าต้องเลื่อนลงไปหา แล้วจะไม่มีใครเห็น — เท่ากับไม่ได้เตือน */
     html:`${dup ? `<div class="note bad" style="margin-bottom:12px">${icon('alert',17)}<span>
         <b>สลิปใบนี้เคยใช้มาแล้ว</b> กับ ${n(dup.no) ? 'คิวที่ ' + esc(String(dup.no)) : 'ออเดอร์เก่า'}${
-          dup.who ? ' ของ' + esc(dup.who) : ''} เมื่อ ${esc(whenText(dup.at))} ยอด ${money(dup.total)}<br>
+          dup.who ? ' ของ' + esc(dup.who) : ''} ${esc(whenText(dup.at))} ยอด ${money(dup.total)}<br>
         อาจเป็นการเอาสลิปเดิมมาใช้ซ้ำ — เช็กแอปธนาคารให้ดีก่อนนะครับ
       </span></div>` : ''}
       <div class="slipwant"><span>ยอดที่ต้องได้</span><b>${money(n(o && o.total))}</b></div>
