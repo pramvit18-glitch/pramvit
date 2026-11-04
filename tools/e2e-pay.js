@@ -9,6 +9,9 @@ const { chromium } = require('playwright');
 const path = require('path');
 const jsQR = (m => m.default || m)(require(path.join(__dirname, '../node_modules/jsqr')));
 const refPayload = require(path.join(__dirname, '../node_modules/promptpay-qr'));
+// โอนแล้วต้องแนบสลิปถึงจะส่งออเดอร์ได้ ชุดนี้จึงต้องมีรูปสลิปด้วย
+const { writeSlips } = require(path.join(__dirname, 'fake-slip.js'));
+const SLIP = writeSlips(['a']).a;
 
 const APP = 'http://127.0.0.1:8787';
 const CLOUD = 'http://127.0.0.1:8788';
@@ -79,8 +82,8 @@ async function readQR(pg){
   push('กดสแกนจ่ายแล้วได้ QR จริงบนจอ', await pg.locator('.payqr').count() === 1);
   push('โชว์ยอดตัวใหญ่ให้เห็นชัด',
     (await pg.locator('.payamt').textContent()).includes('15'));
-  push('เตือนว่าโอนเสร็จค่อยกด',
-    (await pg.textContent('#dlg')).includes('โอนเสร็จแล้วค่อยกดปุ่ม'));
+  push('เตือนว่าโอนเสร็จแล้วแนบสลิปก่อนค่อยกดส่ง',
+    (await pg.textContent('#dlg')).includes('โอนเสร็จแล้วแนบสลิปด้วย'));
 
   /* ---------- ข้อสำคัญที่สุด: อ่าน QR กลับแล้วต้องตรงกับไลบรารีอ้างอิง ---------- */
   const got1 = await readQR(pg);
@@ -98,6 +101,9 @@ async function readQR(pg){
   /* ---------- ส่งออเดอร์แบบแจ้งว่าโอนแล้ว ---------- */
   await pg.locator('#payBtn').click();
   await pg.waitForTimeout(700);
+  push('ยังไม่แนบสลิป ส่งออเดอร์ไม่ได้', await pg.locator('#sendBtn').isDisabled());
+  await pg.setInputFiles('#slipPick', SLIP);
+  await pg.waitForTimeout(800);
   await pg.locator('#sendBtn').click();
   await pg.waitForTimeout(1400);
 

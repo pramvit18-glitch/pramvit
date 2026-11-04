@@ -12,7 +12,6 @@
    node tools/fake-cloud.js &  node serve.js &  node tools/e2e-slip.js  */
 
 const { chromium } = require('playwright');
-const zlib = require('zlib');
 const os   = require('os');
 const path = require('path');
 const fs   = require('fs');
@@ -39,79 +38,14 @@ const put = (p, b) => fetch(`${CLOUD}/${p}.json`, {
 }).then(r => r.json());
 const get = p => fetch(`${CLOUD}/${p}.json`).then(r => r.json());
 
-/* ---------- ทำไฟล์ PNG ขึ้นมาเองโดยไม่ลงไลบรารีเพิ่ม ----------
-   (zlib มีมากับ node อยู่แล้ว · ต้องเป็นรูปจริงที่เบราว์เซอร์เปิดได้
-    ไม่ใช่ไฟล์ปลอม ไม่งั้น readImage() จะโยนทิ้งแล้วเทสต์ไม่ได้ทดสอบอะไรเลย) */
-const CRC = (() => {
-  const t = new Int32Array(256);
-  for(let n = 0; n < 256; n++){
-    let c = n;
-    for(let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-    t[n] = c;
-  }
-  return t;
-})();
-function crc32(buf){
-  let c = -1;
-  for(let i = 0; i < buf.length; i++) c = CRC[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
-  return (c ^ -1) >>> 0;
-}
-function chunk(type, data){
-  const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
-  const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
-  const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(body));
-  return Buffer.concat([len, body, crc]);
-}
-function makePNG(w, h, px){
-  const raw = Buffer.alloc((w * 3 + 1) * h);
-  for(let y = 0; y < h; y++){
-    const row = y * (w * 3 + 1);
-    raw[row] = 0;
-    for(let x = 0; x < w; x++){
-      const c = px(x, y);
-      raw[row + 1 + x*3]     = c[0];
-      raw[row + 1 + x*3 + 1] = c[1];
-      raw[row + 1 + x*3 + 2] = c[2];
-    }
-  }
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4);
-  ihdr[8] = 8; ihdr[9] = 2; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
-  return Buffer.concat([
-    Buffer.from([0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]),
-    chunk('IHDR', ihdr),
-    chunk('IDAT', zlib.deflateSync(raw, { level:9 })),
-    chunk('IEND', Buffer.alloc(0))
-  ]);
-}
-
-// ให้เหมือนสลิปจริงหน่อย: พื้นอ่อน มีแถบ มีก้อนตัวเลขเข้ม ๆ กระจายเป็นลาย
-const clamp = v => Math.max(0, Math.min(255, Math.round(v)));
-const slipA = (x, y) => {
-  const band = (y % 90 < 8) ? 60 : 245;
-  const ink  = (x % 70 < 26 && y % 90 > 24 && y % 90 < 40) ? 40 : band;
-  return [clamp(ink), clamp(ink - 4), clamp(ink - 10)];
-};
-// ใบเดิมที่โดนบีบอัดซ้ำ/ถ่ายจอมา — พิกเซลเพี้ยนไปทั้งรูปแต่ลายเดิม
-let seed = 12345;
-const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF) / 0x7FFFFFFF;
-const slipA2 = (x, y) => slipA(x, y).map(v => clamp(v + (rnd() * 24 - 12)));
-// คนละใบจริง ๆ — ลายคนละแบบคนละทิศ
-const slipB = (x, y) => {
-  const band = (x % 70 < 10) ? 50 : 240;
-  const ink  = (y % 60 < 30 && x % 70 > 30 && x % 70 < 52) ? 30 : band;
-  return [clamp(ink - 12), clamp(ink), clamp(ink - 6)];
-};
-
-const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slip-'));
-const file = (name, fn) => {
-  const p = path.join(DIR, name);
-  fs.writeFileSync(p, makePNG(360, 540, fn));
-  return p;
-};
-const IMG_A  = file('a.png',  slipA);
-const IMG_A2 = file('a2.png', slipA2);
-const IMG_B  = file('b.png',  slipB);
+/* รูปสลิปปลอมทำจาก tools/fake-slip.js (ใช้ร่วมกับ e2e-pay)
+   a = ใบเดิม · a2 = ใบเดิมที่พิกเซลเพี้ยน · b, c = คนละใบ */
+const { writeSlips } = require(path.join(__dirname, 'fake-slip.js'));
+const SLIPS  = writeSlips(['a', 'a2', 'b', 'c']);
+const IMG_A  = SLIPS.a;
+const IMG_A2 = SLIPS.a2;
+const IMG_B  = SLIPS.b;
+const IMG_C  = SLIPS.c;
 
 (async () => {
   await fetch(CLOUD + '/__reset').catch(() => {});
@@ -196,8 +130,12 @@ const IMG_B  = file('b.png',  slipB);
   push('ปุ่มแนบสลิปเป็นปุ่มของแอป ไม่ใช่ช่องเลือกไฟล์ของเบราว์เซอร์',
     await cust.locator('.slip-add').count() === 1
     && !(await cust.locator('#slipPick').isVisible()));
-  push('บอกชัดว่าไม่แนบก็ส่งได้',
-    (await cust.textContent('.slip-add')).includes('ไม่แนบก็ส่งได้'));
+  push('บอกชัดว่าต้องแนบสลิป',
+    (await cust.textContent('.slip-add')).includes('ต้องแนบ'));
+  /* เจ้าของสั่งเอง: โอนแล้วต้องมีสลิปมาด้วยเสมอ ไม่งั้นร้านไล่หายอดในแอปธนาคารไม่เจอ */
+  push('ยังไม่แนบสลิป กดส่งออเดอร์ไม่ได้', await cust.locator('#sendBtn').isDisabled());
+  push('ปุ่มบอกเหตุผลว่าทำไมกดไม่ได้',
+    (await cust.textContent('#sendBtn')).includes('แนบสลิปก่อน'));
 
   await cust.screenshot({ path: SHOT + '/slip-ask.png' });
 
@@ -210,6 +148,9 @@ const IMG_B  = file('b.png',  slipB);
   const kb = await cust.evaluate(() => Math.round((slipData || '').length / 1024));
   push(`รูปที่จะส่งเล็กพอ (${kb}KB ไม่เกิน 300KB)`, kb > 0 && kb < 300);
   push('ได้ลายนิ้วมือ 16 ตัว', await cust.evaluate(() => /^[0-9a-f]{16}$/.test(slipHash)));
+  push('แนบแล้วปุ่มส่งกดได้', !(await cust.locator('#sendBtn').isDisabled()));
+  push('แนบแล้วปุ่มกลับไปเป็นข้อความส่งออเดอร์',
+    (await cust.textContent('#sendBtn')).includes('โอนแล้ว'));
   push('แนบแล้วบอกว่าแนบแล้ว และเปลี่ยนรูปได้',
     (await cust.textContent('.slipprev')).includes('แนบสลิปแล้ว')
     && await cust.locator('button', { hasText:'เปลี่ยนรูป' }).count() === 1);
@@ -220,6 +161,7 @@ const IMG_B  = file('b.png',  slipB);
   await cust.waitForTimeout(300);
   push('แนบผิดใบ เอาออกได้', await cust.locator('.slipprev img').count() === 0
     && await cust.evaluate(() => slipData === null && slipHash === ''));
+  push('เอาสลิปออกแล้ว กดส่งไม่ได้อีก', await cust.locator('#sendBtn').isDisabled());
 
   // ย้อนกลับไปแก้ชื่อแล้วกลับมา รูปที่แนบต้องยังอยู่
   await cust.setInputFiles('#slipPick', IMG_A);
@@ -353,7 +295,10 @@ const IMG_B  = file('b.png',  slipB);
   /* ---------- สั่งใหม่ต้องไม่เอาสลิปใบเก่าติดไปเอง ---------- */
   await cust.evaluate(() => { try{ localStorage.clear(); }catch(e){} });
   await toPay();
-  await sendWith(IMG_B);
+  await cust.setInputFiles('#slipPick', IMG_B);
+  await cust.waitForTimeout(700);
+  const hashB = await cust.evaluate(() => slipHash);
+  await sendWith(null);
   await tap(cust.locator('button', { hasText:'สั่งเพิ่ม' }), 'หน้าคิวมีปุ่มสั่งเพิ่ม');
   await cust.waitForTimeout(600);
   push('ส่งแล้วสลิปถูกล้างออกจากมือ', await cust.evaluate(() => slipData === null && slipHash === ''));
@@ -367,11 +312,16 @@ const IMG_B  = file('b.png',  slipB);
   await cust.waitForTimeout(700);
   push('สั่งรอบใหม่ ช่องแนบสลิปว่างเปล่า ไม่มีใบเก่าค้าง',
     await cust.locator('.slipprev img').count() === 0);
+  push('รอบใหม่ก็ยังต้องแนบสลิปก่อนถึงจะส่งได้', await cust.locator('#sendBtn').isDisabled());
+  await cust.setInputFiles('#slipPick', IMG_C);
+  await cust.waitForTimeout(700);
+  const hashC = await cust.evaluate(() => slipHash);
   await cust.locator('#sendBtn').click();
   await cust.waitForTimeout(1500);
   const ords2 = await get(`s/${KEY}/orders`);
   const latest = Object.keys(ords2).sort().pop();
-  push('ออเดอร์รอบใหม่ไม่ติดลายนิ้วมือใบเก่ามาเอง', !ords2[latest].slip);
+  push('ออเดอร์รอบใหม่ใช้ลายนิ้วมือของใบใหม่ ไม่ใช่ใบเก่าที่เพิ่งส่งไป',
+    hashC !== hashB && ords2[latest].slip === hashC);
 
   /* ---------- ลบออเดอร์ รูปต้องหายไปด้วย (ไม่ทิ้งรูปค้างกินโควตา) ---------- */
   await seller.evaluate(() => pollOrders());
@@ -402,7 +352,7 @@ const IMG_B  = file('b.png',  slipB);
     afterAll === null || Object.keys(afterAll).length === 0);
 
   await b.close();
-  try{ fs.rmSync(DIR, { recursive:true, force:true }); }catch(e){}
+  try{ fs.rmSync(SLIPS.dir, { recursive:true, force:true }); }catch(e){}
 
   let bad = 0;
   ok.forEach(([n2, v]) => { console.log(`  ${v ? '✓' : '✗'} ${n2}`); if(!v) bad++; });

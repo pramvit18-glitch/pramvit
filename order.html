@@ -289,6 +289,8 @@
     font-family:inherit; transition:transform .12s ease, background .15s ease;
   }
   .slip-add:active{transform:scale(.985)}
+  /* ยังไม่แนบ = ยังส่งออเดอร์ไม่ได้ ต้องเด่นกว่าการ์ดเทา ๆ ธรรมดา */
+  .slip-add.need{background:var(--tint)}
   .slip-add-t{display:flex; flex-direction:column; gap:1px; min-width:0}
   .slip-add-t b{font-size:14.5px; font-weight:800}
   .slip-add-t i{font-style:normal; font-size:12px; color:var(--muted); font-weight:700}
@@ -514,7 +516,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v120';
+const PAGE_VER = 'crepe-cost-v122';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -1017,7 +1019,19 @@ function clearSlip(){
   drawSlipPrev();
 }
 
+/* ปุ่มส่งบนหน้าสแกนจ่าย **ต้องกดไม่ได้จนกว่าจะแนบสลิป**
+   เจ้าของสั่งเอง: จ่ายโอนแล้วไม่มีสลิปมาด้วย ร้านไล่หายอดในแอปธนาคารไม่เจอ
+   (จ่ายตอนมารับของไม่เกี่ยว ปุ่มนั้นคนละตัว ไม่ต้องมีสลิป) */
+function paintSendBtn(){
+  const b = el('sendBtn');
+  if(!b || !el('slipPick')) return;        // ไม่ใช่หน้าสแกนจ่าย ไม่ไปยุ่ง
+  const ok = !!slipData;
+  b.disabled = !ok;
+  b.textContent = ok ? 'โอนแล้ว · ส่งออเดอร์' : 'แนบสลิปก่อนถึงจะส่งได้';
+}
+
 function drawSlipPrev(){
+  paintSendBtn();
   const box = el('slipPrev'); if(!box) return;
   box.innerHTML = slipData
     ? `<div class="slipprev">
@@ -1030,11 +1044,11 @@ function drawSlipPrev(){
            </div>
          </div>
        </div>`
-    : `<button type="button" class="slip-add" onclick="pickAnotherSlip()">
+    : `<button type="button" class="slip-add need" onclick="pickAnotherSlip()">
          <span class="ic-tile">${icon('slip',18)}</span>
          <span class="slip-add-t">
            <b>แนบสลิปที่โอน</b>
-           <i>ไม่แนบก็ส่งได้ · แนบไว้ร้านหาเจอง่ายขึ้น</i>
+           <i>ต้องแนบด้วย ร้านจะได้เช็กยอดถูกใบ</i>
          </span>
        </button>`;
 }
@@ -1454,7 +1468,8 @@ function goPay(){
         <span class="paytip">เปิดแอปธนาคาร → สแกน QR → ยอดจะขึ้นเอง</span>
       </div>
       <div class="note warn">${icon('alert',17)}<span>
-        <b>โอนเสร็จแล้วค่อยกดปุ่มข้างล่าง</b> ทางร้านจะเช็กยอดในแอปธนาคารก่อนเริ่มทำ
+        <b>โอนเสร็จแล้วแนบสลิปด้วย</b> แล้วค่อยกดปุ่มข้างล่าง
+        ทางร้านจะเช็กยอดในแอปธนาคารก่อนเริ่มทำ
       </span></div>
       <input type="file" id="slipPick" accept="image/*" onchange="pickSlip(this)" hidden>
       <div id="slipPrev"></div>
@@ -1477,6 +1492,11 @@ function backToSend(){
 }
 
 async function send(paid){
+  // โอนแล้วต้องมีสลิปเสมอ · ปุ่มปิดไว้อยู่แล้ว อันนี้กันไว้อีกชั้น
+  if(paid && !slipData){
+    alert('แนบสลิปที่โอนก่อนนะครับ ร้านจะได้เช็กยอดถูกใบ');
+    return;
+  }
   const btn = el('sendBtn') || el('laterBtn');
   if(!btn || btn.disabled) return;
   const label = btn.textContent;
