@@ -8,6 +8,13 @@ const { chromium } = require('playwright');
 // ภาพหน้าจอไปลงที่ชั่วคราว ไม่ให้ไปรกในโฟลเดอร์โปรเจกต์
 const S = process.env.SHOT_DIR || require('os').tmpdir();
 const out=[]; const ok=(n,v)=>out.push([n,!!v]);
+async function tap(loc, why){
+  try{
+    if(await loc.count() === 0){ ok(why, false); return false; }
+    await loc.first().click({ timeout: 4000 });
+    return true;
+  }catch(e){ ok(why + ' (กดไม่ได้: ' + String(e.message).split('\n')[0].slice(0,50) + ')', false); return false; }
+}
 (async () => {
   const b = await chromium.launch({args:['--no-sandbox']});
   const p = await b.newPage({viewport:{width:390,height:700}, deviceScaleFactor:1});
@@ -86,6 +93,51 @@ const out=[]; const ok=(n,v)=>out.push([n,!!v]);
   await p.evaluate(() => dlg.close());
   await p.waitForTimeout(900);
   ok('ปิดกล่องสุดท้ายเรียบร้อย', await p.evaluate(() => !dlg.open));
+
+  /* ---- 5. คู่มือการใช้งาน ----
+     เจ้าของขอมาเอง · ของที่ต้องคุมคือ "เปิดแล้วใช้ได้จริง" ไม่ใช่แค่มีข้อความอยู่ในโค้ด
+     หัวข้อต้องพับเก็บอยู่ตอนเปิดมา ไม่งั้นได้กำแพงตัวหนังสือยาวเหยียด เลื่อนหาไม่เจอ */
+  await p.evaluate(() => { tab='today'; render(); });
+  await p.waitForTimeout(400);
+  await p.evaluate(() => openHelp());
+  await p.waitForTimeout(900);
+  const gd = await p.evaluate(() => {
+    const d = [...document.querySelectorAll('#dlg details.gd-s')];
+    const box = document.getElementById('dlg');
+    return {
+      n: d.length,
+      open: d.filter(x => x.open).length,
+      empty: d.filter(x => !(x.querySelector('.gd-b') || {}).textContent
+                          || x.querySelector('.gd-b').textContent.trim().length < 20).length,
+      title: document.getElementById('dlgTitle').textContent,
+      spills: box.scrollWidth > box.clientWidth + 1,
+      warns: document.querySelectorAll('#dlg .gd-warn').length
+    };
+  });
+  ok(`คู่มือมีหัวข้อหลายหัวข้อ (${gd.n} หัวข้อ)`, gd.n >= 8);
+  ok('หัวกล่องบอกว่าเป็นคู่มือการใช้งาน', /คู่มือ/.test(gd.title));
+  ok('เปิดมากางแค่หัวข้อเดียว ที่เหลือพับไว้', gd.open === 1);
+  ok('ทุกหัวข้อมีเนื้อหาจริง ไม่มีหัวข้อเปล่า', gd.empty === 0);
+  ok('มีกล่องย้ำเรื่องที่พลาดแล้วเสียเงิน', gd.warns >= 2);
+  ok('คู่มือไม่ล้นออกข้าง', !gd.spills);
+
+  // แตะหัวข้อแล้วต้องกางจริง
+  if(await tap(p.locator('#dlg summary', { hasText:'ขายหน้าร้าน' }), 'แตะหัวข้อ "ขายหน้าร้าน" ได้')){
+    await p.waitForTimeout(400);
+    ok('แตะหัวข้อแล้วกางออกจริง', await p.evaluate(() =>
+      [...document.querySelectorAll('#dlg details.gd-s')].some(x => x.open && /ขายหน้าร้าน/.test(x.querySelector('summary').textContent))));
+  }
+
+  // ปุ่มในคู่มือต้องพาไปที่ที่บอกไว้จริง ไม่ใช่ปุ่มตาย
+  if(await tap(p.locator('#dlg summary', { hasText:'สำรองข้อมูล' }), 'แตะหัวข้อ "สำรองข้อมูล" ได้')){
+    await p.waitForTimeout(400);
+    if(await tap(p.locator('#dlg button', { hasText:'ไปสำรองข้อมูลเลย' }), 'หัวข้อสำรองข้อมูลมีปุ่มพาไปที่กดได้')){
+      await p.waitForTimeout(1200);
+      ok('กดปุ่มในคู่มือแล้วพาไปที่กล่องสำรองข้อมูลจริง',
+        await p.locator('#backup').isVisible());
+      await p.evaluate(() => closeBackup());
+    }
+  }
 
   ok('ไม่มี error หลุดออกมาเลย', errs.length === 0);
   await b.close();
