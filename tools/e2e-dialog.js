@@ -164,14 +164,19 @@ async function tap(loc, why){
         const tip = document.getElementById('tourTip');
         const lab = String((tip.querySelector('.tour-no') || {}).textContent || '');
         const idx = Number(lab.split('/')[0]) - 1;
-        const vis = t[3].filter(([sel]) => {
-          const e = document.querySelector(sel);
+        const vis = t[3].filter(([sel]) => [...document.querySelectorAll(sel)].some(e => {
           if(!e || e.hidden) return false;
           const r = e.getBoundingClientRect();
           return r.width > 0 && r.height > 0;
-        });
+        }));
         const step = vis[idx] || [];
-        const el = step[0] ? document.querySelector(step[0]) : null;
+        const el = step[0]
+          ? [...document.querySelectorAll(step[0])].find(e => {
+              if(!e || e.hidden) return false;
+              const q = e.getBoundingClientRect();
+              return q.width > 0 && q.height > 0;
+            }) || null
+          : null;
         const tr = tip.getBoundingClientRect();
         const hr = document.getElementById('tourHole').getBoundingClientRect();
         /* รูต้องคร่อม "กรอบของ element ที่ขั้นนั้นชี้" จริง ๆ บวกขอบ 6px

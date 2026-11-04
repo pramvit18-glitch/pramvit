@@ -4520,7 +4520,8 @@ dlg.addEventListener('close', () => {
 
 /* --------- แท็บ 1: วัตถุดิบ --------- */
 function viewIng(){
-  const back = subHead('ing','ของที่ซื้อมา', db.ingredients.length ? db.ingredients.length + ' อย่าง · ใช้คิดต้นทุนต่อจาน' : 'ยังไม่ได้ใส่ของที่ซื้อมา', 'เพิ่ม', 'addIng()');
+  // แถวสรุปไม่ต้องมีปุ่มเพิ่ม หัวการ์ดข้างล่างมีอยู่แล้ว (ปุ่มซ้ำแบบเดียวกับหน้ารายจ่าย)
+  const back = subHead('ing','ของที่ซื้อมา', db.ingredients.length ? db.ingredients.length + ' อย่าง · ใช้คิดต้นทุนต่อจาน' : 'ยังไม่ได้ใส่ของที่ซื้อมา');
   const rows = db.ingredients.map(i => `
     <div class="li" role="button" tabindex="0" onclick="editIng('${i.id}')"
          onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editIng('${i.id}')}">
@@ -5142,7 +5143,7 @@ const TOURS = [
   ['money', 'หน้ารายจ่าย', 'money', [
     ['#view .dseg-b', 'วันนี้ / เดือนนี้',
      'สลับดูว่าจ่ายไปเท่าไหร่ เฉพาะวันนี้ หรือรวมทั้งเดือน'],
-    ['#view .srow-a', 'ปุ่มเพิ่ม',
+    ['#view .btn.sm.primary', 'ปุ่มเพิ่ม',
      'จดรายจ่ายใหม่ เช่น ซื้อแป้ง ค่าแก๊ส ค่าถุง · ไม่จดแล้วกำไรที่เห็นจะเกินจริง'],
     ['#view .li', 'รายการที่จดไว้',
      'แตะรายการเพื่อแก้หรือลบ · ตัวเลขแดงคือเงินที่จ่ายออกไป']
@@ -5174,10 +5175,16 @@ let tourAt = 0, tourList = [], tourWhich = 'intro';
 
 // เห็นอยู่จริงไหม — ของที่ซ่อนอยู่หรือกว้างศูนย์ ชี้ไปก็ไม่มีใครเห็นว่าชี้อะไร
 function tourVisible(sel){
-  const el = document.querySelector(sel);
-  if(!el || el.hidden) return null;
-  const r = el.getBoundingClientRect();
-  return (r.width > 0 && r.height > 0) ? el : null;
+  /* ต้องเอา "ตัวแรกที่มองเห็น" ไม่ใช่ตัวแรกใน DOM
+     แท็บย่อยที่ซ่อนอยู่ก็มี element หน้าตาเดียวกันแต่ขนาดเป็นศูนย์
+     ถ้าใช้ querySelector เฉย ๆ แล้วตัวแรกบังเอิญอยู่ในแท็บที่ซ่อน
+     ขั้นนั้นจะถูกข้ามทั้งที่ของจริงโผล่อยู่ตรงหน้า (หน้ารายจ่ายมีปุ่มเพิ่มอยู่ทั้งสองแท็บย่อย) */
+  for(const el of document.querySelectorAll(sel)){
+    if(!el || el.hidden) continue;
+    const r = el.getBoundingClientRect();
+    if(r.width > 0 && r.height > 0) return el;
+  }
+  return null;
 }
 
 function startTour(key){
@@ -7147,8 +7154,7 @@ function viewExpense(){
   // รายจ่ายไม่ใช่เรื่องดีหรือร้าย ใช้โทนกลางเสมอ ไม่ต้องเขียวไม่ต้องแดง
   return srow('flat', 'down', 'จ่ายไปเดือนนี้',
       m.exp > 0 ? `฿${baht(m.exp)} จาก ${inMonth.length} รายการ · ${thaiMonth(mk)}`
-                : `ยังไม่มีรายจ่ายใน${thaiMonth(mk)}`,
-      'เพิ่ม', 'expenseDialog(null)')
+                : `ยังไม่มีรายจ่ายใน${thaiMonth(mk)}`)
     + segBar('exp', [['day','วันนี้','today'], ['month','เดือนนี้','sum']])
     + segPane('exp','day',   paneDay,   '')
     + segPane('exp','month', paneMonth, '');
