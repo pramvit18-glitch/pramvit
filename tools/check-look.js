@@ -28,11 +28,11 @@ const mq = [...css.matchAll(/@media\(min-width:(\d+)px\)\{([\s\S]*?)\n  \}/g)]
   .map(m => ({ at: Number(m[1]), body: m[2] }));
 const shellWide = mq.filter(b => /\.shell\{[^}]*max-width:(\d{4,})px/.test(b.body))
   .map(b => b.at).sort((a,b) => b - a)[0];
-const dash4 = mq.filter(b => /\.dash\{grid-template-columns:repeat\(4/.test(b.body))
-  .map(b => b.at)[0];
 push(`จอคอมได้เปลือกกว้างขึ้นจริง (ที่ ${shellWide || '-'}px)`, shellWide >= 1000);
-push(`แดชบอร์ด 4 คอลัมน์เริ่มที่ ${dash4 || '-'}px ไม่มาก่อนตอนเปลือกกว้าง`,
-  !!dash4 && !!shellWide && dash4 >= shellWide);
+/* เคยมีข้อ "แดชบอร์ด 4 คอลัมน์ต้องไม่มาก่อนจุดที่เปลือกกว้าง" อยู่ตรงนี้
+   พอเพิ่มรางเมนูข้าง (กินที่อีก ~110px) การเทียบเลขสองตัวนี้ก็ไม่ได้บอกอะไรอีกแล้ว
+   มันผ่านตลอดทั้งที่เนื้อหาอาจแคบอยู่ — เป็นเทสต์ที่โกหก เลยเอาออก
+   ของจริงไปวัดความกว้างจากเบราว์เซอร์ใน tools/e2e-wide.js แทน */
 /* กราฟเป็น SVG ที่ย่อ-ขยายทั้งภาพ ปล่อยให้เต็มความกว้างจอคอม ตัวหนังสือจะโตจนเทอะทะ */
 push('กราฟบนจอคอมถูกคุมความกว้างไว้',
   mq.some(b => b.at >= 1000 && /\.chart svg\{[^}]*max-width:\d+px/.test(b.body)));

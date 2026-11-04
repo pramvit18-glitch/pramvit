@@ -36,7 +36,7 @@ async function waitUp(url, tries = 40){
   if(!up){ stopAll(); console.error('  เปิดเซิร์ฟเวอร์ไม่ขึ้น'); process.exit(1); }
 
   // ชุดทดสอบที่ต้องใช้เบราว์เซอร์จริง รันต่อกันไปทีละชุด
-  const suites = ['tools/e2e-order.js', 'tools/e2e-dialog.js', 'tools/e2e-shortcut.js', 'tools/e2e-quota.js', 'tools/e2e-pay.js', 'tools/e2e-slip.js', 'tools/e2e-line.js'];
+  const suites = ['tools/e2e-order.js', 'tools/e2e-dialog.js', 'tools/e2e-shortcut.js', 'tools/e2e-quota.js', 'tools/e2e-pay.js', 'tools/e2e-slip.js', 'tools/e2e-line.js', 'tools/e2e-wide.js'];
   let worst = 0;
   for(const f of suites){
     console.log(`\n  ── ${f} ──`);

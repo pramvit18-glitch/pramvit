@@ -153,6 +153,11 @@
     background:var(--bg); border-radius:var(--r); box-shadow:var(--sh-lift);
     padding:6px;
   }
+  /* ตัวครอบปุ่ม มีไว้ให้กล่องเมนูย่อยบนจอคอมเกาะตำแหน่งปุ่มของตัวเองได้
+     บนมือถือมันทำตัวเหมือนปุ่มเดิมทุกอย่าง (แบ่งพื้นที่เท่ากัน) หน้าตาจึงไม่เปลี่ยน */
+  .bottomnav > .navitem{flex:1; display:flex; min-width:0; position:relative}
+  /* กล่องเมนูย่อยเป็นของจอคอมเท่านั้น มือถือไม่มีเมาส์ให้ชี้ */
+  .navfly{display:none}
   .bottomnav button{
     flex:1; border:none; background:none; cursor:pointer; font:inherit;
     padding:8px 1px 7px; color:var(--muted); font-size:11px; font-weight:700;
@@ -1682,9 +1687,10 @@
     .dash-a{grid-column:1/-1}
     .dash-d{grid-column:1/-1}
   }
-  /* 1120 ให้ตรงกับจุดที่เปลือกแอปกว้างขึ้นจริง
-     เดิมเป็น 1040 ทำให้ช่วง 1040-1119 สลับเป็น 4 คอลัมน์ทั้งที่ยังมีที่แค่ ~700px การ์ดเลยเบียด */
-  @media(min-width:1120px){
+  /* ต้องวัดจาก "ที่ที่เนื้อหาได้จริง" ไม่ใช่ความกว้างจอ
+     จอ 1280 - รางเมนู 84 - ช่องไฟ 26 - ขอบ 44 = เนื้อหาราว 1,126px ถึงจะพอแตก 4 คอลัมน์
+     เดิมใช้ 1040 แล้วการ์ดเบียดกันหมด (ตอนนั้นยังไม่มี sidebar ด้วยซ้ำ) */
+  @media(min-width:1280px){
     .dash{grid-template-columns:repeat(4,1fr)}
     .dash-a{grid-column:span 2; grid-row:span 2}
     .dash-b{grid-column:span 1}
@@ -1812,12 +1818,75 @@
 
      แก้สองอย่าง: ให้เปลือกกว้างขึ้นจริงบนจอใหญ่ และห้ามการ์ดยืดตามความสูงของแถว */
   @media(min-width:1120px){
-    .shell{max-width:1120px}
-    .appbar{padding:26px 44px 10px}
-    main{padding:0 44px 80px}
-    .bottomnav{margin:10px 44px 16px}
+    /* จอคอมใช้เมนูข้าง (sidebar) แทนแถบเม็ดยาบนหัว — เจ้าของเลือกเอง
+       .shell มีลูกตรง ๆ แค่ 3 ตัว (appbar · bottomnav · main) จึงจัดเป็นกริดได้เลย
+       ไม่ต้องแก้ HTML — แถบเดิมบนมือถือยังเป็นแถบลอยล่างเหมือนเดิมทุกอย่าง */
+    .shell{
+      max-width:1280px; display:grid; align-items:start;
+      grid-template-columns:84px minmax(0,1fr);
+      grid-template-areas:
+        "nav head"
+        "nav main";
+      gap:0 26px; padding-left:22px; padding-right:22px;
+    }
+    .appbar{grid-area:head; padding:26px 0 10px}
+    main{grid-area:main; padding:0 0 80px}
+
+    .bottomnav{
+      grid-area:nav;
+      /* กลับมาเป็น sticky ต้องล้าง left/bottom ของ "แถบลอยกลางจอ" บนมือถือให้หมดด้วย
+         ไม่งั้นมันเอา left:50% มาใช้ต่อ แล้วเมนูข้างไปโผล่กลางจอทับเนื้อหา (เจอมาแล้ว) */
+      /* กดของในกล่องย่อยแล้วต้อง blur() ด้วย (อยู่ที่ onclick) ไม่งั้น :focus-within
+         ยังเป็นจริง กล่องเลยค้างเปิดอยู่ทั้งที่เมาส์ออกไปแล้ว */
+      position:sticky; top:22px; left:auto; right:auto; bottom:auto; transform:none;
+      flex-direction:column; align-items:stretch; width:auto; max-width:none;
+      margin:26px 0 0; padding:8px; gap:2px;
+      border-radius:var(--r); background:var(--bg); box-shadow:var(--sh-card);
+    }
+    .bottomnav > .navitem{flex:0 0 auto}
+    .bottomnav button{
+      flex-direction:column; justify-content:center; width:100%;
+      padding:10px 2px 8px; gap:5px; font-size:10.5px; border-radius:var(--r);
+    }
+    .bottomnav button svg{width:21px; height:21px}
+
+    /* ===== กล่องเมนูย่อยตอนเอาเมาส์ชี้ =====
+       เปิดด้วย CSS ล้วน ไม่ต้องมีสถานะใน JS ให้พัง
+       ต้องเปิดตอนชี้ที่ "ตัวครอบ" ไม่ใช่ที่ปุ่ม ไม่งั้นพอเมาส์ออกจากปุ่มเพื่อจะไปกดในกล่อง
+       กล่องจะหายก่อนเมาส์ไปถึง · :focus-within เผื่อคนใช้คีย์บอร์ด */
+    .navfly{
+      display:block; position:absolute; left:calc(100% + 10px); top:-8px; z-index:40;
+      width:280px; padding:12px; border-radius:var(--r);
+      background:var(--bg); box-shadow:var(--sh-lift);
+      opacity:0; visibility:hidden; transform:translateX(-6px);
+      transition:opacity .14s, transform .14s, visibility .14s;
+    }
+    .navitem:hover > .navfly, .navitem:focus-within > .navfly{
+      opacity:1; visibility:visible; transform:translateX(0);
+    }
+    /* สะพานใส ๆ คั่นช่องว่าง 10px ไม่งั้นเมาส์ลอดช่องแล้วกล่องปิดกลางทาง */
+    .navfly::before{content:''; position:absolute; left:-12px; top:0; bottom:0; width:12px}
+    .navfly-h{
+      font-size:11.5px; font-weight:800; color:var(--muted);
+      padding:2px 10px 8px; letter-spacing:.01em;
+    }
+    /* ต้องเขียน .bottomnav .navfly-b ให้ชนะ .bottomnav button ที่สั่งเรียงเป็นคอลัมน์ไว้
+       ไม่งั้นไอคอนไปกองอยู่เหนือตัวหนังสือ (เจอมาแล้วตอนถ่ายรูปดู) */
+    .bottomnav .navfly-b{
+      display:flex; align-items:flex-start; gap:11px; width:100%; text-align:left;
+      padding:9px 10px; border-radius:var(--r); flex-direction:row; justify-content:flex-start;
+      font-size:14px; color:var(--ink);
+    }
+    .bottomnav .navfly-b:hover{background:var(--soft)}
+    .navfly-ic{
+      flex:0 0 auto; width:32px; height:32px; border-radius:var(--r);
+      background:var(--tint); color:var(--brand); display:grid; place-items:center;
+    }
+    .navfly-t{display:flex; flex-direction:column; gap:2px; min-width:0}
+    .navfly-t b{font-size:14px; font-weight:800; line-height:1.35}
+    .navfly-t i{font-style:normal; font-size:11.5px; color:var(--muted); font-weight:600; line-height:1.45}
   }
-  @media(min-width:1120px){
+  @media(min-width:1280px){
     /* การ์ดสูงไม่เท่ากันเป็นเรื่องปกติ ห้ามยืดให้เท่าแถว ไม่งั้นได้กล่องขาวว่างครึ่งใบ */
     .dash{align-items:start}
     .dash-a{grid-row:auto}
@@ -1829,7 +1898,7 @@
     /* แท็บย่อยที่มีการ์ดใบเดียว ให้กินเต็มแถว ไม่งั้นได้การ์ดครึ่งจอแล้วว่างอีกครึ่ง */
     .dash > .card:only-child{grid-column:1/-1}
   }
-  @media(min-width:1120px){
+  @media(min-width:1280px){
     /* หัวหน้าแรกวางสองคอลัมน์ ไม่งั้นแถววันกับแถวทางลัดถูกยืดข้ามจอ
        เหลือไอคอน 5 อันกองซ้ายแล้วว่างยาวไปถึงขอบขวา ดูโล่งจนเหมือนหน้าพัง
        ใช้ > เจาะเฉพาะลูกตรง ๆ เพราะ .home-sec มีซ้ำอยู่ข้างใน #hiliteWrap ด้วย */
@@ -3571,6 +3640,30 @@ const icon = (k,s=18) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fi
 
 /* ===================== หน้าจอ ===================== */
 // [คีย์, ชื่อบนเมนูล่าง, ไอคอน, ชื่อหัวข้อหน้า (ถ้าต่างจากเมนูล่าง)]
+/* เมนูย่อยที่โผล่ตอนเอาเมาส์ชี้เมนูข้างบนจอคอม (เจ้าของขอมาตามแบบที่ส่งให้ดู)
+   **เฉพาะจอคอม** มือถือไม่มีเมาส์ให้ชี้ และแถบล่างก็เล็กเกินกว่าจะมีของพวกนี้
+   ทุกปลายทางในนี้ต้องเป็นของที่มีอยู่จริงแล้ว ไม่ใช่สร้างหน้าใหม่ (check-app คุมว่าปุ่มต้องมีฟังก์ชันรองรับ) */
+const NAV_SUB = {
+  sale: ['ขายหน้าร้าน', [
+    ['cart',  'เปิดบิลใหม่',        'กดเมนูที่ลูกค้าสั่ง แล้วรับเงิน',          'openOrderDialog()'],
+    ['bell',  'ออเดอร์จากลูกค้า',    'ใบที่ลูกค้าสั่งมาทางลิงก์ รอกดรับ',       "go('orders')"]
+  ]],
+  money: ['รายรับ-รายจ่าย', [
+    ['plus',  'เพิ่มรายจ่าย',        'ค่าของที่ซื้อเข้าร้าน จดไว้กันลืม',        'expenseDialog(null)'],
+    ['fixed', 'ต้นทุนคงที่',         'ค่าเช่า ค่าไฟ ค่าแก๊ส หารเป็นรายวันให้',   "go('fixed')"]
+  ]],
+  hist: ['ย้อนหลัง', [
+    ['hist',  'ดูย้อนหลังรายวัน',    'วันไหนขายได้เท่าไหร่ เหลือเท่าไหร่',      "go('hist')"],
+    ['dash',  'ภาพรวมร้าน',          'สรุปทั้งเดือน กำไร-ขาดทุน',              "go('dash')"]
+  ]],
+  setup: ['ตั้งค่าระบบ', [
+    ['menu',  'เมนูและสูตร',         'ชื่อเมนู ราคา ไส้ และของที่ใช้ต่อจาน',    "go('menu')"],
+    ['ing',   'ของที่ซื้อมา',         'วัตถุดิบกับราคาต่อหน่วย ไว้คิดต้นทุน',    "go('ing')"],
+    ['link',  'ให้ลูกค้าสั่งเอง',      'เปิด QR ให้ลูกค้าสั่งจากมือถือตัวเอง',    'orderSetupDialog()'],
+    ['box',   'สำรอง / กู้คืนข้อมูล', 'คัดลอกข้อมูลเก็บไว้ กันเครื่องหาย',       'openBackup()']
+  ]]
+};
+
 const TABS = [
   ['today', 'แดชบอร์ด',   'today'],
   ['sale',  'ขาย',        'cart',  'ขายหน้าร้าน'],
@@ -3683,9 +3776,20 @@ function render(){
   // และปุ่มใหม่เกิดมาพร้อมคลาส on อยู่แล้ว วงกลมจึงไม่มีอะไรให้ค่อย ๆ โตจาก
   const navEl = document.getElementById('tabsBottom');
   if(!navEl.dataset.built){
-    navEl.innerHTML = TABS.map(([k,l,ic]) =>
-      `<button type="button" data-tab="${k}" onclick="go('${k}')" aria-label="${l}">
-         ${icon(ic,22)}<span>${l}</span></button>`).join('');
+    /* ครอบปุ่มด้วย .navitem เพื่อให้กล่องเมนูย่อยเกาะตำแหน่งปุ่มของตัวเองได้
+       บนมือถือ .navfly ถูก display:none ไว้ จึงไม่กินที่และไม่เปลี่ยนหน้าตาเดิมเลย */
+    navEl.innerHTML = TABS.map(([k,l,ic]) => {
+      const sub = NAV_SUB[k];
+      return `<div class="navitem">
+        <button type="button" data-tab="${k}" onclick="go('${k}')" aria-label="${l}">
+          ${icon(ic,22)}<span>${l}</span></button>
+        ${sub ? `<div class="navfly"><div class="navfly-h">${esc(sub[0])}</div>
+          ${sub[1].map(([si,sn,sd,fn]) => `<button type="button" class="navfly-b" onclick="this.blur();${fn}">
+            <span class="navfly-ic">${icon(si,17)}</span>
+            <span class="navfly-t"><b>${esc(sn)}</b><i>${esc(sd)}</i></span>
+          </button>`).join('')}</div>` : ''}
+      </div>`;
+    }).join('');
     navEl.dataset.built = '1';
   }
   navEl.querySelectorAll('button').forEach(b => {
