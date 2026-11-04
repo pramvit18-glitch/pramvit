@@ -232,7 +232,12 @@ async function tap(loc, why){
       btns: [...t.querySelectorAll('button')].map(x => x.textContent.trim()),
       inView: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth,
       holeGone: h.width < 2 && h.height < 2,
-      seen: (store.tourSeen || [])
+      seen: (store.tourSeen || []),
+      icon: (t.querySelector('.tour-ic') || {}).textContent || '',
+      conf: document.querySelectorAll('.tour-conf i').length,
+      // การ์ดต้องอยู่กลางจอจริง ไม่ใช่หลุดไปมุมเพราะคีย์เฟรมทับ transform จัดกลาง
+      centered: Math.abs((r.top + r.height/2) - innerHeight/2) < 10
+             && Math.abs((r.left + r.width/2) - innerWidth/2) < 10
     };
   });
   ok('ดูจบแล้วมีการ์ดบอกว่าจบ ไม่ใช่หายไปเฉย ๆ', fin.shown && /จบ/.test(fin.head));
@@ -241,6 +246,25 @@ async function tap(loc, why){
   ok('การ์ดดูจบมีปุ่มปิดให้กด', fin.btns.some(x => /เริ่มใช้งาน/.test(x)));
   ok('การ์ดดูจบชวนดูทัวร์หน้าที่ยังไม่ได้ดูต่อ', fin.btns.some(x => /หน้ารายจ่าย/.test(x)));
   ok('จำไว้ว่าดูทัวร์ชุดนี้จบแล้ว', fin.seen.includes('sale'));
+  /* เจ้าของขอ 🎉 กับภาพเคลื่อนไหวตอนดูจบ */
+  ok(`การ์ดดูจบมีป๊อปเปอร์ฉลอง (${fin.icon})`, fin.icon.includes('🎉'));
+  ok(`มีกระดาษโปรยฉลอง (${fin.conf} ชิ้น)`, fin.conf >= 8);
+  /* คีย์เฟรมของการ์ดต้องพา translate(-50%,-50%) ไปด้วย
+     ใส่แต่ scale จะทับตัวจัดกลางทิ้ง แล้วการ์ดเด้งไปมุมล่างขวา */
+  ok('การ์ดยังอยู่กลางจอ ภาพเคลื่อนไหวไม่ดันหลุดมุม', fin.centered);
+
+  // กระดาษต้องร่วงจริง ไม่ใช่กองนิ่งอยู่ที่เดิม และต้องเก็บทิ้งเองเมื่อเล่นจบ
+  const fall = await p.evaluate(() => {
+    const y = () => [...document.querySelectorAll('.tour-conf i')]
+      .map(x => Math.round(x.getBoundingClientRect().top));
+    const a = y();
+    return new Promise(r => setTimeout(() => r({ a, b: y() }), 600));
+  });
+  ok('กระดาษร่วงลงมาจริง ไม่ได้ค้างนิ่ง',
+    fall.a.length > 0 && fall.a.some((v, i) => fall.b[i] > v + 20));
+  await p.waitForTimeout(3400);
+  ok('เล่นจบแล้วเก็บกระดาษทิ้งเอง ไม่ค้างกินแรงเครื่อง',
+    await p.evaluate(() => !document.querySelector('.tour-conf')));
   await p.screenshot({ path: S + '/tour-end.png' });
 
   // กดทัวร์ต่อจากการ์ดจบ ต้องเริ่มชุดใหม่จริง ไม่ใช่ค้างอยู่ที่การ์ดเดิม

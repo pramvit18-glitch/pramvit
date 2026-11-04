@@ -1040,11 +1040,39 @@
   }
   .tourpick-b:active{transform:scale(.95); background:var(--soft)}
 
-  /* การ์ดตอนดูจบ — ลอยกลางจอ ไม่ได้เกาะปุ่มไหนแล้ว */
-  .tour-end{text-align:center; padding:22px 20px 16px; width:min(320px, calc(100vw - 32px))}
+  /* การ์ดตอนดูจบ — ลอยกลางจอ ไม่ได้เกาะปุ่มไหนแล้ว
+     **คีย์เฟรมต้องมี translate(-50%,-50%) ติดไปด้วย** เพราะการ์ดใช้ transform จัดกลาง
+     ถ้าใส่แต่ scale มันจะทับตัวจัดกลางทิ้ง แล้วการ์ดเด้งไปอยู่มุมล่างขวา */
+  @keyframes tourPop{
+    from{opacity:0; transform:translate(-50%, -50%) scale(.88)}
+    to  {opacity:1; transform:translate(-50%, -50%) scale(1)}
+  }
+  .tour-end{
+    text-align:center; padding:22px 20px 16px; width:min(320px, calc(100vw - 32px));
+    animation:tourPop .42s var(--ease) both;
+  }
+  /* ป๊อปเปอร์เด้งขึ้นมาทีหนึ่งแล้วอยู่นิ่ง ไม่กระพริบวนไปเรื่อย ๆ จนกวนตา */
+  @keyframes tourYay{
+    0%  {transform:scale(.3) rotate(-18deg); opacity:0}
+    55% {transform:scale(1.18) rotate(6deg); opacity:1}
+    75% {transform:scale(.96) rotate(-3deg)}
+    100%{transform:scale(1) rotate(0)}
+  }
   .tour-end .tour-ic{
-    width:52px; height:52px; margin:0 auto 10px; border-radius:50%;
-    display:grid; place-items:center; background:var(--good-bg); color:var(--good-ink);
+    width:64px; height:64px; margin:0 auto 8px;
+    display:grid; place-items:center; font-size:38px; line-height:1;
+    animation:tourYay .6s var(--ease) .12s both;
+  }
+  /* กระดาษหล่นฉลอง — ร่วงทั้งจอ ไม่ใช่แค่ในการ์ด
+     ชิ้นละสีละจังหวะ ร่วงรอบเดียวจบ ไม่วนซ้ำ */
+  .tour-conf{position:fixed; inset:0; overflow:hidden; pointer-events:none}
+  @keyframes tourFall{
+    0%  {transform:translateY(-12vh) rotate(0); opacity:1}
+    100%{transform:translateY(104vh) rotate(620deg); opacity:.15}
+  }
+  .tour-conf i{
+    position:absolute; top:0; width:9px; height:14px; display:block;
+    animation:tourFall 2.4s linear both;
   }
   .tour-end h3{margin:0 0 4px; font-size:17px; font-weight:800; letter-spacing:-.02em}
   .tour-end p{margin:0; font-size:13.5px; color:var(--ink-2); line-height:1.6}
@@ -1080,7 +1108,11 @@
   .tour-b:active{transform:scale(.95); background:var(--line)}
   .tour-b.go:active{background:var(--brand-d)}
   /* เครื่องที่ตั้งให้ลดการเคลื่อนไหว ให้กระโดดไปเลย ไม่ต้องไถ */
-  @media (prefers-reduced-motion: reduce){ .tour-hole{transition:none} }
+  @media (prefers-reduced-motion: reduce){
+    .tour-hole{transition:none}
+    .tour-end, .tour-end .tour-ic{animation:none}
+    .tour-conf{display:none}
+  }
 
   /* ===================== จอใหญ่: แท็บข้อความใต้หัวข้อ ===================== */
   @media(min-width:760px){
@@ -5182,9 +5214,10 @@ function tourFinish(){
   hole.style.width = hole.style.height = '0px';
   hole.style.top = hole.style.left = '50%';
 
+  tourConfetti();
   const tip = document.getElementById('tourTip');
   tip.classList.add('tour-end');
-  tip.innerHTML = `<div class="tour-ic">${icon('check', 26)}</div>
+  tip.innerHTML = `<div class="tour-ic">🎉</div>
     <h3>ดูจบแล้ว</h3>
     <p>ทัวร์<b>${esc(t[1])}</b> ดูครบแล้ว · เปิดดูซ้ำได้ตลอดจากปุ่ม ? มุมขวาบน</p>
     ${left.length ? `<div class="tour-more">ยังมีหน้าอื่นที่ยังไม่ได้ดู
@@ -5201,6 +5234,32 @@ function tourFinish(){
   tip.style.transform = 'translate(-50%, -50%)';
 }
 
+/* โปรยกระดาษฉลองหนึ่งรอบ
+   สร้างเป็น element จริงแล้วลบทิ้งเมื่อเล่นจบ ไม่ปล่อยค้างไว้กินแรงเครื่อง
+   เครื่องที่ตั้งว่าลดการเคลื่อนไหวไม่ต้องสร้างเลย */
+function tourConfetti(){
+  const host = document.getElementById('tour');
+  const old = host.querySelector('.tour-conf');
+  if(old) old.remove();
+  if(reduceMotion()) return;
+  const sky = document.createElement('div');
+  sky.className = 'tour-conf';
+  const colors = ['var(--brand)', 'var(--good)', 'var(--warn)', '#e8b4b4', '#7aa7e8'];
+  let html = '';
+  for(let i = 0; i < 18; i++){
+    const left  = Math.round(Math.random() * 96) + '%';
+    const delay = (Math.random() * .7).toFixed(2) + 's';
+    const dur   = (1.9 + Math.random() * 1.1).toFixed(2) + 's';
+    const c     = colors[i % colors.length];
+    const w     = 6 + Math.round(Math.random() * 5);
+    html += `<i style="left:${left}; width:${w}px; background:${c};
+      animation-delay:${delay}; animation-duration:${dur}"></i>`;
+  }
+  sky.innerHTML = html;
+  host.appendChild(sky);
+  setTimeout(() => sky.remove(), 3600);
+}
+
 const tourSeen = k => ((store && store.tourSeen) || []).includes(k);
 function markTourSeen(k){
   if(!store || tourSeen(k)) return;
@@ -5209,8 +5268,11 @@ function markTourSeen(k){
 }
 
 function endTour(){
-  document.getElementById('tour').hidden = true;
+  const host = document.getElementById('tour');
+  host.hidden = true;
   document.removeEventListener('keydown', tourKey);
+  const conf = host.querySelector('.tour-conf');
+  if(conf) conf.remove();
   const tip = document.getElementById('tourTip');
   tip.classList.remove('tour-end');
   tip.style.transform = '';
