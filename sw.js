@@ -1,6 +1,6 @@
 // Service worker — ทำให้แอปเปิดได้ตอนไม่มีเน็ต
 // เวลาแก้ index.html แล้วอยากให้เครื่องที่ติดตั้งไปแล้วได้ของใหม่ ให้ขยับเลข CACHE
-const CACHE = 'crepe-cost-v157';
+const CACHE = 'crepe-cost-v158';
 
 const ASSETS = [
   './',
@@ -34,10 +34,20 @@ self.addEventListener('activate', e => {
    ถ้าแอปเปิดค้างอยู่แล้วให้สลับไปหน้านั้น ไม่เปิดซ้ำเป็นอีกแท็บ */
 self.addEventListener('notificationclick', e => {
   e.notification.close();
+  /* กดแล้วต้องไปหน้าที่ส่งแจ้งเตือนมา
+     ลูกค้ากดแจ้งเตือน "ของเสร็จแล้ว" ต้องได้หน้าลูกค้า ไม่ใช่แอปแม่ค้า
+     แจ้งเตือนฝั่งแม่ค้าไม่ได้ส่ง url มา จึงยังทำงานเหมือนเดิมทุกอย่าง */
+  const data = e.notification.data || {};
+  const want = data.url || './index.html';
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      for (const c of list) if ('focus' in c) return c.focus();
-      if (self.clients.openWindow) return self.clients.openWindow('./index.html');
+      const path = new URL(want, self.location.href).pathname;
+      for (const c of list) {
+        if ('focus' in c && new URL(c.url).pathname === path) return c.focus();
+      }
+      // ไม่ได้เจาะจงหน้า = ของแม่ค้า โฟกัสหน้าไหนก็ได้ที่เปิดอยู่ (พฤติกรรมเดิม)
+      if (!data.url) { for (const c of list) if ('focus' in c) return c.focus(); }
+      if (self.clients.openWindow) return self.clients.openWindow(want);
     })
   );
 });
@@ -67,6 +77,18 @@ self.addEventListener('fetch', e => {
     );
     return;
   }
+
+  /* ของนอกบ้านไม่ต้องไปยุ่งด้วยเลย ปล่อยให้วิ่งตรงไปตามปกติ
+     ที่เก็บออเดอร์ (Firebase) อยู่คนละโดเมน ถ้าเอามาผ่านตรงนี้
+     เน็ตหลุดจะถูกแปลงเป็นคำตอบ 503 แทนที่จะเป็น error ตามจริง
+     ซึ่งเป็นคนละเรื่องกันสำหรับโค้ดที่ไปเรียก */
+  const url = new URL(req.url);
+  if (url.origin !== location.origin) return;
+
+  /* **ตัวเองห้ามผ่านแคชเด็ดขาด** หน้าลูกค้าอ่านเลขรุ่นจากไฟล์นี้
+     เพื่อตัดสินใจว่าต้องโหลดหน้าใหม่ไหม (checkFresh)
+     ถ้าเอาของในแคชไปตอบ มันจะเห็นเลขรุ่นเก่าตลอดกาล แล้วไม่มีวันได้ของใหม่เลย */
+  if (url.pathname.endsWith('/sw.js')) return;
 
   // ไฟล์อื่น (ไอคอน ฯลฯ): ใช้ของที่เก็บไว้ก่อน เร็วกว่า
   e.respondWith(

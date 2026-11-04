@@ -64,6 +64,33 @@ const push = (name, v) => { ok.push([name, !!v]); };
   await cust.addInitScript(() => {
     window.__ding = 0; window.__buzz = 0;
     navigator.vibrate = () => { window.__buzz++; return true; };
+    // นับว่าสร้าง "ตัวเล่นเสียง" กี่ตัว — สร้างใหม่ทุกครั้งแล้วมือถือจะเงียบไปเฉย ๆ
+    window.__ac = 0;
+    const OrigAC = window.AudioContext;
+    if(OrigAC){
+      window.AudioContext = function(){ window.__ac++; return new OrigAC(); };
+      window.AudioContext.prototype = OrigAC.prototype;
+    }
+    /* ดักทางที่ "มือถือใช้ได้จริง" คือ service worker
+       ของเดิมเรียก new Notification() ซึ่งบนมือถือโยน error แล้วโดน catch กลืน
+       เงียบสนิททั้งที่ลูกค้ากดอนุญาตไปแล้ว */
+    window.__swNote = []; window.__rawNote = 0;
+    const P = window.ServiceWorkerRegistration && window.ServiceWorkerRegistration.prototype;
+    if(P) P.showNotification = function(t, o){ window.__swNote.push({ t, o }); return Promise.resolve(); };
+    /* **เบราว์เซอร์แบบไม่มีจอตอบ 'denied' เสมอ ขออนุญาตยังไงก็ไม่ได้**
+       ของเดิมเลยเลี่ยงไปสตับ pushNote ทิ้งทั้งก้อน — ซึ่งทำให้บั๊กจริงหลุดไปถึงเจ้าของ
+       ตรงนี้ปลอมแค่ "คำตอบของเบราว์เซอร์" อย่างเดียว โค้ดของเราได้ทำงานจริงทุกบรรทัด */
+    window.__perm = 'default';
+    if(window.Notification){
+      try{ Object.defineProperty(Notification, 'permission',
+        { get: () => window.__perm, configurable: true }); }catch(e){}
+      const ON = window.Notification;
+      window.Notification = function(t, o){ window.__rawNote++; return Object.create(ON.prototype); };
+      window.Notification.prototype = ON.prototype;
+      try{ Object.defineProperty(window.Notification, 'permission',
+        { get: () => window.__perm, configurable: true }); }catch(e){}
+      window.Notification.requestPermission = () => { window.__perm = 'granted'; return Promise.resolve('granted'); };
+    }
   });
   const bell = () => cust.evaluate(() => ({ ding: window.__ding, buzz: window.__buzz, title: document.title }));
   await cust.goto(`${APP}/order.html?s=${key}&c=${encodeURIComponent(CLOUD)}`);
@@ -71,6 +98,19 @@ const push = (name, v) => { ok.push([name, !!v]); };
 
   push('ลูกค้าเห็นชื่อร้าน', (await cust.textContent('#shopName')).includes('ร้านเครปทดสอบ'));
   push('ลูกค้าเห็นเมนูครบ', (await cust.locator('#view .li').count()) === 2);
+
+  /* เสียงเตือนบนมือถือพังเงียบ ๆ ได้ 2 ทาง จึงต้องดักทั้งคู่
+     1. สร้างตัวเล่นเสียงใหม่ทุกครั้ง — เบราว์เซอร์จำกัดจำนวน พอเกินแล้วเงียบ
+     2. มือถือปิดเสียงไว้จนกว่าคนจะแตะจอ ต้องสั่งเปิดเองทุกครั้งก่อนเล่น */
+  await cust.evaluate(() => { ding(false); ding(true); ding(false); });
+  push('เตือนหลายครั้งแล้วยังใช้ตัวเล่นเสียงตัวเดียว',
+    await cust.evaluate(() => window.__ac) === 1);
+  push('สั่งเปิดเสียงก่อนเล่นทุกครั้ง (มือถือปิดไว้จนกว่าจะแตะจอ)',
+    await cust.evaluate(() => typeof audioCtx === 'function' && /resume/.test(audioCtx.toString())));
+  // ไม่มีตัวนี้ = สั่งแถบแจ้งเตือนบนมือถือไม่ได้เลย
+  await cust.waitForTimeout(600);
+  push('หน้าลูกค้าลงทะเบียน service worker ไว้ด้วย',
+    await cust.evaluate(() => navigator.serviceWorker.getRegistration().then(r => !!r)));
 
   // เลือกเมนูแรก ติ๊กไส้ที่มีเครื่องหมาย ' ในชื่อ (จุดที่เคยทำปุ่มตายเงียบ ๆ)
   await cust.locator('#view .li').first().click();
@@ -325,7 +365,16 @@ const push = (name, v) => { ok.push([name, !!v]); };
     Object.defineProperty(document, 'hidden', { get: () => true, configurable: true });
   });
   const bellWas2 = await bell();
-  await cust.evaluate(() => { window.__push = []; window.pushNote = (t, b2) => window.__push.push(t + ' | ' + b2); });
+  /* ลูกค้ากดอนุญาตแจ้งเตือนไปแล้ว (ของจริงกดปุ่ม "เตือนฉันตอนของเสร็จ")
+     **ไม่สตับ pushNote** ของเดิมสตับทิ้ง เลยพิสูจน์ได้แค่ว่า "ถูกเรียก"
+     ไม่ได้พิสูจน์ว่ามันเด้งขึ้นจริงบนมือถือ — บั๊กจึงหลุดไปถึงมือเจ้าของ */
+  /* ยังไม่อนุญาต = ต้องมีปุ่มชวนกด ห้ามเด้งขอเอง */
+  push('ยังไม่อนุญาต = มีปุ่มชวนเปิดแจ้งเตือนให้กดเอง',
+    await cust.locator('button', { hasText:'เตือนฉันตอนของเสร็จ' }).count() === 1);
+  // ลูกค้ากดปุ่มเอง (ของจริงเป็นแบบนี้) แล้วค่อยนับ
+  await cust.evaluate(() => askNote());
+  await cust.waitForTimeout(300);
+  await cust.evaluate(() => { window.__swNote = []; window.__rawNote = 0; });
   const before = await seller.evaluate(() => (db.sales||[]).length);
   await seller.evaluate(async () => { await finishOrder(cloudOrders[0].id); });
   await seller.waitForTimeout(400);
@@ -348,9 +397,18 @@ const push = (name, v) => { ok.push([name, !!v]); };
   /* ปิดจอไปเลยก็ยังต้องรู้ — แถบแจ้งเตือนของเครื่องเป็นทางเดียวที่ถึงตัว
      (ลูกค้าต้องกดอนุญาตเองก่อน ไม่เด้งขอเอง) */
   const liveLeft = await cust.evaluate(() => liveOrders().length);
-  const pushed = await cust.evaluate(() => window.__push || []);
-  push(`ของเสร็จแล้วยิงแถบแจ้งเตือนของเครื่องด้วย (${(pushed[0]||'-').slice(0,40)})`,
-    pushed.length === 1 && /เสร็จ/.test(pushed[0]));
+  const sw = await cust.evaluate(() => window.__swNote || []);
+  push(`ของเสร็จแล้วยิงแถบแจ้งเตือนของเครื่องด้วย (${(sw[0]||{}).t || '-'})`,
+    sw.length === 1 && /เสร็จ/.test(sw[0].t));
+  push('แถบแจ้งเตือนบอกด้วยว่าคิวที่เท่าไหร่',
+    sw.length === 1 && /คิวที่/.test((sw[0].o || {}).body || ''));
+  /* **ต้องสั่งผ่าน service worker** new Notification() บนมือถือใช้ไม่ได้
+     ข้อนี้คือข้อที่จับบั๊กที่เจ้าของเจอ ("ไม่เห็นได้แจ้งเตือนเลย") */
+  push('สั่งแถบแจ้งเตือนผ่าน service worker (มือถือถึงจะเห็น)',
+    sw.length === 1 && await cust.evaluate(() => window.__rawNote) === 0);
+  // กดแจ้งเตือนแล้วต้องกลับมาหน้าลูกค้า ไม่ใช่เด้งไปแอปแม่ค้า
+  push('แจ้งเตือนพากลับมาหน้าลูกค้า ไม่ใช่แอปแม่ค้า',
+    sw.length === 1 && /order\.html/.test((((sw[0].o || {}).data) || {}).url || ''));
 
   /* อนุญาตแล้วต้องบอกลูกค้าว่าเปิดไว้แล้ว ไม่ใช่ชวนกดซ้ำไปเรื่อย ๆ
      และตอนยังไม่อนุญาต (หรือปิดไปแล้ว) ต้องไม่ตื๊อ */

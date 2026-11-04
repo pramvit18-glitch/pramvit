@@ -535,7 +535,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v157';
+const PAGE_VER = 'crepe-cost-v158';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -1117,12 +1117,28 @@ function buzz(long){
   try{ if(navigator.vibrate) navigator.vibrate(long ? [120, 70, 120] : 90); }catch(e){}
 }
 
+/* ใช้ตัวเล่นเสียงตัวเดียวตลอด ห้ามสร้างใหม่ทุกครั้งที่เตือน
+   เบราว์เซอร์จำกัดจำนวนตัวเล่นเสียงต่อหนึ่งหน้า สร้างรัว ๆ แล้วมันเงียบไปเฉย ๆ ไม่มี error
+   และมือถือ "ปิดเสียงไว้ก่อน" จนกว่าคนจะแตะจอ จึงต้องสั่งเปิด (resume) ทุกครั้งก่อนเล่น */
+let audio = null;
+function audioCtx(){
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if(!Ctx) return null;
+  if(!audio) audio = new Ctx();
+  if(audio.state === 'suspended'){ try{ audio.resume(); }catch(e){} }
+  return audio;
+}
+/* แตะจอครั้งแรกคือโอกาสเดียวที่เบราว์เซอร์ยอมให้ปลดล็อกเสียง
+   ลูกค้าแตะอยู่แล้วตอนเลือกของ จึงแอบปลดล็อกไว้ตั้งแต่ตอนนั้น
+   ไม่งั้นพอถึงเวลาเตือนจริง — ซึ่งมาจากตัวนับเวลา ไม่ใช่การแตะ — มันจะไม่ยอมส่งเสียง */
+['pointerdown', 'touchstart', 'keydown'].forEach(ev =>
+  addEventListener(ev, () => audioCtx(), { once: true, passive: true }));
+
 // เสียงสองโน้ตไล่ขึ้นเหมือนฝั่งแม่ค้า — ของเสร็จไล่ขึ้น ร้านรับโน้ตเดียวพอ
 function ding(two){
   try{
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if(!Ctx) return;
-    const ac = new Ctx();
+    const ac = audioCtx();
+    if(!ac) return;
     const notes = two ? [[880, 0], [1245, .17]] : [[988, 0]];
     notes.forEach(([hz, at]) => {
       const o = ac.createOscillator(), g = ac.createGain();
@@ -1146,10 +1162,20 @@ function clearTitle(){
   if(titleWas){ document.title = titleWas; titleWas = ''; }
 }
 
-function pushNote(title, body){
+/* **มือถือสั่งแถบแจ้งเตือนผ่าน service worker เท่านั้น** new Notification() ใช้ไม่ได้
+   ฝั่งแม่ค้าเจอข้อนี้มาก่อนแล้ว แต่หน้าลูกค้าลืมทำตาม — มันโยน error แล้วโดน catch กลืนทิ้ง
+   เลยเงียบสนิท ลูกค้าไม่เห็นอะไรเลยทั้งที่กดอนุญาตไปแล้ว */
+async function pushNote(title, body){
   try{
     if(typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-    new Notification(title, { body, tag: 'crepe-order', renotify: true });
+    const opt = {
+      body, tag: 'crepe-mine', renotify: true,
+      icon: 'icons/icon-192.png', badge: 'icons/icon-192.png',
+      data: { url: location.href }        // กดแล้วต้องกลับมาหน้าลูกค้า ไม่ใช่แอปแม่ค้า
+    };
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    if(reg && reg.showNotification){ await reg.showNotification(title, opt); return; }
+    new Notification(title, opt);
   }catch(e){}
 }
 
@@ -1207,6 +1233,14 @@ const liveOrders = () => sentList.filter(x => {
   const o = mineMap[x.id];
   return !o || !DEAD.includes(o.status);
 });
+
+/* ต้องลงทะเบียน service worker ไม่งั้นไม่มีตัวสั่งแถบแจ้งเตือนบนมือถือ
+   (และได้ของแถม: เปิดหน้านี้ตอนเน็ตหลุดได้ เหมือนแอปแม่ค้า)
+   **ไม่สั่งโหลดหน้าใหม่ตอนเจอของใหม่เหมือนฝั่งแม่ค้า** — checkFresh() คุมจังหวะนั้นอยู่แล้ว
+   และห้ามรีเฟรชทับตอนลูกค้ากำลังเลือกของ */
+if('serviceWorker' in navigator && window.isSecureContext){
+  addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+}
 
 /* ===================== เริ่มทำงาน ===================== */
 start();
