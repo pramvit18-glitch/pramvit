@@ -2093,7 +2093,7 @@ function save(){
 function setShopData(data){
   // รหัสช่องรับออเดอร์ผูกกับตัวร้าน ไม่ใช่ข้อมูลในร้าน ถ้าหลุดไป QR ที่ติดหน้าร้านไว้จะตายทันที
   const keep = { id: db.id, shopName: db.shopName, shopBranch: db.shopBranch, shopOpen: db.shopOpen,
-                 orderOn: db.orderOn, orderKey: db.orderKey };
+                 orderOn: db.orderOn, orderKey: db.orderKey, lineUrl: db.lineUrl };
   const next = Object.assign(blank(), data, keep);
   const i = store.shops.findIndex(x => x.id === keep.id);
   if(i >= 0) store.shops[i] = next; else store.shops.push(next);
@@ -2477,6 +2477,76 @@ async function askNotifyOK(){
   catch(e){ return false; }
 }
 
+/* ===================== แจ้งเตือนเข้า LINE =====================
+   **แอปยิงไปหา LINE ตรง ๆ ไม่ได้** เบราว์เซอร์บล็อก (CORS) และถึงยิงได้ก็ไม่ควร
+   เพราะต้องเอากุญแจของ OA มาฝังในหน้าเว็บ ใครเปิดดูโค้ดก็ส่งในนามร้านเราได้
+   จึงมีตัวกลางเล็ก ๆ บน Google Apps Script ถือกุญแจไว้แทน (ดู line-relay.gs)
+
+   **ลิงก์ตัวกลางเก็บในเครื่องอย่างเดียว ห้ามขึ้นคลาวด์เด็ดขาด**
+   ใครได้ลิงก์ไปก็ส่งข้อความเข้าไลน์ร้านได้ · `menuForCustomers()` ต้องไม่มีคำนี้ (มีเทสต์คุม)
+
+   **นี่เป็นของเสริม ไม่ได้มาแทนของเดิม** เสียง · แถบแดง · กันจอดับ · แถบแจ้งเตือนของเครื่อง
+   ยังทำงานเหมือนเดิมทุกอย่าง LINE ส่งไม่ได้ก็ไม่พลาดออเดอร์
+
+   **โควตาแพ็กฟรีของ LINE หมดได้** แล้วมันหยุดส่งเงียบ ๆ ไม่ได้คิดเงินเพิ่ม
+   จึงต้องนับให้ดูและเตือนล่วงหน้า ไม่งั้นแม่ค้าจะนึกว่าวันนี้ไม่มีลูกค้าสั่ง */
+const LINE_MAX  = 300;      // โควตาแพ็กฟรีโดยประมาณ ใช้เตือนล่วงหน้าเท่านั้น
+const LINE_NEAR = 50;       // เหลือเท่านี้เริ่มเตือน
+let lineErr = '';           // เหตุผลที่ส่งไม่สำเร็จครั้งล่าสุด
+
+const lineMonthKey = () => { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`; };
+
+// ขึ้นเดือนใหม่ให้เริ่มนับ 0 ใหม่ เหมือนที่ LINE คืนโควตาให้ทุกเดือน
+function lineUsed(){
+  if(db.lineMonth !== lineMonthKey()){ db.lineMonth = lineMonthKey(); db.lineNo = 0; save(); }
+  return n(db.lineNo);
+}
+
+async function sendLine(text){
+  const url = String(db.lineUrl || '').trim();
+  if(!url) return false;
+  lineUsed();                       // ให้รีเซ็ตตัวนับก่อนถ้าขึ้นเดือนใหม่
+  let res;
+  try{
+    res = await fetch(url, {
+      method: 'POST',
+      /* ต้องเป็น text/plain เท่านั้น ไม่งั้นเบราว์เซอร์ยิง preflight (OPTIONS)
+         ซึ่ง Google Apps Script ตอบไม่ได้ แล้วจะส่งไม่ออกทั้งที่ลิงก์ถูก */
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ text: String(text || '').slice(0, 400) })
+    });
+  }catch(e){
+    lineErr = 'ส่งไม่ถึงตัวกลาง — เน็ตหลุด หรือลิงก์ผิด';
+    return false;
+  }
+  let out = null;
+  try{ out = await res.json(); }catch(e){}
+  if(!out || !out.ok){
+    lineErr = (out && out.why) ? String(out.why) : 'ตัวกลางตอบว่าส่งไม่สำเร็จ';
+    return false;
+  }
+  lineErr = '';
+  db.lineNo = n(db.lineNo) + 1; save();
+  return true;
+}
+
+/* ข้อความที่ส่งเข้า LINE — **มีแต่เรื่องออเดอร์**
+   ห้ามใส่ต้นทุน กำไร หรือยอดขายรวมของวัน เด็ดขาด */
+function lineText(fresh){
+  const o = fresh[0] || {};
+  const what = (o.items || []).map(it => `${it.name} ×${n(it.qty)}`).join(' · ');
+  const head = fresh.length === 1 ? 'มีออเดอร์ใหม่' : `มีออเดอร์ใหม่ ${fresh.length} รายการ`;
+  return [
+    head,
+    o.no ? `คิวที่ ${o.no}` : '',
+    what,
+    `รวม ${baht(n(o.total))} บาท`,
+    o.who ? `ชื่อ ${o.who}` : '',
+    o.note ? `หมายเหตุ ${o.note}` : '',
+    o.paid ? 'ลูกค้าแจ้งว่าโอนแล้ว — ยังต้องเช็กแอปธนาคารก่อนนะ' : ''
+  ].filter(Boolean).join('\n');
+}
+
 async function notifyOrder(count, what){
   if(!('Notification' in window) || Notification.permission !== 'granted') return;
   const title = count === 1 ? 'มีออเดอร์ใหม่จากลูกค้า' : `มีออเดอร์ใหม่ ${count} รายการ`;
@@ -2539,9 +2609,10 @@ async function pollOnce(){
     .sort((a, b) => n(a.at) - n(b.at));
 
   const ids = new Set(list.map(o => o.id));
+  let fresh = [];
   // รอบแรกหลังเปิดแอป ถือว่าทุกอันคือของเก่า ไม่ต้องตีระฆังรัว
   if(seenOrders){
-    const fresh = list.filter(o => o.status === 'new' && !seenOrders.has(o.id));
+    fresh = list.filter(o => o.status === 'new' && !seenOrders.has(o.id));
     if(fresh.length){
       beep();
       ringBell();
@@ -2557,6 +2628,12 @@ async function pollOnce(){
   // ให้เลขตั้งแต่ออเดอร์เข้ามา ไม่ต้องรอแม่ค้ากดรับ
   // แม่ค้าจะได้เรียก "คิวที่ 5" ได้ทันที และลูกค้าเห็นเลขของตัวเองเลยไม่ต้องรอลุ้น
   await numberNewOrders(list);
+
+  /* เด้งเข้า LINE ด้วยถ้าแม่ค้าตั้งไว้
+     **ต้องอยู่หลัง numberNewOrders()** ไม่งั้นข้อความไม่มีเลขคิว เพราะยังไม่ได้แจก
+     (เคยวางไว้ข้างบนคู่กับเสียงเตือน แล้วในไลน์ขึ้นแต่รายการ ไม่บอกว่าคิวที่เท่าไหร่)
+     ไม่ await เพราะห้ามให้รอบถามออเดอร์ช้าลงเพราะรอ LINE */
+  if(fresh.length) sendLine(lineText(fresh));
 
   const changed = JSON.stringify(list) !== JSON.stringify(cloudOrders);
   cloudOrders = list;
@@ -3119,6 +3196,13 @@ function orderSetupDialog(){
                placeholder="เช่น 0812345678 หรือเลขบัตรประชาชน" onchange="setPayId(this.value)">
       </div>
       <p class="hint" style="margin:8px 0 0">${payIdHint()}</p>
+      <div class="f" style="margin-top:14px">
+        <label for="lineBox">ลิงก์แจ้งเตือนเข้า LINE (ไม่ใส่ก็ได้)</label>
+        <input type="url" id="lineBox" value="${esc(db.lineUrl || '')}"
+               placeholder="วางลิงก์ที่ได้จาก Google Apps Script"
+               onchange="setLineUrl(this.value)">
+      </div>
+      <p class="hint" style="margin:8px 0 0">${lineUrlHint()}</p>
       ${on && link ? `<div class="f" style="margin-top:14px">
         <label for="orderLinkBox">ลิงก์สำหรับลูกค้า (เอาไปทำ QR ติดหน้าร้าน)</label>
         <textarea id="orderLinkBox" readonly rows="3"
@@ -3184,6 +3268,43 @@ function payIdHint(){
   if(d.length === 15) return `อ่านเป็น <b>เลขกระเป๋าเงิน</b> ${esc(d)}`;
   if(d.length === 10 || d.length === 11) return `อ่านเป็น <b>เบอร์มือถือ</b> ${esc(d)} · บัญชีนี้ต้องผูกพร้อมเพย์ไว้แล้ว`;
   return `<b>เลขดูแปลก ๆ (${d.length} หลัก)</b> เบอร์มือถือต้อง 10 หลัก เลขบัตรประชาชน 13 หลัก — เช็กอีกทีนะครับ`;
+}
+
+/* ลิงก์ตัวกลางสำหรับส่งแจ้งเตือนเข้า LINE
+   **เก็บในเครื่องอย่างเดียว ไม่ขึ้นคลาวด์** ใครได้ลิงก์ไปก็ส่งข้อความเข้าไลน์ร้านได้ */
+function setLineUrl(v){
+  db.lineUrl = String(v || '').trim();
+  lineErr = '';
+  save(); render();
+  toast(db.lineUrl ? 'บันทึกลิงก์แจ้งเตือน LINE แล้ว — ลองกดส่งข้อความทดสอบดู'
+                   : 'เอาลิงก์แจ้งเตือน LINE ออกแล้ว — เหลือแจ้งเตือนในแอปเหมือนเดิม');
+}
+
+async function testLine(){
+  if(!String(db.lineUrl || '').trim()){ toast('ยังไม่ได้ใส่ลิงก์แจ้งเตือน LINE'); return; }
+  toast('กำลังส่ง…');
+  const ok = await sendLine(`ทดสอบจาก${db.shopName || 'แอปร้าน'} — เห็นข้อความนี้แปลว่าใช้ได้แล้ว`);
+  toast(ok ? 'ส่งแล้ว ลองเปิด LINE ดู' : 'ส่งไม่สำเร็จ — ' + lineErr);
+  orderSetupDialog();
+}
+
+/* บอกตรง ๆ ว่าตอนนี้อยู่ตรงไหน และเหลือโควตาเท่าไหร่
+   **โควตาหมดแล้ว LINE หยุดส่งเงียบ ๆ** ถ้าไม่นับให้ดู แม่ค้าจะนึกว่าวันนี้ไม่มีลูกค้าสั่ง */
+function lineUrlHint(){
+  if(!String(db.lineUrl || '').trim())
+    return 'ยังไม่ได้ใส่ — ออเดอร์ใหม่จะเตือนแค่ในเครื่องนี้ · วิธีทำอยู่ในไฟล์ line-อ่านก่อน.md';
+  const used = lineUsed();
+  const left = LINE_MAX - used;
+  const warn = left <= 0
+    ? `<br><b>เดือนนี้ส่งครบ ${LINE_MAX} ข้อความแล้ว</b> แพ็กฟรีของ LINE จะไม่ส่งให้อีกจนขึ้นเดือนใหม่`
+    : left <= LINE_NEAR
+    ? `<br><b>ใกล้เต็มโควตาแล้ว</b> เหลืออีกราว ${left} ข้อความในเดือนนี้`
+    : '';
+  const bad = lineErr
+    ? `<br><b style="color:var(--bad-ink)">ล่าสุดส่งไม่สำเร็จ:</b> ${esc(lineErr)}` : '';
+  return `ใส่ลิงก์แล้ว ✓ เดือนนี้ส่งไปแล้ว <b>${used}</b> ข้อความ${warn}${bad}
+    <button type="button" class="seeall" style="margin-top:8px"
+            onclick="testLine()">ส่งข้อความทดสอบ</button>`;
 }
 
 async function copyOrderLink(){
