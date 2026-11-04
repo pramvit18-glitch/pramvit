@@ -1691,14 +1691,17 @@
      จอ 1280 - รางเมนู 84 - ช่องไฟ 26 - ขอบ 44 = เนื้อหาราว 1,126px ถึงจะพอแตก 4 คอลัมน์
      เดิมใช้ 1040 แล้วการ์ดเบียดกันหมด (ตอนนั้นยังไม่มี sidebar ด้วยซ้ำ) */
   @media(min-width:1280px){
-    .dash{grid-template-columns:repeat(4,1fr)}
-    .dash-a{grid-column:span 2; grid-row:span 2}
+    /* 3 คอลัมน์ ไม่ใช่ 4 — เพราะแต่ละแท็บย่อยมีการ์ด 2-4 ใบ
+       ถ้าใช้ 4 คอลัมน์จะมีแถวที่เหลือที่ว่างยาวข้างขวาเสมอ ดูเหมือนหน้ายังโหลดไม่เสร็จ
+       จัดเป็น 3 แล้วทุกแท็บลงตัวพอดีแถว: (2+1) และ (1+2) */
+    .dash{grid-template-columns:repeat(3,1fr)}
+    .dash-a{grid-column:span 2}
     .dash-b{grid-column:span 1}
     .dash-c{grid-column:span 1}
     .dash-d{grid-column:span 2}
     .dash-e{grid-column:span 2}
-    .dash-f{grid-column:span 2}
-    .dash-g{grid-column:span 2}
+    .dash-f{grid-column:span 1}
+    .dash-g{grid-column:span 1}
     .dash-h{grid-column:span 2}
     .dash-i{grid-column:span 2}
   }
@@ -1821,16 +1824,19 @@
     /* จอคอมใช้เมนูข้าง (sidebar) แทนแถบเม็ดยาบนหัว — เจ้าของเลือกเอง
        .shell มีลูกตรง ๆ แค่ 3 ตัว (appbar · bottomnav · main) จึงจัดเป็นกริดได้เลย
        ไม่ต้องแก้ HTML — แถบเดิมบนมือถือยังเป็นแถบลอยล่างเหมือนเดิมทุกอย่าง */
+    /* รางเมนูชิดขอบจอซ้ายและยาวเต็มความสูง แบบแอปบนคอมทั่วไป
+       เปลือกจึงต้องกว้างเต็มจอ แล้วไปจำกัดความกว้างที่ "เนื้อหา" แทน
+       (ถ้าจำกัดที่เปลือก รางจะลอยอยู่กลางอากาศ ไม่ชิดขอบ — ลองแล้วดูแปลก) */
     .shell{
-      max-width:1280px; display:grid; align-items:start;
+      max-width:none; display:grid; align-items:start;
       grid-template-columns:84px minmax(0,1fr);
       grid-template-areas:
         "nav head"
         "nav main";
-      gap:0 26px; padding-left:22px; padding-right:22px;
+      gap:0; padding:0;
     }
-    .appbar{grid-area:head; padding:26px 0 10px}
-    main{grid-area:main; padding:0 0 80px}
+    .appbar{grid-area:head; width:100%; max-width:1180px; margin:0 auto; padding:26px 28px 10px}
+    main{grid-area:main; width:100%; max-width:1180px; margin:0 auto; padding:0 28px 80px}
 
     .bottomnav{
       grid-area:nav;
@@ -1838,10 +1844,12 @@
          ไม่งั้นมันเอา left:50% มาใช้ต่อ แล้วเมนูข้างไปโผล่กลางจอทับเนื้อหา (เจอมาแล้ว) */
       /* กดของในกล่องย่อยแล้วต้อง blur() ด้วย (อยู่ที่ onclick) ไม่งั้น :focus-within
          ยังเป็นจริง กล่องเลยค้างเปิดอยู่ทั้งที่เมาส์ออกไปแล้ว */
-      position:sticky; top:22px; left:auto; right:auto; bottom:auto; transform:none;
-      flex-direction:column; align-items:stretch; width:auto; max-width:none;
-      margin:26px 0 0; padding:8px; gap:2px;
-      border-radius:var(--r); background:var(--bg); box-shadow:var(--sh-card);
+      position:sticky; top:0; left:auto; right:auto; bottom:auto; transform:none;
+      flex-direction:column; align-items:stretch; width:84px; max-width:none;
+      height:100dvh; justify-content:flex-start;
+      margin:0; padding:14px 8px; gap:2px;
+      border-radius:0; background:var(--bg);
+      box-shadow:1px 0 0 var(--line), 3px 0 20px rgba(22,24,28,.05);
     }
     .bottomnav > .navitem{flex:0 0 auto}
     .bottomnav button{
@@ -1890,10 +1898,8 @@
     /* การ์ดสูงไม่เท่ากันเป็นเรื่องปกติ ห้ามยืดให้เท่าแถว ไม่งั้นได้กล่องขาวว่างครึ่งใบ */
     .dash{align-items:start}
     .dash-a{grid-row:auto}
-    /* การ์ดกราฟกินเต็มแถว ไม่งั้นเหลือที่ว่างยาวข้างขวาเพราะแท็บนี้มีการ์ดไม่พอดีแถว
-       **แต่ตัวกราฟต้องคุมความกว้างไว้** เพราะเป็น SVG ที่ย่อ-ขยายทั้งภาพ
-       ปล่อยให้กว้าง 1,000px ตัวหนังสือจะโตตามจนเทอะทะ (ลองแล้วเลขขึ้นใหญ่เท่าหัวข้อ) */
-    .dash-d{grid-column:1/-1}
+    /* **ตัวกราฟต้องคุมความกว้างไว้** เพราะเป็น SVG ที่ย่อ-ขยายทั้งภาพ
+       ปล่อยให้กว้างเต็มการ์ด ตัวหนังสือจะโตตามจนเทอะทะ (ลองแล้วเลขขึ้นใหญ่เท่าหัวข้อ) */
     .chart svg{max-width:620px; margin:0 auto}
     /* แท็บย่อยที่มีการ์ดใบเดียว ให้กินเต็มแถว ไม่งั้นได้การ์ดครึ่งจอแล้วว่างอีกครึ่ง */
     .dash > .card:only-child{grid-column:1/-1}
@@ -1915,6 +1921,8 @@
     #homeBody > .wk{grid-area:wk; margin-top:24px}
     #homeBody > #hiliteWrap{grid-area:hil}
     #homeBody > #statusRow{grid-area:status}
+    /* ช่องค้นหาเป็น "ปุ่มกด" ไม่ใช่เนื้อหา ยาวเต็มจอแล้วดูเป็นแถบว่างเปล่า */
+    .hsearch{max-width:620px}
     /* สองแถวนี้ยื่นออกนอกขอบไว้ให้ปัดบนมือถือ พออยู่ในคอลัมน์ต้องดึงกลับ ไม่งั้นล้นออกข้าง */
     .quick, .hil{margin:0; padding-left:0; padding-right:0}
     /* บนมือถือหัวข้อดันปุ่มไปสุดขอบขวา พอแบ่งสองคอลัมน์ ปุ่มจะไปจ่ออยู่ติดปฏิทิน
