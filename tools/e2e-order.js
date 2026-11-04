@@ -753,7 +753,7 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('หน้าแอปวาดขึ้นจริง ไม่ได้ค้างเปล่า',
     (await ask(() => document.getElementById('view').innerHTML.length, 0)) > 500);
   push('ปุ่มแถบล่างใช้ได้ (สคริปต์ไม่ตาย)',
-    (await ask(() => document.querySelectorAll('.bottomnav button').length, 0)) >= 4);
+    (await ask(() => document.querySelectorAll('.bottomnav button[data-tab]').length, 0)) >= 4);
 
   /* ---------- ลิงก์ร้านต้องพารหัสช่องรับออเดอร์ไปด้วย ---------- */
   // ไม่งั้นเครื่องปลายทางสร้างรหัสใหม่ของตัวเอง กลายเป็นคนละช่องกับ QR หน้าร้าน

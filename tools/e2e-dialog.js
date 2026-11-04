@@ -25,7 +25,9 @@ const out=[]; const ok=(n,v)=>out.push([n,!!v]);
   await p.reload(); await p.waitForTimeout(400);
 
   /* ---- 1. กดกากบาทแล้วต้องมีภาพเคลื่อนไหวก่อนปิด ---- */
-  await p.locator('.bottomnav button', {hasText:'ขาย'}).click();
+  /* ต้องเจาะ [data-tab] — ตั้งแต่มีเมนูย่อยบนจอคอม ในแถบเมนูมีปุ่มอื่นปนอยู่ด้วย
+     ข้อความ "ขาย" ไปโดนปุ่ม "ดูย้อนหลังรายวัน · วันไหนขายได้เท่าไหร่" เข้าด้วย แล้วล้มทั้งชุด */
+  await p.locator('.bottomnav button[data-tab]', {hasText:'ขาย'}).click();
   await p.waitForTimeout(400);
   await p.locator('.orderbtn').click();
   await p.waitForTimeout(600);
