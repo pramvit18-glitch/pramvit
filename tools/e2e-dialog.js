@@ -139,6 +139,55 @@ async function tap(loc, why){
     }
   }
 
+  /* ---- 6. พาทัวร์ทีละปุ่ม ----
+     เจ้าของขอมาเอง: "กดมาแล้วบอกว่าปุ่มนี้ต้องทำอะไร แล้วกดถัดไป"
+     ของที่ต้องคุมคือ **ชี้ของจริงและกล่องอธิบายอยู่ในจอ** ไม่ใช่แค่มีโค้ดอยู่ */
+  await p.evaluate(() => { dlg.close(); });
+  await p.waitForTimeout(900);
+  await p.evaluate(() => startTour());
+  await p.waitForTimeout(1600);
+  ok('กดพาทัวร์แล้วตัวคลุมโผล่', await p.locator('#tour').isVisible());
+
+  let steps = 0, offEdge = 0, badHole = 0, titles = [], total = 0;
+  for(let i = 0; i < 14; i++){
+    if(!(await p.locator('#tour').isVisible().catch(() => false))) break;
+    const st = await p.evaluate(() => {
+      const tip = document.getElementById('tourTip');
+      const t = tip.getBoundingClientRect(), h = document.getElementById('tourHole').getBoundingClientRect();
+      return {
+        title: (tip.querySelector('h3') || {}).textContent || '',
+        total: Number(String((tip.querySelector('.tour-no') || {}).textContent || '').split('/')[1] || 0),
+        // กล่องอธิบายต้องอยู่ในจอทั้งใบ ไม่งั้นอ่านไม่จบหรือกดปุ่มไม่ถึง
+        inView: t.top >= 0 && t.bottom <= innerHeight && t.left >= 0 && t.right <= innerWidth,
+        // รูต้องคร่อมของจริง ไม่ใช่ลอยเป็นสี่เหลี่ยมเล็ก ๆ อยู่มุมจอ
+        hole: h.width > 10 && h.height > 10 && h.top > -60 && h.bottom < innerHeight + 60
+      };
+    });
+    steps++; titles.push(st.title); total = st.total || total;
+    if(!st.inView) offEdge++;
+    if(!st.hole) badHole++;
+    if(!await tap(p.locator('#tourTip button', { hasText: /ถัดไป|จบแล้ว/ }), `กดถัดไปที่ขั้น ${steps} ได้`)) break;
+    await p.waitForTimeout(800);
+  }
+  ok(`ทัวร์เดินได้หลายขั้น (${steps} ขั้น)`, steps >= 8);
+  ok('ทุกขั้นมีหัวข้อบอกว่าปุ่มนั้นทำอะไร', titles.every(t => t.trim().length > 2));
+  ok(`ทุกขั้นกล่องอธิบายอยู่ในจอ ไม่ตกขอบ (${offEdge} ขั้นที่ตก)`, offEdge === 0);
+  ok(`ทุกขั้นรูคร่อมของจริง (${badHole} ขั้นที่ไม่คร่อม)`, badHole === 0);
+  ok(`ตัวนับตรงกับจำนวนขั้นที่เดินจริง (ป้ายบอก ${total} เดินได้ ${steps})`, total === steps);
+  ok('กดจนจบแล้วทัวร์ปิดเอง', !(await p.locator('#tour').isVisible().catch(() => false)));
+
+  /* ระหว่างทัวร์ต้องกดทะลุไปโดนของจริงไม่ได้ แม่ค้ามือเปื้อนแป้ง เผลอแตะโดนง่าย */
+  await p.evaluate(() => { go('today'); startTour(); });
+  await p.waitForTimeout(1600);
+  const tabWas = await p.evaluate(() => tab);
+  await p.mouse.click(200, 520);
+  await p.waitForTimeout(400);
+  ok('ระหว่างทัวร์ กดทะลุไปโดนของข้างหลังไม่ได้', await p.evaluate(() => tab) === tabWas);
+  await p.screenshot({ path: S + '/tour-step.png' });
+  await p.evaluate(() => endTour());
+  await p.waitForTimeout(300);
+  ok('กดปิดแล้วทัวร์หายไปจริง', !(await p.locator('#tour').isVisible().catch(() => false)));
+
   ok('ไม่มี error หลุดออกมาเลย', errs.length === 0);
   await b.close();
   let bad=0; out.forEach(([n,v])=>{console.log(`  ${v?'✓':'✗'} ${n}`); if(!v)bad++;});

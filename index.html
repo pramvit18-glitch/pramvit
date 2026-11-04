@@ -1024,6 +1024,36 @@
   .gd-go:active{transform:scale(.96); background:var(--tint)}
   .gd-s summary:active{background:var(--line)}
 
+  /* ---------- พาทัวร์ทีละปุ่ม ----------
+     เจาะรูให้เห็นปุ่มจริงด้วย box-shadow วงใหญ่รอบ ๆ ไม่ต้องวาด canvas หรือ svg
+     ตัวคลุมกินคลิกไว้หมด แม่ค้าจะได้ไม่เผลอกดโดนของจริงระหว่างดูคำอธิบาย */
+  #tour{position:fixed; inset:0; z-index:70}
+  .tour-hole{
+    position:fixed; border-radius:var(--r); pointer-events:none;
+    box-shadow:0 0 0 9999px rgba(18,20,24,.62);
+    transition:top .22s var(--ease), left .22s var(--ease),
+               width .22s var(--ease), height .22s var(--ease);
+  }
+  .tour-tip{
+    position:fixed; background:var(--bg); border-radius:var(--r);
+    box-shadow:var(--sh-lift); padding:15px 17px 13px; width:min(320px, calc(100vw - 32px));
+  }
+  .tour-tip h3{margin:0 0 5px; font-size:16px; font-weight:800; letter-spacing:-.02em}
+  .tour-tip p{margin:0; font-size:13.5px; color:var(--ink-2); line-height:1.6}
+  .tour-foot{display:flex; align-items:center; gap:9px; margin-top:13px}
+  .tour-no{font-size:12px; font-weight:800; color:var(--muted); margin-right:auto}
+  .tour-b{
+    border:none; cursor:pointer; font:inherit; font-weight:800; font-size:13px;
+    border-radius:var(--r-pill); padding:8px 16px;
+    background:var(--soft); color:var(--ink-2);
+    transition:transform var(--tap-out) var(--ease), background .16s;
+  }
+  .tour-b.go{background:var(--brand); color:#fff}
+  .tour-b:active{transform:scale(.95); background:var(--line)}
+  .tour-b.go:active{background:var(--brand-d)}
+  /* เครื่องที่ตั้งให้ลดการเคลื่อนไหว ให้กระโดดไปเลย ไม่ต้องไถ */
+  @media (prefers-reduced-motion: reduce){ .tour-hole{transition:none} }
+
   /* ===================== จอใหญ่: แท็บข้อความใต้หัวข้อ ===================== */
   @media(min-width:760px){
     /* จอกว้างกริดแตกเป็นหลายคอลัมน์ การ์ดใบแรกไม่ได้เต็มแถวแล้ว
@@ -2069,6 +2099,11 @@
   <!-- ออเดอร์ที่ลูกค้าสั่งเข้ามา อยู่บนสุดและอยู่นอก #view จะได้เห็นทุกแท็บ
        แม่ค้ากำลังทอดอยู่หน้าไหนก็เห็น ไม่ต้องเลื่อนหา -->
   <div id="orderInbox"></div>
+  <!-- พาทัวร์ทีละปุ่ม: เจาะรูให้เห็นปุ่มจริง แล้วมีกล่องอธิบายลอยข้าง ๆ -->
+  <div id="tour" hidden>
+    <div class="tour-hole" id="tourHole"></div>
+    <div class="tour-tip" id="tourTip"></div>
+  </div>
   <div class="headline" id="headStat"></div>
   <noscript>
     <div class="card" style="border-color:var(--bad)">
@@ -5001,6 +5036,110 @@ function guideHTML(){
     </details>`).join('')}</div>`;
 }
 
+/* ===================== พาทัวร์ทีละปุ่ม =====================
+   เจ้าของขอมาเอง: "กดมาแล้วบอกว่าปุ่มนี้ต้องทำอะไร แล้วกดถัดไป"
+   ชี้ของจริงบนหน้าจอ ไม่ใช่รูปวาดอธิบาย — แม่ค้าจะได้รู้ว่าปุ่มนั้นอยู่ตรงไหนจริง ๆ
+
+   **ทุกขั้นต้องชี้ของที่มีอยู่จริงและมองเห็นอยู่** ขั้นไหนหาไม่เจอให้ข้ามไปเลย
+   (เช่นกระดิ่งจะโผล่เฉพาะตอนเปิดรับออเดอร์) ไม่งั้นทัวร์จะชี้ไปที่ว่าง ๆ */
+const TOUR = [
+  ['#searchQ', 'ช่องค้นหา',
+   'พิมพ์ชื่อเมนูหรือของที่ซื้อมา แล้วแตะผลที่ขึ้นมาเพื่อเปิดบิลได้เลย'],
+  ['#quickRow', 'เมนูของฉัน',
+   'ทางลัดของเมนูที่ขายบ่อย แตะตรงนี้ทีเดียว แอปเปิดบิลให้เอง ไม่ต้องไปแท็บขาย'],
+  ['#wkStrip', 'แถบวัน',
+   'แตะวันไหนก็ย้อนดูยอดของวันนั้นได้ จุดใต้ตัวเลขแปลว่าวันนั้นมีขาย'],
+  ['#statusRow', 'การ์ดสถานะ',
+   'บอกว่าวันนี้ขายไปกี่บิล ได้เท่าไหร่ และเหลือเข้ากระเป๋าเท่าไหร่'],
+  ['.bottomnav button[data-tab="sale"]', 'ปุ่มขาย',
+   'เปิดบิลขายหน้าร้าน กดเมนูที่ลูกค้าสั่ง เลือกไส้ แล้วกดรับเงิน'],
+  ['.bottomnav button[data-tab="money"]', 'ปุ่มรายจ่าย',
+   'จดเงินที่จ่ายออกไป เช่น ซื้อแป้ง ซื้อไข่ ค่าแก๊ส จะได้รู้กำไรจริง'],
+  ['.bottomnav button[data-tab="hist"]', 'ปุ่มย้อนหลัง',
+   'ดูบิลเก่าทีละใบ กดผิดก็แก้หรือลบทิ้งได้ตรงนี้'],
+  ['.bottomnav button[data-tab="setup"]', 'ปุ่มตั้งค่า',
+   'แก้เมนู ราคา ค่าเช่าค่าไฟ ตั้งรหัสคนดูแล และเปิดให้ลูกค้าสั่งเองผ่าน QR'],
+  ['#bellBtn', 'กระดิ่งออเดอร์',
+   'โผล่ตอนเปิดรับออเดอร์จากลูกค้า แดงพร้อมตัวเลขแปลว่ามีออเดอร์รออยู่'],
+  ['.icon-btn[aria-label="สำรอง / กู้คืนข้อมูล"]', 'ปุ่มสำรองข้อมูล',
+   'กดเก็บข้อมูลไว้เป็นระยะ มือถือหายแล้วจะได้ไม่เสียยอดขายไปทั้งหมด'],
+  ['.icon-btn[aria-label="คู่มือการใช้งาน"]', 'ปุ่มคู่มือ',
+   'ลืมเมื่อไหร่กดอ่านได้ตลอด และกดเรียกทัวร์นี้ซ้ำได้จากในนั้น']
+];
+
+let tourAt = 0, tourSteps = [];
+
+// เห็นอยู่จริงไหม — ของที่ซ่อนอยู่หรือกว้างศูนย์ ชี้ไปก็ไม่มีใครเห็นว่าชี้อะไร
+function tourVisible(sel){
+  const el = document.querySelector(sel);
+  if(!el || el.hidden) return null;
+  const r = el.getBoundingClientRect();
+  return (r.width > 0 && r.height > 0) ? el : null;
+}
+
+function startTour(){
+  dlg.close();
+  go('today');                       // ทุกขั้นแรก ๆ อยู่บนหน้าแรก ต้องพาไปก่อน
+  setTimeout(() => {
+    tourSteps = TOUR.filter(([sel]) => tourVisible(sel));
+    if(!tourSteps.length){ toast('ยังไม่มีอะไรให้พาดูตอนนี้'); return; }
+    tourAt = 0;
+    document.getElementById('tour').hidden = false;
+    document.addEventListener('keydown', tourKey);
+    paintTour();
+  }, 420);
+}
+
+function endTour(){
+  document.getElementById('tour').hidden = true;
+  document.removeEventListener('keydown', tourKey);
+}
+function tourKey(e){ if(e.key === 'Escape') endTour(); }
+function tourGo(d){
+  const next = tourAt + d;
+  if(next < 0) return;
+  if(next >= tourSteps.length) return endTour();
+  tourAt = next;
+  paintTour();
+}
+
+function paintTour(){
+  const [sel, title, text] = tourSteps[tourAt];
+  const el = tourVisible(sel);
+  if(!el) return tourGo(1);          // หายไประหว่างทาง ข้ามไปขั้นถัดไป
+  el.scrollIntoView({ block:'center', behavior:'smooth' });
+
+  // รอให้เลื่อนจอจบก่อนค่อยวัด ไม่งั้นได้ตำแหน่งเก่า กรอบไปคร่อมที่ว่าง
+  setTimeout(() => {
+    const r = el.getBoundingClientRect();
+    const pad = 6;
+    const hole = document.getElementById('tourHole');
+    hole.style.top    = (r.top - pad) + 'px';
+    hole.style.left   = (r.left - pad) + 'px';
+    hole.style.width  = (r.width + pad * 2) + 'px';
+    hole.style.height = (r.height + pad * 2) + 'px';
+
+    const last = tourAt === tourSteps.length - 1;
+    const tip = document.getElementById('tourTip');
+    tip.innerHTML = `<h3>${esc(title)}</h3><p>${esc(text)}</p>
+      <div class="tour-foot">
+        <span class="tour-no">${tourAt + 1} / ${tourSteps.length}</span>
+        ${tourAt > 0 ? '<button type="button" class="tour-b" onclick="tourGo(-1)">ก่อนหน้า</button>' : ''}
+        <button type="button" class="tour-b" onclick="endTour()">ปิด</button>
+        <button type="button" class="tour-b go" onclick="tourGo(1)">${last ? 'จบแล้ว' : 'ถัดไป'}</button>
+      </div>`;
+
+    /* วางกล่องใต้ของที่ชี้ ถ้าข้างล่างไม่พอก็ขึ้นไปอยู่ข้างบน
+       ต้องวัดความสูงจริงหลังใส่ข้อความแล้ว เดาเอาไม่ได้ ข้อความยาวไม่เท่ากัน */
+    const th = tip.offsetHeight, tw = tip.offsetWidth, gap = 12, edge = 16;
+    const below = r.bottom + gap + th + edge <= innerHeight;
+    tip.style.top = (below ? r.bottom + gap : r.top - gap - th) + 'px';
+    let left = r.left + r.width / 2 - tw / 2;
+    left = Math.max(edge, Math.min(left, innerWidth - tw - edge));
+    tip.style.left = left + 'px';
+  }, 260);
+}
+
 function openHelp(){
   const G = [
     ['ต้นทุน', 'เงินค่าของที่ใช้ทำ <b>1 จาน</b> เช่น แป้ง ไข่ นม เนย ไส้ รวมถุงกับกระดาษห่อด้วย'],
@@ -5014,7 +5153,9 @@ function openHelp(){
   openDialog({ icon:'menu',
     title:'คู่มือการใช้งาน',
     sub:'แตะหัวข้อที่อยากรู้ ไม่ต้องอ่านทั้งหมด',
-    html: guideHTML() + `<details class="gd-s" style="margin-top:10px">
+    html: `<button type="button" class="btn primary block" style="margin-bottom:14px"
+        onclick="startTour()">${icon('check',16)} พาทัวร์ทีละปุ่ม — ชี้ให้ดูบนหน้าจอจริง</button>`
+      + guideHTML() + `<details class="gd-s" style="margin-top:10px">
       <summary><span class="gd-n">${GUIDE.length + 1}</span>คำในแอปแปลว่าอะไร</summary>
       <div class="gd-b" style="padding-left:16px">
         <div class="gloss">${G.map(([k,v]) =>
