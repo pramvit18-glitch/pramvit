@@ -61,6 +61,11 @@ const push = (name, v) => { ok.push([name, !!v]); };
 
   /* ---------- เครื่องลูกค้า ---------- */
   const cust = await b.newPage({ viewport:{width:390,height:844}, deviceScaleFactor:2 });
+  await cust.addInitScript(() => {
+    window.__ding = 0; window.__buzz = 0;
+    navigator.vibrate = () => { window.__buzz++; return true; };
+  });
+  const bell = () => cust.evaluate(() => ({ ding: window.__ding, buzz: window.__buzz, title: document.title }));
   await cust.goto(`${APP}/order.html?s=${key}&c=${encodeURIComponent(CLOUD)}`);
   await cust.waitForTimeout(600);
 
@@ -216,6 +221,8 @@ const push = (name, v) => { ok.push([name, !!v]); };
   await seller.screenshot({ path: SHOT + '/seller-order.png' });
 
   /* ---------- แม่ค้ากดรับ ---------- */
+  await cust.evaluate(() => { window.ding = () => { window.__ding++; }; });
+  const bellWas = await bell();          // ต้องนับก่อนแม่ค้าลงมือ
   await seller.evaluate(async () => { await takeOrder(cloudOrders[0].id); });
   await seller.waitForTimeout(400);
   // เลขของใบนี้ต้องไม่เปลี่ยนตอนกดรับ (ลูกค้าเห็นเลขไปแล้วตั้งแต่สั่ง)
@@ -224,6 +231,11 @@ const push = (name, v) => { ok.push([name, !!v]); };
 
   await cust.evaluate(() => refreshMine());
   await cust.waitForTimeout(500);
+  /* ลูกค้าเดินไปนั่งรอ ไม่ได้จ้องจอ — ร้านกดรับแล้วต้องมีอะไรบอก
+     ของเดิมหน้าจอเปลี่ยนเองเฉย ๆ ไม่มีเสียง ไม่มีสั่น ไม่มีอะไรเลย */
+  const bellCook = await bell();
+  push('ร้านกดรับแล้ว ลูกค้าได้ยินเสียงเตือน', bellCook.ding > bellWas.ding);
+  push('ร้านกดรับแล้ว เครื่องลูกค้าสั่นด้วย', bellCook.buzz > bellWas.buzz);
   const qtxt = await cust.textContent('.head-q');
   push('ลูกค้าเห็นเลขคิวของตัวเอง', qtxt.includes('1'));
   push('ลูกค้าเห็นว่ากำลังทำอยู่', (await cust.textContent('.steps')).includes('กำลังทำ'));
@@ -308,6 +320,12 @@ const push = (name, v) => { ok.push([name, !!v]); };
   await cust.screenshot({ path: SHOT + '/cust-queue.png' });
 
   /* ---------- เสร็จ + รับเงิน ---------- */
+  // จำลองว่าลูกค้าสลับไปแอปอื่น (ของจริงเป็นแบบนี้เกือบทุกคน) แล้วนับก่อนแม่ค้ากด
+  await cust.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { get: () => true, configurable: true });
+  });
+  const bellWas2 = await bell();
+  await cust.evaluate(() => { window.__push = []; window.pushNote = (t, b2) => window.__push.push(t + ' | ' + b2); });
   const before = await seller.evaluate(() => (db.sales||[]).length);
   await seller.evaluate(async () => { await finishOrder(cloudOrders[0].id); });
   await seller.waitForTimeout(400);
@@ -320,6 +338,36 @@ const push = (name, v) => { ok.push([name, !!v]); };
 
   await cust.evaluate(() => refreshMine());
   await cust.waitForTimeout(400);
+  const bellDone = await bell();
+  push('ของเสร็จแล้ว ลูกค้าได้ยินเสียงเตือน', bellDone.ding > bellWas2.ding);
+  push('ของเสร็จแล้ว เครื่องลูกค้าสั่นด้วย', bellDone.buzz > bellWas2.buzz);
+  /* สลับไปแอปอื่นแล้วเสียงอาจถูกเบราว์เซอร์หรี่ ชื่อแท็บจึงต้องบอกด้วย
+     เห็นได้โดยไม่ต้องขออนุญาตอะไรเลย */
+  push(`สลับไปแอปอื่นแล้ว ชื่อแท็บบอกว่าของเสร็จ (${bellDone.title})`,
+    /เสร็จ/.test(bellDone.title));
+  /* ปิดจอไปเลยก็ยังต้องรู้ — แถบแจ้งเตือนของเครื่องเป็นทางเดียวที่ถึงตัว
+     (ลูกค้าต้องกดอนุญาตเองก่อน ไม่เด้งขอเอง) */
+  const liveLeft = await cust.evaluate(() => liveOrders().length);
+  const pushed = await cust.evaluate(() => window.__push || []);
+  push(`ของเสร็จแล้วยิงแถบแจ้งเตือนของเครื่องด้วย (${(pushed[0]||'-').slice(0,40)})`,
+    pushed.length === 1 && /เสร็จ/.test(pushed[0]));
+
+  /* อนุญาตแล้วต้องบอกลูกค้าว่าเปิดไว้แล้ว ไม่ใช่ชวนกดซ้ำไปเรื่อย ๆ
+     และตอนยังไม่อนุญาต (หรือปิดไปแล้ว) ต้องไม่ตื๊อ */
+  await cust.context().grantPermissions(['notifications'], { origin: APP });
+  await cust.evaluate(() => drawMine());
+  await cust.waitForTimeout(300);
+  const noteTxt = await cust.textContent('#view');
+  push('อนุญาตแจ้งเตือนแล้ว หน้าลูกค้าบอกว่าเปิดไว้แล้ว',
+    !liveLeft || /เปิดแจ้งเตือนไว้แล้ว/.test(noteTxt));
+  // กลับมามองจอแล้วชื่อแท็บต้องคืนเดิม ไม่ค้างเป็นกระดิ่งตลอดกาล
+  await cust.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { get: () => false, configurable: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await cust.waitForTimeout(300);
+  push('กลับมามองจอแล้ว ชื่อแท็บคืนเป็นของเดิม',
+    !/เสร็จ/.test((await bell()).title));
   // ของเสร็จแล้วต้องไม่มีภาพกำลังทำค้างอยู่
   push('ของเสร็จแล้ว ภาพเตาหายไป', await cust.locator('.cookpic').count() === 0);
   const doneTxt = await cust.textContent('#view');

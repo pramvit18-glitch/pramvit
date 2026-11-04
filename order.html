@@ -535,7 +535,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v155';
+const PAGE_VER = 'crepe-cost-v157';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -677,6 +677,7 @@ const SVG = {
   chev:'<path d="m9 5 7 7-7 7"/>',
   x:'<path d="M6 6l12 12M18 6 6 18"/>',
   qr:'<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20h.01"/>',
+  bell:'<path d="M18 15.5V11a6 6 0 0 0-12 0v4.5L4.5 18h15L18 15.5Z"/><path d="M10 21h4"/>',
   alert:'<path d="M12 9v5"/><path d="M12 17.5h.01"/><path d="M10.3 3.9 2.6 17.1A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.9L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
   trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   today:'<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/>',
@@ -1097,6 +1098,101 @@ let sentList = [];        // [{id, at}] ออเดอร์ที่ส่ง�
 let mineMap = {};         // {id: ออเดอร์ที่อ่านกลับมาจากที่เก็บ}
 let mode = 'menu';        // 'menu' = กำลังเลือกของ · 'queue' = กำลังดูคิวของตัวเอง
 let poll = null;
+
+/* ===================== บอกลูกค้าเมื่อสถานะเปลี่ยน =====================
+   เจ้าของขอมาเอง: ร้านกดรับ / ทำเสร็จ ลูกค้าควรรู้ด้วย
+   ของเดิมหน้าจอเปลี่ยนเองเฉย ๆ **ลูกค้าต้องจ้องจออยู่ถึงจะรู้**
+   ซึ่งไม่มีใครทำ — เขาไปนั่งรอ เล่นมือถือ คุยกับเพื่อน
+
+   บอก 3 ทางพร้อมกัน เพราะแต่ละทางมีข้อจำกัดคนละแบบ:
+   1. เสียง + สั่น — ใช้ได้เลยไม่ต้องขออนุญาต แต่ต้องเปิดหน้านี้ค้างไว้
+   2. ชื่อแท็บเปลี่ยนเป็น "ของเสร็จแล้ว!" — เห็นตอนสลับแอปแล้วมองแถบแท็บ ไม่ต้องขออนุญาตเหมือนกัน
+   3. แถบแจ้งเตือนของเครื่อง — ทางเดียวที่ถึงตัวตอนปิดจอ **แต่ต้องกดขออนุญาตเอง**
+      **ห้ามเด้งขออนุญาตเอง** ลูกค้าเพิ่งเข้าเว็บร้านครั้งแรก เจอกล่องขออนุญาตทันทีคือกดปฏิเสธ
+      จึงทำเป็นปุ่มให้กดเอง · **บนไอโฟนใช้ไม่ได้** ถ้าไม่ได้ติดตั้งเป็นแอปก่อน (ข้อจำกัดของ iOS) */
+const SEEN_ST = {};       // {id: สถานะล่าสุดที่บอกลูกค้าไปแล้ว}
+let titleWas = '';
+
+function buzz(long){
+  try{ if(navigator.vibrate) navigator.vibrate(long ? [120, 70, 120] : 90); }catch(e){}
+}
+
+// เสียงสองโน้ตไล่ขึ้นเหมือนฝั่งแม่ค้า — ของเสร็จไล่ขึ้น ร้านรับโน้ตเดียวพอ
+function ding(two){
+  try{
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if(!Ctx) return;
+    const ac = new Ctx();
+    const notes = two ? [[880, 0], [1245, .17]] : [[988, 0]];
+    notes.forEach(([hz, at]) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      const t = ac.currentTime + at;
+      o.type = 'sine'; o.frequency.value = hz;
+      g.gain.setValueAtTime(.001, t);
+      g.gain.exponentialRampToValueAtTime(.3, t + .02);
+      g.gain.exponentialRampToValueAtTime(.001, t + .35);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t); o.stop(t + .42);
+    });
+  }catch(e){}
+}
+
+/* ชื่อแท็บ — คืนค่าเดิมเมื่อลูกค้ากลับมามองจอ ไม่ใช่ค้างไว้ตลอดกาล */
+function flagTitle(txt){
+  if(!titleWas) titleWas = document.title;
+  document.title = txt;
+}
+function clearTitle(){
+  if(titleWas){ document.title = titleWas; titleWas = ''; }
+}
+
+function pushNote(title, body){
+  try{
+    if(typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    new Notification(title, { body, tag: 'crepe-order', renotify: true });
+  }catch(e){}
+}
+
+// ลูกค้ากดเอง ถึงจะขออนุญาต — เด้งขึ้นมาเองคือโดนปฏิเสธแน่นอน
+function askNote(){
+  try{
+    if(typeof Notification === 'undefined') return;
+    Notification.requestPermission().then(() => { if(mode === 'queue') drawMine(); });
+  }catch(e){}
+}
+
+const noteState = () => {
+  if(typeof Notification === 'undefined') return 'none';     // เบราว์เซอร์ไม่รองรับ (ไอโฟนที่ไม่ได้ติดตั้งแอป)
+  return Notification.permission;                            // granted · denied · default
+};
+
+/* เรียกทุกครั้งที่อ่านสถานะใหม่มาได้ — บอกเฉพาะตอน "เปลี่ยน" ไม่ใช่ทุกรอบที่ถาม
+   ไม่งั้นลูกค้าโดนเสียงทุก 4 วินาทีจนรำคาญแล้วปิดหน้าไปเลย */
+function tellMine(){
+  sentList.forEach(x => {
+    const o = mineMap[x.id];
+    if(!o || !o.status) return;
+    if(SEEN_ST[x.id] === o.status) return;
+    const first = SEEN_ST[x.id] === undefined;
+    SEEN_ST[x.id] = o.status;
+    if(first) return;              // รอบแรกที่เห็นออเดอร์ ไม่ใช่การเปลี่ยนสถานะ
+    const q = o.no ? 'คิวที่ ' + o.no : 'ออเดอร์ของคุณ';
+    if(o.status === 'cook'){
+      ding(false); buzz(false);
+      if(document.hidden) flagTitle('👨‍🍳 ร้านกำลังทำแล้ว');
+      pushNote('ร้านรับออเดอร์แล้ว', q + ' กำลังทำอยู่ รออีกสักครู่นะครับ');
+    } else if(o.status === 'done'){
+      ding(true); buzz(true);
+      if(document.hidden) flagTitle('🔔 ของเสร็จแล้ว!');
+      pushNote('ของเสร็จแล้ว!', q + ' มารับที่ร้านได้เลยครับ');
+    } else if(o.status === 'rej'){
+      ding(false); buzz(true);
+      if(document.hidden) flagTitle('ร้านรับไม่ไหว');
+      pushNote('ทางร้านรับออเดอร์ไม่ไหว', q + ' ขออภัยด้วยนะครับ');
+    }
+  });
+}
+
 let goneNote = 0;         // ทางร้านเพิ่งเอาออเดอร์ออกไปกี่ใบ — บอกลูกค้าครั้งเดียวพอ
 
 const SENT_KEY = 'crepe-order-sent-' + SHOP;
@@ -1119,7 +1215,9 @@ async function start(){
   el('appbarIc').innerHTML = icon('cart', 20);
   checkFresh();
   // ลูกค้าเก็บมือถือเข้ากระเป๋าแล้วหยิบมาดูใหม่ = จังหวะที่ปลอดภัยที่สุดที่จะโหลดของใหม่
-  document.addEventListener('visibilitychange', () => { if(!document.hidden) checkFresh(); });
+  document.addEventListener('visibilitychange', () => {
+    if(!document.hidden){ checkFresh(); clearTitle(); }
+  });
   await findBase();
 
   if(!SHOP || !BASE){
@@ -1601,6 +1699,7 @@ async function refreshMine(){
   // ไม่เหลือออเดอร์สักใบ = พากลับไปหน้าเลือกของ ไม่ใช่ค้างอยู่หน้าคิวเปล่า ๆ
   if(!sentList.length){ clearInterval(poll); backToMenu(); return; }
 
+  tellMine();
   if(mode === 'queue') drawMine(); else draw();
   if(!liveOrders().length) clearInterval(poll);
 }
@@ -1616,6 +1715,22 @@ function goneNoteHTML(){
 }
 
 const STEPS = [['new','ส่งแล้ว'], ['cook','กำลังทำ'], ['done','รับได้เลย']];
+
+function noteRowHTML(){
+  if(!liveOrders().length) return '';          // ไม่มีอะไรให้รอแล้ว ไม่ต้องชวน
+  const st = noteState();
+  if(st === 'none' || st === 'denied') return '';
+  if(st === 'granted') return `<div class="card">
+    <div class="note">${icon('check',17)}<span>เปิดแจ้งเตือนไว้แล้ว
+      เดินไปนั่งรอได้เลย ของเสร็จเมื่อไหร่จะเด้งบอกครับ</span></div>
+  </div>`;
+  return `<div class="card">
+    <div class="note">${icon('bell',17)}<span><b>ไม่อยากนั่งจ้องจอ?</b>
+      เปิดแจ้งเตือนไว้ เดี๋ยวของเสร็จแล้วเด้งบอกเอง</span></div>
+    <button class="btn primary block" style="margin-top:12px" onclick="askNote()">
+      ${icon('bell',16)} เตือนฉันตอนของเสร็จ</button>
+  </div>`;
+}
 
 function drawMine(){
   el('foot').hidden = false;
@@ -1637,6 +1752,7 @@ function drawMine(){
       </div>
     </div>
     ${sentList.map(x => queueCard(mineMap[x.id])).join('')}
+    ${noteRowHTML()}
     <div class="card">
       <button class="btn ghost block" onclick="backToMenu()">${icon('plus',16)} สั่งเพิ่มอีกออเดอร์</button>
     </div>`;
