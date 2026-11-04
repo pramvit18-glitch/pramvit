@@ -419,6 +419,17 @@
   }
   /* สลิปซ้ำ = แดงเต็ม ต้องสะดุดตากว่าป้ายอื่นทั้งหมดบนการ์ด */
   .ord-slip.dup{background:var(--bad-bg); color:var(--bad-ink)}
+  /* แม่ค้าเช็กแอปธนาคารแล้วกดยืนยันเอง — เขียวเข้มได้ เพราะคนเช็กแล้วจริง
+     ต่างจากป้าย "ลูกค้าแจ้งว่าโอนแล้ว" ที่เป็นแค่คำบอกเล่าของลูกค้า */
+  .ord-paid.ok{background:var(--good); color:#fff}
+  .ord-paid.no{background:var(--bad); color:#fff}
+  /* ยอดที่ต้องได้ ต้องอ่านง่ายกว่าทุกอย่างในกล่อง จะได้เทียบกับสลิปได้เร็ว */
+  .slipwant{
+    display:flex; align-items:baseline; justify-content:center; gap:8px;
+    background:var(--soft); border-radius:var(--r); padding:10px 14px; margin-bottom:12px;
+  }
+  .slipwant span{font-size:12.5px; font-weight:800; color:var(--muted)}
+  .slipwant b{font-size:26px; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
   .slipview{text-align:center; min-height:180px}
   /* สลิปเป็นรูปแนวตั้งยาว ถ้าปล่อยเต็มความสูงมันดันทุกอย่างตกจอ
      จำกัดไว้ครึ่งจอ แตะที่รูปเพื่อเปิดดูเต็ม ๆ ในแท็บใหม่ได้ */
@@ -2813,18 +2824,26 @@ function rememberSlip(o){
 async function viewSlip(id){
   const o = cloudOrders.find(x => x.id === id);
   const dup = o && o.slip ? slipSeenBefore(o.slip, id) : null;
+  const done = o ? n(o.chk) : 0;
   openDialog({ icon:'cart', title:'สลิปที่ลูกค้าแนบมา',
-    sub: o ? `${money(n(o.total))}${o.who ? ' · ' + esc(o.who) : ''}` : '',
+    sub: o ? `คิวที่ ${esc(String(o.no || '–'))}${o.who ? ' · ' + esc(o.who) : ''}` : '',
     /* คำเตือนต้องอยู่ **เหนือรูป** รูปสลิปสูงกว่าจอ ถ้าเอาไว้ใต้รูป
        แม่ค้าต้องเลื่อนลงไปหา แล้วจะไม่มีใครเห็น — เท่ากับไม่ได้เตือน */
     html:`${dup ? `<div class="note bad" style="margin-bottom:12px">${icon('alert',17)}<span>
         <b>สลิปใบนี้เคยใช้มาแล้ว</b> เมื่อ ${esc(whenText(dup.at))} ยอด ${money(dup.total)}<br>
         อาจเป็นการเอาสลิปเดิมมาใช้ซ้ำ — เช็กแอปธนาคารให้ดีก่อนนะครับ
       </span></div>` : ''}
+      <div class="slipwant"><span>ยอดที่ต้องได้</span><b>${money(n(o && o.total))}</b></div>
       <div id="slipBox" class="slipview"><div class="empty"><p>กำลังโหลดรูป…</p></div></div>
       <p class="hint" style="margin:12px 0 0"><b>สลิปปลอมทำได้เหมือนจริงมาก</b>
-        รูปนี้ใช้ดูประกอบเฉย ๆ ยืนยันเงินเข้าได้จากแอปธนาคารอย่างเดียว</p>`,
-    foot:[{label:'ปิด', cls:'primary wide', fn:'dlg.close()'}]
+        รูปนี้ใช้ดูประกอบเฉย ๆ ยืนยันเงินเข้าได้จากแอปธนาคารอย่างเดียว
+        ${done ? '' : '<br>เปิดแอปธนาคารดูว่าเงินเข้าจริงไหม แล้วกดบอกข้างล่างไว้ จะได้ไม่ต้องเช็กซ้ำ'}</p>`,
+    /* ปุ่มสองปุ่มนี้ **ไม่ได้ตรวจอะไรให้** แม่ค้าเป็นคนเช็กแอปธนาคารเอง
+       แอปแค่จำผลไว้ จะได้ไม่ต้องเช็กซ้ำ และไม่เผลอทอดให้ใบที่เงินยังไม่เข้า */
+    foot: done
+      ? [{label:'ปิด', cls:'primary wide', fn:'dlg.close()'}]
+      : [{label:'ยอดไม่ตรง', cls:'ghost danger', fn:`markPaidChecked('${jsq(id)}', -1)`},
+         {label:'ยอดตรง · เช็กแล้ว', cls:'primary', fn:`markPaidChecked('${jsq(id)}', 1)`}]
   });
   let img = null;
   try{ img = await cloudReq('GET', `s/${db.orderKey}/slips/${id}`); }catch(e){}
@@ -2834,6 +2853,20 @@ async function viewSlip(id){
     ? `<img src="${esc(img)}" alt="สลิปที่ลูกค้าแนบ" onclick="openSlipFull()">
        <p class="hint" style="margin:8px 0 0">แตะที่รูปเพื่อดูใหญ่เต็มจอ</p>`
     : `<div class="empty"><p>โหลดรูปไม่ขึ้น — อาจส่งไม่ถึงตอนเน็ตหลุด หรือถูกลบไปแล้ว</p></div>`;
+}
+
+/* จำผลที่แม่ค้าเช็กแอปธนาคารมา — **ไม่ใช่แอปตรวจให้** คนเป็นคนตรวจ
+   มีไว้เพื่อ 1) ไม่ต้องเช็กซ้ำใบเดิม 2) ใบที่ยอดไม่ตรงจะขึ้นป้ายแดงกันเผลอทอด
+   เก็บขึ้นที่เก็บด้วย เครื่องอื่นของร้าน (ถ้ามี) จะได้เห็นตรงกัน */
+async function markPaidChecked(id, val){
+  const o = cloudOrders.find(x => x.id === id);
+  if(!o) return;
+  o.chk = val;
+  dlg.close();
+  render();
+  toast(val > 0 ? 'บันทึกแล้ว เงินเข้าจริง' : 'บันทึกแล้ว ยอดไม่ตรง — อย่าเพิ่งทำ');
+  try{ await cloudReq('PATCH', `s/${db.orderKey}/orders/${id}`, { chk: val }); }
+  catch(e){ toast('บันทึกขึ้นที่เก็บไม่สำเร็จ เน็ตอาจหลุด'); }
 }
 
 /* เปิดรูปเต็มจอในแท็บใหม่ — สลิปตัวหนังสือเล็ก ย่อไว้ครึ่งจอแล้วอ่านเลขอ้างอิงไม่ออก
@@ -2978,8 +3011,14 @@ function orderRowHTML(o){
   /* ลูกค้ากด "จ่ายแล้ว" มาเอง — **แอปเช็กเงินเข้าแทนไม่ได้**
      ป้ายนี้บอกแค่ว่าลูกค้าแจ้งว่าจ่าย แม่ค้าต้องเปิดแอปธนาคารดูเองก่อนลงมือทอด
      เขียนให้ชัดว่า "แจ้งว่า" ไม่ใช่ "จ่ายแล้ว" เฉย ๆ จะได้ไม่เผลอเชื่อ */
+  /* n(o.chk): 1 = แม่ค้าเช็กแอปธนาคารแล้วยอดตรง · -1 = เช็กแล้วยอดไม่ตรง · ไม่มี = ยังไม่ได้เช็ก */
+  const chk = n(o.chk);
   const paidTag = o.paid
-    ? `<span class="ord-paid">${icon('check',13)} ลูกค้าแจ้งว่าโอนแล้ว ${money(n(o.total))} · เช็กแอปธนาคารก่อนนะ</span>`
+    ? (chk > 0
+        ? `<span class="ord-paid ok">${icon('check',13)} เช็กแล้ว เงินเข้าจริง ${money(n(o.total))}</span>`
+        : chk < 0
+        ? `<span class="ord-paid no">${icon('alert',13)} ยอดไม่ตรง! ยังไม่ได้เงิน · อย่าเพิ่งทำ</span>`
+        : `<span class="ord-paid">${icon('check',13)} ลูกค้าแจ้งว่าโอนแล้ว ${money(n(o.total))} · เช็กแอปธนาคารก่อนนะ</span>`)
     : '';
 
   // สลิปซ้ำต้องเตือนตั้งแต่บนการ์ด ไม่ต้องรอให้กดเข้าไปดู

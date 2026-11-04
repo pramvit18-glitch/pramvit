@@ -248,6 +248,51 @@ const IMG_C  = SLIPS.c;
   await seller.evaluate(() => dlg.close());
   await seller.waitForTimeout(900);
 
+  /* ---------- แม่ค้าเช็กแอปธนาคารแล้วกดบอกว่ายอดตรงไหม ----------
+     แอป **ไม่ได้ตรวจสลิปให้** คนเป็นคนตรวจ แอปแค่จำผลไว้
+     เพื่อไม่ต้องเช็กซ้ำ และกันเผลอทอดใบที่เงินยังไม่เข้า */
+  const salesBefore = await seller.evaluate(() => (db.sales || []).length);
+  await tap(seller.locator('.ord-slip'), 'มีปุ่มดูสลิปให้กดเช็กยอด');
+  await seller.waitForTimeout(900);
+  const want = await seller.textContent('#dlg');
+  push('กล่องบอกยอดที่ต้องได้ชัด ๆ จะได้เทียบกับสลิป', want.includes('ยอดที่ต้องได้'));
+  push('บอกให้ไปเปิดแอปธนาคารดูก่อน', want.includes('เปิดแอปธนาคารดูว่าเงินเข้าจริงไหม'));
+  push('มีปุ่มให้บอกว่ายอดตรง', await seller.locator('#dlg button', { hasText:'ยอดตรง' }).count() === 1);
+  push('มีปุ่มให้บอกว่ายอดไม่ตรง', await seller.locator('#dlg button', { hasText:'ยอดไม่ตรง' }).count() === 1);
+
+  const firstId = await seller.evaluate(() => cloudOrders.find(x => x.slip).id);
+  await tap(seller.locator('#dlg button', { hasText:'ยอดตรง' }), 'กดบอกว่ายอดตรงได้');
+  await seller.waitForTimeout(1200);
+  push('กดแล้วการ์ดเปลี่ยนเป็นเช็กแล้ว ไม่ใช่ "ลูกค้าแจ้งว่า" เหมือนเดิม',
+    (await seller.textContent('#view')).includes('เช็กแล้ว เงินเข้าจริง'));
+  push('ป้ายเช็กแล้วเป็นเขียวเข้ม ต่างจากป้ายที่ลูกค้าแจ้งเอง',
+    await seller.locator('.ord-paid.ok').count() === 1);
+  const saved = await get(`s/${KEY}/orders/${firstId}`);
+  push('ที่เก็บจำว่ายอดตรง', !!saved && saved.chk === 1);
+  push('เช็กยอดแล้วต้องไม่ไปแตะยอดขาย',
+    await seller.evaluate(() => (db.sales || []).length) === salesBefore);
+
+  // เปิดดูซ้ำ ต้องไม่ถามอีก
+  await tap(seller.locator('.ord-slip').first(), 'เปิดดูสลิปใบเดิมซ้ำได้');
+  await seller.waitForTimeout(900);
+  push('ใบที่เช็กแล้ว เปิดดูซ้ำไม่ถามอีก',
+    await seller.locator('#dlg button', { hasText:'ยอดตรง' }).count() === 0);
+  await seller.evaluate(() => dlg.close());
+  await seller.waitForTimeout(900);
+
+  // อีกใบกดว่ายอดไม่ตรง
+  const others = seller.locator('.ord-slip').nth(1);
+  if(await seller.locator('.ord-slip').count() > 1){
+    await others.click();
+    await seller.waitForTimeout(900);
+    await tap(seller.locator('#dlg button', { hasText:'ยอดไม่ตรง' }), 'กดบอกว่ายอดไม่ตรงได้');
+    await seller.waitForTimeout(1200);
+    push('ยอดไม่ตรงขึ้นป้ายแดงกันเผลอทอด',
+      (await seller.textContent('#view')).includes('ยอดไม่ตรง')
+      && await seller.locator('.ord-paid.no').count() === 1);
+  } else push('มีออเดอร์ใบที่สองให้ทดสอบยอดไม่ตรง', false);
+  await seller.screenshot({ path: SHOT + '/slip-checked.png' });
+
   /* ---------- ใบเดิมที่โดนบีบอัดจนพิกเซลเพี้ยน ก็ยังต้องจับได้ ---------- */
   await cust.evaluate(() => { try{ localStorage.clear(); }catch(e){} });
   await toPay();
