@@ -71,6 +71,22 @@ const get = p => fetch(`${CLOUD}/${p}.json`).then(r => r.json());
 
   /* ---------- เครื่องแม่ค้า ---------- */
   const seller = await b.newPage({ viewport:{width:390,height:844}, deviceScaleFactor:2 });
+
+  /* จำลอง "สลับไปเล่นแอปอื่น"
+     ลองใช้วิธีเปิดอีกแท็บแล้วดึงขึ้นหน้าแล้ว (bringToFront) **ใช้ไม่ได้ในเบราว์เซอร์แบบไม่มีจอ**
+     ทุกแท็บรายงานว่าเห็นอยู่หมด จึงต้องทับค่า document.hidden เอาแล้วยิง visibilitychange
+     ซึ่งเป็นเหตุการณ์เดียวกับที่เบราว์เซอร์จริงยิงตอนสลับแอป */
+  const setHidden = async v => {
+    await seller.evaluate(h => {
+      Object.defineProperty(document, 'hidden', { get: () => h, configurable: true });
+      Object.defineProperty(document, 'visibilityState',
+        { get: () => (h ? 'hidden' : 'visible'), configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    }, v);
+    await seller.waitForTimeout(400);
+  };
+  const lookAway = () => setHidden(true);
+  const lookBack = () => setHidden(false);
   seller.on('pageerror', e => push('แอปแม่ค้าตาย: ' + e.message.slice(0,60), false));
 
   await seller.goto(APP + '/index.html');
@@ -124,12 +140,25 @@ const get = p => fetch(`${CLOUD}/${p}.json`).then(r => r.json());
   await seller.waitForTimeout(900);
   push('รอบแรกหลังเปิดแอปยังไม่เด้ง LINE (ไม่ใช่ออเดอร์ใหม่)', got.length === 0);
 
+  /* กำลังเปิดแอปค้างอยู่ = มีเสียงกับแถบแดงเตือนให้แล้ว ไม่ต้องเปลืองโควตา LINE */
+  await lookBack();
+  push('ตอนนี้กำลังมองแอปอยู่จริง', await seller.evaluate(() => document.hidden) === false);
+  await cust.evaluate(() => { try{ localStorage.clear(); }catch(e){} });
+  await order();
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(1200);
+  push('เปิดแอปค้างอยู่ ไม่ต้องส่ง LINE (ประหยัดโควตา)', got.length === 0);
+
+  /* สลับไปเล่นแอปอื่น = ไม่เห็นแถบแดง ไม่ได้ยินเสียง ต้องเด้งเข้า LINE */
+  await lookAway();
+  push('จำลองสลับไปแอปอื่นได้ แอปร้านรู้ตัวว่าถูกบัง',
+    await seller.evaluate(() => document.hidden) === true);
   await cust.evaluate(() => { try{ localStorage.clear(); }catch(e){} });
   await order();
   await seller.evaluate(() => pollOrders());
   await seller.waitForTimeout(1200);
 
-  push('มีออเดอร์ใหม่แล้วส่งเข้า LINE จริง', got.length === 1);
+  push('สลับไปแอปอื่นแล้วมีออเดอร์ใหม่ ส่งเข้า LINE จริง', got.length === 1);
   const msg = sent(0);
   push('ข้อความบอกว่ามีออเดอร์ใหม่', msg.includes('มีออเดอร์ใหม่'));
   push('บอกเลขคิว แม่ค้าเรียกได้เลย', /คิวที่ \d+/.test(msg));
@@ -160,14 +189,18 @@ const get = p => fetch(`${CLOUD}/${p}.json`).then(r => r.json());
 
   /* ---------- ปุ่มส่งข้อความทดสอบ ---------- */
   const before = got.length;
+  await lookBack();
   await seller.evaluate(() => { db.lineNo = 0; save(); orderSetupDialog(); });
   await seller.waitForTimeout(900);
   push('หน้าตั้งค่ามีช่องใส่ลิงก์แจ้งเตือน LINE', await seller.locator('#lineBox').count() === 1);
   push('หน้าตั้งค่าบอกว่าเดือนนี้ส่งไปกี่ข้อความ',
     (await seller.textContent('#dlg')).includes('เดือนนี้ส่งไปแล้ว'));
+  push('หน้าตั้งค่าบอกกติกาว่าส่งเฉพาะตอนไม่ได้เปิดแอปค้างไว้',
+    (await seller.textContent('#dlg')).includes('เฉพาะตอนไม่ได้เปิดแอปนี้ค้างไว้'));
   await tap(seller.locator('#dlg button', { hasText:'ส่งข้อความทดสอบ' }), 'มีปุ่มส่งข้อความทดสอบ');
   await seller.waitForTimeout(1500);
-  push('กดทดสอบแล้วส่งถึงตัวกลางจริง', got.length === before + 1);
+  // ปุ่มทดสอบต้องส่งได้แม้กำลังเปิดแอปอยู่ ไม่งั้นแม่ค้ากดแล้วงงว่าทำไมไม่มีอะไรเด้ง
+  push('กดทดสอบแล้วส่งถึงตัวกลางจริง แม้กำลังเปิดแอปอยู่', got.length === before + 1);
   push('ข้อความทดสอบบอกว่าเป็นการทดสอบ',
     sent(-1).includes('ทดสอบ'));
 
@@ -208,6 +241,7 @@ const get = p => fetch(`${CLOUD}/${p}.json`).then(r => r.json());
   /* ---------- ตัวกลางล่ม ต้องไม่ลามไปทำออเดอร์พัง ---------- */
   mode = 'ok';
   await new Promise(r => relay.close(r));
+  await lookAway();
   await cust.evaluate(() => { try{ localStorage.clear(); }catch(e){} });
   await order();
   await seller.evaluate(() => pollOrders());

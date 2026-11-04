@@ -2632,8 +2632,13 @@ async function pollOnce(){
   /* เด้งเข้า LINE ด้วยถ้าแม่ค้าตั้งไว้
      **ต้องอยู่หลัง numberNewOrders()** ไม่งั้นข้อความไม่มีเลขคิว เพราะยังไม่ได้แจก
      (เคยวางไว้ข้างบนคู่กับเสียงเตือน แล้วในไลน์ขึ้นแต่รายการ ไม่บอกว่าคิวที่เท่าไหร่)
+
+     **ส่งเฉพาะตอนไม่ได้มองแอปอยู่** (`document.hidden`) — เจ้าของเลือกเอง
+     กำลังเปิดแอปค้างอยู่ก็มีเสียง แถบแดง กระดิ่ง และแถบแจ้งเตือนของเครื่องเตือนให้แล้ว
+     ส่ง LINE ซ้ำคือเปลืองโควตาเปล่า ๆ ซึ่งแพ็กฟรีมีแค่ ~300 ข้อความต่อเดือน
+     (ปุ่ม "ส่งข้อความทดสอบ" ไม่ติดเงื่อนไขนี้ เพราะเช็กที่จุดเรียก ไม่ได้เช็กใน sendLine())
      ไม่ await เพราะห้ามให้รอบถามออเดอร์ช้าลงเพราะรอ LINE */
-  if(fresh.length) sendLine(lineText(fresh));
+  if(fresh.length && document.hidden) sendLine(lineText(fresh));
 
   const changed = JSON.stringify(list) !== JSON.stringify(cloudOrders);
   cloudOrders = list;
@@ -3303,6 +3308,8 @@ function lineUrlHint(){
   const bad = lineErr
     ? `<br><b style="color:var(--bad-ink)">ล่าสุดส่งไม่สำเร็จ:</b> ${esc(lineErr)}` : '';
   return `ใส่ลิงก์แล้ว ✓ เดือนนี้ส่งไปแล้ว <b>${used}</b> ข้อความ${warn}${bad}
+    <br>ส่งเข้า LINE <b>เฉพาะตอนไม่ได้เปิดแอปนี้ค้างไว้</b> — เปิดแอปอยู่ก็มีเสียงกับแถบแดงเตือนแล้ว
+    จะได้ไม่เปลืองโควตา
     <button type="button" class="seeall" style="margin-top:8px"
             onclick="testLine()">ส่งข้อความทดสอบ</button>`;
 }
