@@ -371,6 +371,40 @@ const push = (name, v) => { ok.push([name, !!v]); };
   /* ยังไม่อนุญาต = ต้องมีปุ่มชวนกด ห้ามเด้งขอเอง */
   push('ยังไม่อนุญาต = มีปุ่มชวนเปิดแจ้งเตือนให้กดเอง',
     await cust.locator('button', { hasText:'เตือนฉันตอนของเสร็จ' }).count() === 1);
+
+  /* **ไอโฟนที่ยังไม่ได้ติดตั้งเป็นแอป ไม่มี Notification ให้เลย** ปุ่มข้างบนจึงไม่โผล่
+     ของเดิมเงียบสนิท ไม่มีอะไรบนจอสักอย่าง = เจ้าของหาไม่เจอแล้วนึกว่าเราไม่ได้ทำ
+     ต้องบอกว่าเครื่องนี้ได้อะไร (เสียง) และทำยังไงถึงจะได้ครบ (ติดตั้งเป็นแอป) */
+  const iosTxt = await cust.evaluate(() => {
+    const realN = window.Notification, realUA = navigator.userAgent;
+    delete window.Notification;
+    Object.defineProperty(navigator, 'userAgent',
+      { get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Safari', configurable: true });
+    const html = noteRowHTML();
+    window.Notification = realN;
+    Object.defineProperty(navigator, 'userAgent', { get: () => realUA, configurable: true });
+    return html;
+  });
+  push('ไอโฟนที่ยังไม่ติดตั้งเป็นแอป ต้องไม่เงียบ บอกว่าจะได้ยินเสียงแทน',
+    /เสียง/.test(iosTxt));
+  push('และบอกวิธีทำให้เตือนตอนปิดจอได้ (เพิ่มลงในหน้าจอโฮม)',
+    /หน้าจอโฮม/.test(iosTxt));
+  // เครื่องอื่นที่เตือนไม่ได้ ไม่ต้องไปพูดถึง พูดไปก็ทำอะไรไม่ได้
+  const pcTxt = await cust.evaluate(() => {
+    const realN = window.Notification;
+    delete window.Notification;
+    const html = noteRowHTML();
+    window.Notification = realN;
+    return html;
+  });
+  push('ไม่ใช่ไอโฟน = ไม่ต้องขึ้นคำแนะนำให้รก', pcTxt === '');
+  // ติดตั้งเป็นแอปแล้วต้องเปิดเต็มจอ ไม่งั้นไอโฟนยังไม่ให้เตือนอยู่ดี
+  push('order.html บอกไอโฟนให้เปิดแบบเต็มจอเมื่อติดตั้งเป็นแอป',
+    /apple-mobile-web-app-capable/.test(require('fs').readFileSync('order.html','utf8')));
+  /* **ห้ามมีลิงก์ manifest ของแอปแม่ค้า** ไม่งั้นไอคอนบนหน้าจอโฮมของลูกค้า
+     จะพาไปเปิดแอปแม่ค้าแทนหน้าสั่งของ */
+  push('หน้าลูกค้าไม่ลิงก์ manifest ของแอปแม่ค้า (ไอคอนจะพาไปผิดหน้า)',
+    !/rel="manifest"/.test(require('fs').readFileSync('order.html','utf8')));
   // ลูกค้ากดปุ่มเอง (ของจริงเป็นแบบนี้) แล้วค่อยนับ
   await cust.evaluate(() => askNote());
   await cust.waitForTimeout(300);

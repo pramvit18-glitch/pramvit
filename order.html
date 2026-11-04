@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#eef0f3">
+<!-- ติดตั้งเป็นแอปบนไอโฟนแล้วต้องเปิดแบบเต็มจอ ไม่งั้นแจ้งเตือนยังใช้ไม่ได้อยู่ดี
+     **ห้ามใส่ลิงก์ manifest ของแอปแม่ค้า** ไม่งั้นไอคอนบนหน้าจอโฮมจะพาไปเปิดแอปแม่ค้า -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="สั่งเครป">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>สั่งเครป</title>
 <link rel="icon" href="icons/icon-192.png">
 <style>
@@ -535,7 +542,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v158';
+const PAGE_VER = 'crepe-cost-v159';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -1187,6 +1194,17 @@ function askNote(){
   }catch(e){}
 }
 
+/* ไอโฟนไม่ยอมให้เว็บเตือนเลยถ้าไม่ได้ติดตั้งเป็นแอปก่อน — กฎของ iOS ไม่ใช่บั๊ก
+   ตอนนั้น `Notification` ไม่มีอยู่ด้วยซ้ำ หน้าเลยไม่โชว์อะไรเลยสักอย่าง
+   **เจ้าของเจอเองกับตา: "เราไม่เห็นได้แจ้งเตือนเลย"** — เพราะไม่มีแม้แต่ปุ่มให้กด
+   จึงต้องบอกตรง ๆ ว่าเครื่องนี้ได้อะไร และทำยังไงถึงจะได้ครบ */
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent)
+  || (/Mac/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+const installedApp = () => {
+  try{ return navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; }
+  catch(e){ return false; }
+};
+
 const noteState = () => {
   if(typeof Notification === 'undefined') return 'none';     // เบราว์เซอร์ไม่รองรับ (ไอโฟนที่ไม่ได้ติดตั้งแอป)
   return Notification.permission;                            // granted · denied · default
@@ -1753,7 +1771,18 @@ const STEPS = [['new','ส่งแล้ว'], ['cook','กำลังทำ']
 function noteRowHTML(){
   if(!liveOrders().length) return '';          // ไม่มีอะไรให้รอแล้ว ไม่ต้องชวน
   const st = noteState();
-  if(st === 'none' || st === 'denied') return '';
+  if(st === 'none'){
+    // เครื่องอื่นที่เตือนไม่ได้ ไม่ต้องพูดถึง พูดไปก็ทำอะไรไม่ได้
+    if(!isIOS() || installedApp()) return '';
+    return `<div class="card">
+      <div class="note">${icon('bell',17)}<span><b>ไอโฟนเตือนตอนปิดจอไม่ได้</b>
+        เปิดหน้านี้ค้างไว้ เดี๋ยวมีเสียงบอกตอนของเสร็จครับ</span></div>
+      <div class="note">${icon('plus',17)}<span>อยากให้เตือนตอนปิดจอด้วย
+        กดปุ่มแชร์ของซาฟารี แล้วเลือก "เพิ่มลงในหน้าจอโฮม"
+        จากนั้นเปิดจากไอคอนนั้นแทนครับ</span></div>
+    </div>`;
+  }
+  if(st === 'denied') return '';
   if(st === 'granted') return `<div class="card">
     <div class="note">${icon('check',17)}<span>เปิดแจ้งเตือนไว้แล้ว
       เดินไปนั่งรอได้เลย ของเสร็จเมื่อไหร่จะเด้งบอกครับ</span></div>
