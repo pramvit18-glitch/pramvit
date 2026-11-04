@@ -158,6 +158,7 @@ async function tap(loc, why){
     let n = 0, total = 0;
     for(let i = 0; i < 14; i++){
       if(!(await p.locator('#tour').isVisible().catch(() => false))) break;
+      if(await p.locator('#tourTip.tour-end').count() > 0) break;   // ถึงการ์ดดูจบแล้ว พอ
       const st = await p.evaluate(k => {
         const t = TOURS.find(x => x[0] === k);
         const tip = document.getElementById('tourTip');
@@ -198,14 +199,70 @@ async function tap(loc, why){
       await p.waitForTimeout(800);
     }
     if(total !== n) countBad++;
-    ok(`ทัวร์ "${key}" เดินจนจบแล้วปิดเอง (${n} ขั้น)`,
-      n >= 2 && !(await p.locator('#tour').isVisible().catch(() => false)));
+    const doneCard = await p.locator('#tourTip.tour-end').count() > 0;
+    ok(`ทัวร์ "${key}" เดินจนจบแล้วขึ้นการ์ดดูจบ (${n} ขั้น)`, n >= 2 && doneCard);
+    await tap(p.locator('#tourTip button', { hasText:'เริ่มใช้งานเลย' }), `ทัวร์ "${key}" กดจบแล้วปิดได้`);
+    await p.waitForTimeout(400);
+    ok(`ทัวร์ "${key}" กดเริ่มใช้งานแล้วปิดจริง`,
+      !(await p.locator('#tour').isVisible().catch(() => false)));
   }
   ok(`ทุกทัวร์รวมกันเดินได้ ${allSteps} ขั้น`, allSteps >= 18);
   ok(`ทุกขั้นมีหัวข้อบอกว่าปุ่มนั้นทำอะไร (${noTitle} ขั้นที่ไม่มี)`, noTitle === 0);
   ok(`ทุกขั้นกล่องอธิบายอยู่ในจอ ไม่ตกขอบ (${offEdge} ขั้นที่ตก)`, offEdge === 0);
   ok(`ทุกขั้นรูคร่อมของที่ชี้จริง ไม่ใช่ที่ว่าง (${misAligned} ขั้นที่เพี้ยน)`, misAligned === 0);
   ok(`ตัวนับตรงกับจำนวนขั้นที่เดินจริงทุกทัวร์ (${countBad} ทัวร์ที่ไม่ตรง)`, countBad === 0);
+
+  /* ---- การ์ดดูจบ ----
+     เจ้าของขอมาเอง: "หลังจากที่ดูจบ หรือครบแล้ว ก็ให้มีปุ่มด้วย"
+     ดูจบแล้วจอหรี่หายไปเฉย ๆ คนดูจะงงว่าจบแล้วหรือแอปค้าง */
+  await p.evaluate(() => { store.tourSeen = []; save(); startTour('sale'); });
+  await p.waitForTimeout(1600);
+  for(let i = 0; i < 8; i++){
+    if(!(await p.locator('#tour').isVisible().catch(() => false))) break;
+    if(await p.locator('#tourTip.tour-end').count() > 0) break;
+    if(!await tap(p.locator('#tourTip button', { hasText: /ถัดไป|จบแล้ว/ }), 'กดจนถึงการ์ดดูจบได้')) break;
+    await p.waitForTimeout(800);
+  }
+  const fin = await p.evaluate(() => {
+    const t = document.getElementById('tourTip'), r = t.getBoundingClientRect();
+    const h = document.getElementById('tourHole').getBoundingClientRect();
+    return {
+      shown: !document.getElementById('tour').hidden && t.classList.contains('tour-end'),
+      head: (t.querySelector('h3') || {}).textContent || '',
+      btns: [...t.querySelectorAll('button')].map(x => x.textContent.trim()),
+      inView: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth,
+      holeGone: h.width < 2 && h.height < 2,
+      seen: (store.tourSeen || [])
+    };
+  });
+  ok('ดูจบแล้วมีการ์ดบอกว่าจบ ไม่ใช่หายไปเฉย ๆ', fin.shown && /จบ/.test(fin.head));
+  ok('การ์ดดูจบอยู่ในจอทั้งใบ', fin.inView);
+  ok('การ์ดดูจบไม่มีกรอบชี้ปุ่มค้างอยู่', fin.holeGone);
+  ok('การ์ดดูจบมีปุ่มปิดให้กด', fin.btns.some(x => /เริ่มใช้งาน/.test(x)));
+  ok('การ์ดดูจบชวนดูทัวร์หน้าที่ยังไม่ได้ดูต่อ', fin.btns.some(x => /หน้ารายจ่าย/.test(x)));
+  ok('จำไว้ว่าดูทัวร์ชุดนี้จบแล้ว', fin.seen.includes('sale'));
+  await p.screenshot({ path: S + '/tour-end.png' });
+
+  // กดทัวร์ต่อจากการ์ดจบ ต้องเริ่มชุดใหม่จริง ไม่ใช่ค้างอยู่ที่การ์ดเดิม
+  if(await tap(p.locator('#tourTip button', { hasText:'หน้ารายจ่าย' }), 'กดดูทัวร์ต่อจากการ์ดจบได้')){
+    await p.waitForTimeout(1800);
+    const nx = await p.evaluate(() => ({ which: tourWhich,
+      end: document.getElementById('tourTip').classList.contains('tour-end') }));
+    ok('กดทัวร์ต่อแล้วเริ่มชุดใหม่จริง ไม่ค้างที่การ์ดจบ', nx.which === 'money' && !nx.end);
+  }
+  await p.evaluate(() => endTour());
+  await p.waitForTimeout(300);
+
+  // คู่มือติ๊กถูกให้ชุดที่ดูจบแล้ว จะได้รู้ว่าเหลือชุดไหน
+  await p.evaluate(() => openHelp());
+  await p.waitForTimeout(1000);
+  ok('ปุ่มในคู่มือติ๊กถูกเฉพาะชุดที่ดูจบแล้ว', await p.evaluate(() => {
+    const bs = [...document.querySelectorAll('.tourpick-b')];
+    const tick = bs.filter(x => x.querySelector('svg')).map(x => x.textContent.trim());
+    return tick.length === 1 && /หน้าขาย/.test(tick[0]);
+  }));
+  await p.evaluate(() => dlg.close());
+  await p.waitForTimeout(900);
 
   /* ระหว่างทัวร์ต้องกดทะลุไปโดนของจริงไม่ได้ แม่ค้ามือเปื้อนแป้ง เผลอแตะโดนง่าย */
   await p.evaluate(() => { go('today'); startTour('intro'); });

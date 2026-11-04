@@ -1040,6 +1040,21 @@
   }
   .tourpick-b:active{transform:scale(.95); background:var(--soft)}
 
+  /* การ์ดตอนดูจบ — ลอยกลางจอ ไม่ได้เกาะปุ่มไหนแล้ว */
+  .tour-end{text-align:center; padding:22px 20px 16px; width:min(320px, calc(100vw - 32px))}
+  .tour-end .tour-ic{
+    width:52px; height:52px; margin:0 auto 10px; border-radius:50%;
+    display:grid; place-items:center; background:var(--good-bg); color:var(--good-ink);
+  }
+  .tour-end h3{margin:0 0 4px; font-size:17px; font-weight:800; letter-spacing:-.02em}
+  .tour-end p{margin:0; font-size:13.5px; color:var(--ink-2); line-height:1.6}
+  .tour-end .tour-more{
+    margin-top:14px; padding-top:13px; border-top:1px solid var(--line);
+    font-size:12.5px; font-weight:800; color:var(--muted); text-align:left;
+  }
+  .tour-end .tourpick-r{margin-top:9px}
+  .tour-end .tour-foot{justify-content:center; margin-top:14px}
+
   #tour{position:fixed; inset:0; z-index:70}
   .tour-hole{
     position:fixed; border-radius:var(--r); pointer-events:none;
@@ -2307,6 +2322,7 @@ function load(){
         if(st.locked && st.shops.some(x => x.id === st.locked)) store.locked = st.locked;
         if(st.pin && st.pin.h) store.pin = st.pin;          // รหัสคนดูแลเป็นของเครื่อง ไม่ใช่ของร้านใดร้านหนึ่ง
         if(n(st.bkAt)) store.bkAt = n(st.bkAt);              // สำรองข้อมูลครั้งล่าสุดเมื่อไหร่ (ของเครื่องเหมือนกัน)
+        if(Array.isArray(st.tourSeen)) store.tourSeen = st.tourSeen;   // ดูทัวร์ไหนจบไปแล้วบ้าง
         if(!store.shops.some(x => x.id === store.active)) store.active = store.shops[0].id;
         if(store.locked) store.active = store.locked;      // เครื่องที่ผูกไว้ เปิดมาเจอร้านนั้นเสมอ
         return store.shops.find(x => x.id === store.active);
@@ -5125,7 +5141,7 @@ const TOURS = [
 ];
 
 /* เปิดทัวร์ไหนอยู่ · รายการขั้นที่ใช้ได้จริงในรอบนี้ */
-let tourAt = 0, tourList = [];
+let tourAt = 0, tourList = [], tourWhich = 'intro';
 
 // เห็นอยู่จริงไหม — ของที่ซ่อนอยู่หรือกว้างศูนย์ ชี้ไปก็ไม่มีใครเห็นว่าชี้อะไร
 function tourVisible(sel){
@@ -5137,6 +5153,8 @@ function tourVisible(sel){
 
 function startTour(key){
   const t = TOURS.find(x => x[0] === (key || 'intro')) || TOURS[0];
+  tourWhich = t[0];
+  endTour();                         // เผื่อกดข้ามมาจากการ์ดจบของทัวร์ก่อนหน้า
   dlg.close();
   go(t[2]);                          // พาไปหน้าที่ทัวร์ชุดนี้พูดถึงก่อน
   tourList = t[3];
@@ -5152,15 +5170,56 @@ function startTour(key){
 // ขั้นที่ "ตอนนี้" ชี้ได้จริง — คิดใหม่ทุกครั้ง ไม่จำค่าเก่าไว้
 const tourNow = () => tourList.filter(([sel]) => tourVisible(sel));
 
+/* ดูจบแล้วต้องมีอะไรมารับ ไม่ใช่จอหรี่หายไปเฉย ๆ แล้วงงว่าจบหรือแอปค้าง
+   เจ้าของขอมาเอง: "หลังจากที่ดูจบ หรือครบแล้ว ก็ให้มีปุ่มด้วย"
+   และต้องมีทางไปต่อ — ชวนดูทัวร์หน้าที่ยังไม่เคยดู */
+function tourFinish(){
+  const t = TOURS.find(x => x[0] === tourWhich) || TOURS[0];
+  markTourSeen(tourWhich);
+  const left = TOURS.filter(x => x[0] !== tourWhich && !tourSeen(x[0]));
+  const hole = document.getElementById('tourHole');
+  // หุบรูให้หายไป จะได้ไม่มีกรอบค้างชี้ปุ่มสุดท้ายอยู่ตอนอ่านการ์ดจบ
+  hole.style.width = hole.style.height = '0px';
+  hole.style.top = hole.style.left = '50%';
+
+  const tip = document.getElementById('tourTip');
+  tip.classList.add('tour-end');
+  tip.innerHTML = `<div class="tour-ic">${icon('check', 26)}</div>
+    <h3>ดูจบแล้ว</h3>
+    <p>ทัวร์<b>${esc(t[1])}</b> ดูครบแล้ว · เปิดดูซ้ำได้ตลอดจากปุ่ม ? มุมขวาบน</p>
+    ${left.length ? `<div class="tour-more">ยังมีหน้าอื่นที่ยังไม่ได้ดู
+      <div class="tourpick-r">${left.map(([k, name]) =>
+        `<button type="button" class="tourpick-b" onclick="startTour('${k}')">${esc(name)}</button>`).join('')}</div>
+    </div>` : `<div class="tour-more">ดูครบทุกหน้าแล้ว ขอบคุณที่อดทนดูจนจบนะครับ</div>`}
+    <div class="tour-foot">
+      <button type="button" class="tour-b" onclick="endTour(); openHelp()">เปิดคู่มือ</button>
+      <button type="button" class="tour-b go" onclick="endTour()">เริ่มใช้งานเลย</button>
+    </div>`;
+  // การ์ดจบลอยกลางจอ ไม่ได้เกาะปุ่มไหนแล้ว
+  tip.style.top = '50%';
+  tip.style.left = '50%';
+  tip.style.transform = 'translate(-50%, -50%)';
+}
+
+const tourSeen = k => ((store && store.tourSeen) || []).includes(k);
+function markTourSeen(k){
+  if(!store || tourSeen(k)) return;
+  store.tourSeen = [...((store.tourSeen) || []), k];
+  save();
+}
+
 function endTour(){
   document.getElementById('tour').hidden = true;
   document.removeEventListener('keydown', tourKey);
+  const tip = document.getElementById('tourTip');
+  tip.classList.remove('tour-end');
+  tip.style.transform = '';
 }
 function tourKey(e){ if(e.key === 'Escape') endTour(); }
 function tourGo(d){
   const next = tourAt + d;
   if(next < 0) return;
-  if(next >= tourNow().length) return endTour();
+  if(next >= tourNow().length) return tourFinish();
   tourAt = next;
   paintTour();
 }
@@ -5236,7 +5295,8 @@ function openHelp(){
         <b>พาทัวร์ทีละปุ่ม</b>
         <i>ชี้ให้ดูบนหน้าจอจริงว่าปุ่มไหนทำอะไร แล้วกดถัดไปทีละขั้น</i>
         <div class="tourpick-r">${TOURS.map(([k, name]) =>
-          `<button type="button" class="tourpick-b" onclick="startTour('${k}')">${esc(name)}</button>`).join('')}</div>
+          `<button type="button" class="tourpick-b" onclick="startTour('${k}')">${
+            tourSeen(k) ? icon('check', 13) + ' ' : ''}${esc(name)}</button>`).join('')}</div>
       </div>`
       + guideHTML() + `<details class="gd-s" style="margin-top:10px">
       <summary><span class="gd-n">${GUIDE.length + 1}</span>คำในแอปแปลว่าอะไร</summary>
