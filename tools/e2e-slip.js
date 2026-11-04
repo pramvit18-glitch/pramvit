@@ -66,7 +66,9 @@ const IMG_C  = SLIPS.c;
     const d = {
       id:'sh1', shopName:'ร้านเครปทดสอบ', shopBranch:'', shopOpen:1,
       groups:[], menus:[{ id:'m1', name:'เครปกรอบ', price:15, groupIds:[], items:[] }],
-      ingredients:[], sales:[], expenses:[],
+      ingredients:[], expenses:[],
+      sales:[{ id:'sx', bill:'bx', d:'2020-01-01', t:'10:00', menuId:'m1',
+               name:'เครปกรอบ', qty:1, addons:[], total:15 }],
       fixed:{rent:0, electric:0, gas:0, water:0, other:0, days:26, labor:0},
       payId:'0812345678'
     };
@@ -291,6 +293,10 @@ const IMG_C  = SLIPS.c;
       (await seller.textContent('#view')).includes('ยอดไม่ตรง')
       && await seller.locator('.ord-paid.no').count() === 1);
   } else push('มีออเดอร์ใบที่สองให้ทดสอบยอดไม่ตรง', false);
+  /* ออเดอร์ใบนี้จะถูกลบจากที่เก็บในอีก 12-24 ชม. แต่เรื่องที่เกิดต้องยังค้นได้
+     ไม่งั้นพอลูกค้าคนเดิมกลับมา แม่ค้าจำไม่ได้ว่าเคยมีปัญหากัน */
+  push('ยอดไม่ตรงถูกจดลงสมุดออเดอร์มีปัญหา',
+    await seller.evaluate(() => (db.troubles || []).some(t => t.kind === 'bad')));
   await seller.screenshot({ path: SHOT + '/slip-checked.png' });
 
   /* ---------- ใบเดิมที่โดนบีบอัดจนพิกเซลเพี้ยน ก็ยังต้องจับได้ ---------- */
@@ -308,6 +314,13 @@ const IMG_C  = SLIPS.c;
   await seller.waitForTimeout(300);
   push('ถ่ายจอ/บีบอัดใหม่แล้วเอามาใช้ซ้ำ ก็ยังจับได้',
     await seller.locator('.ord-slip.dup').count() >= 2);
+  /* เจ้าของขอมาตรง ๆ: "จะได้รู้ว่าซ้ำจากออเดอร์ไหน"
+     แค่บอกว่า "เคยใช้แล้ว" ไม่พอ ต้องชี้ใบเดิมได้ว่าคิวที่เท่าไหร่ ของใคร เมื่อไหร่ */
+  const dupTr = await seller.evaluate(() =>
+    (db.troubles || []).filter(t => t.kind === 'dup')
+      .map(t => ({ ofNo:n(t.ofNo), ofAt:n(t.ofAt), ofTotal:n(t.ofTotal), no:n(t.no) })));
+  push(`จดว่าสลิปซ้ำ และชี้ได้ว่าซ้ำกับคิวไหน (${dupTr.length} ราย)`,
+    dupTr.length >= 1 && dupTr.every(t => t.ofNo > 0 && t.ofAt > 0 && t.ofNo !== t.no));
 
   /* ---------- คนละใบจริง ๆ ต้องไม่ถูกกล่าวหา ---------- */
   await cust.evaluate(() => { try{ localStorage.clear(); }catch(e){} });
@@ -320,6 +333,82 @@ const IMG_C  = SLIPS.c;
   const cards = await seller.locator('.ord-slip').count();
   const dups  = await seller.locator('.ord-slip.dup').count();
   push(`คนละใบไม่ถูกกล่าวหาว่าซ้ำ (มีสลิป ${cards} ใบ ซ้ำ ${dups} ใบ)`, cards - dups === 1);
+
+  /* ---------- ข้ามวันแล้วเอาสลิปใบเดิมกลับมาใช้อีก ----------
+     ข้อนี้คือสิ่งที่เจ้าของขอมา: "ถ้าวันถัดไปมีการใช้อันเดิมอีกก็ต้องแจ้งด้วย"
+     จำลองของจริง: ออเดอร์เมื่อวานถูกตัวเก็บกวาดลบไปจากที่เก็บหมดแล้ว
+     ถ้าโค้ดไปดูสลิปจากออเดอร์ที่ยังค้างอยู่ จะจับไม่ได้เลย — ต้องจำไว้ในเครื่องเอง */
+  await put(`s/${KEY}/orders`, null);
+  await put(`s/${KEY}/slips`, null);   // ตัวเก็บกวาดลบรูปไปพร้อมออเดอร์ (dropSlips)
+  const yNo = await seller.evaluate(() => {
+    // ย้อนเวลาที่จดไว้ให้เป็นเมื่อวาน (เครื่องจำเอง ไม่ได้อ่านจากออเดอร์)
+    (db.slipSeen || []).forEach(x => { x.at -= 26 * 3600 * 1000; });
+    save();
+    return (db.slipSeen.find(x => n(x.no)) || {}).no || 0;
+  });
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(800);
+  push('จำลองข้ามวัน: ออเดอร์เมื่อวานหายจากที่เก็บหมดแล้ว',
+    await seller.evaluate(() => cloudOrders.length) === 0);
+  push('แต่ลายนิ้วมือสลิปยังอยู่ในเครื่อง ไม่หายไปกับออเดอร์',
+    await seller.evaluate(() => (db.slipSeen || []).length) > 0 && Number(yNo) > 0);
+
+  await cust.evaluate(() => { try{ localStorage.clear(); }catch(e){} });
+  await toPay();
+  await sendWith(IMG_A);
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(800);
+  await seller.evaluate(() => { go('orders'); render(); });
+  await seller.waitForTimeout(400);
+  push('ข้ามวันแล้วเอาสลิปใบเดิมมาใช้ซ้ำ ยังจับได้',
+    await seller.locator('.ord-slip.dup').count() === 1);
+  const dupTag = await seller.locator('.ord-slip.dup').count()
+    ? (await seller.textContent('.ord-slip.dup')).replace(/\s+/g, ' ').trim() : '';
+  /* ป้ายบนการ์ดต้องบอกเองว่าซ้ำกับคิวไหนเมื่อไหร่ ไม่ต้องกดเข้าไปดู
+     แม่ค้ายืนทอดมือเปื้อนแป้ง ไม่มีใครกดดูทุกใบ */
+  push(`ป้ายบนการ์ดบอกเองว่าซ้ำกับคิวไหนเมื่อไหร่ (${dupTag.slice(0,70)})`,
+    dupTag.includes('คิวที่ ' + yNo) && dupTag.includes('เมื่อวาน'));
+  await seller.screenshot({ path: SHOT + '/slip-crossday.png' });
+
+  await tap(seller.locator('.ord-slip.dup'), 'กดดูสลิปใบที่ซ้ำได้');
+  await seller.waitForTimeout(1000);
+  const dupBox = (await seller.textContent('#dlg')).replace(/\s+/g, ' ');
+  push('ในกล่องดูสลิป บอกครบว่าซ้ำกับคิวไหน เมื่อไหร่ ยอดเท่าไหร่',
+    dupBox.includes('เคยใช้มาแล้ว') && dupBox.includes('คิวที่ ' + yNo) && dupBox.includes('เมื่อวาน'));
+  await seller.evaluate(() => dlg.close());
+  await seller.waitForTimeout(900);
+
+  /* ---------- การ์ด + กล่องประวัติออเดอร์มีปัญหา ---------- */
+  push('หน้าออเดอร์มีการ์ดประวัติออเดอร์ที่มีปัญหา',
+    (await seller.textContent('#view')).includes('ออเดอร์ที่มีปัญหา'));
+  await tap(seller.locator('#view button', { hasText:'ดูประวัติ' }), 'การ์ดมีปุ่มดูประวัติ');
+  await seller.waitForTimeout(1000);
+  const trBox = (await seller.textContent('#dlg')).replace(/\s+/g, ' ');
+  push('ในประวัติบอกว่าใบไหนซ้ำกับคิวไหน และเป็นเมื่อวาน',
+    /ใช้ซ้ำกับ คิวที่ \d/.test(trBox) && trBox.includes('เมื่อวาน'));
+  push('ในประวัติมีเรื่อง "ยอดไม่ตรง" ที่แม่ค้ากดไว้ด้วย', trBox.includes('ยอดไม่ตรง'));
+  push('ประวัติบอกชัดว่าไม่เกี่ยวกับยอดขาย ลบได้ไม่ต้องกลัว',
+    trBox.includes('ไม่เกี่ยวกับยอดขาย'));
+  await seller.screenshot({ path: SHOT + '/slip-trouble.png' });
+  await seller.evaluate(() => dlg.close());
+  await seller.waitForTimeout(900);
+
+  /* ---------- ไม่รับออเดอร์ ก็ต้องถูกจดไว้ ---------- */
+  const rejWas = await seller.evaluate(() => (db.troubles || []).length);
+  await seller.evaluate(() => { const o = cloudOrders[0]; if(o) rejectOrder(o.id); });
+  await seller.waitForTimeout(900);
+  await tap(seller.locator('#dlg button', { hasText:'ปฏิเสธ' }), 'กล่องยืนยันมีปุ่มปฏิเสธ');
+  await seller.waitForTimeout(1200);
+  push('กดไม่รับออเดอร์แล้วถูกจดลงสมุดปัญหา',
+    await seller.evaluate(() => (db.troubles || []).some(t => t.kind === 'rej'))
+    && await seller.evaluate(() => (db.troubles || []).length) === rejWas + 1);
+
+  /* ---------- ประวัติห้ามหลุดขึ้นคลาวด์ ---------- */
+  await seller.evaluate(async () => { await publishMenu(); });
+  await seller.waitForTimeout(600);
+  const menuUp = JSON.stringify(await get(`s/${KEY}/menu`) || {});
+  push('ประวัติออเดอร์มีปัญหาไม่หลุดขึ้นคลาวด์ให้ลูกค้าเห็น',
+    !menuUp.includes('troubles') && !/"kind"\s*:\s*"(dup|rej|bad)"/.test(menuUp));
 
   /* ---------- จ่ายตอนมารับของ ไม่มีสลิปติดไป ---------- */
   await cust.evaluate(() => { try{ localStorage.clear(); }catch(e){} });
@@ -395,6 +484,22 @@ const IMG_C  = SLIPS.c;
   const afterAll = await get(`s/${KEY}/slips`);
   push('ล้างออเดอร์วันนี้ รูปสลิปไม่เหลือค้างในที่เก็บ',
     afterAll === null || Object.keys(afterAll).length === 0);
+  /* ของที่ต้องรอดจากการล้าง: ประวัติปัญหา · ลายนิ้วมือสลิป · ยอดขาย
+     ถ้าประวัติหายไปพร้อมออเดอร์ ก็ไม่ต่างจากไม่มีประวัติเลย */
+  push('ล้างออเดอร์วันนี้แล้ว ประวัติออเดอร์มีปัญหายังอยู่',
+    await seller.evaluate(() => (db.troubles || []).length) > 0);
+  push('ล้างออเดอร์วันนี้แล้ว ยังกันสลิปซ้ำได้เหมือนเดิม',
+    await seller.evaluate(() => (db.slipSeen || []).length) > 0);
+  push('ประวัติออเดอร์มีปัญหา **ไม่แตะยอดขาย** (แถวที่ใส่ไว้ยังอยู่ครบ)',
+    await seller.evaluate(() => (db.sales || []).length === 1 && db.sales[0].id === 'sx'));
+  // ล้างประวัติเองได้ และล้างแล้วการกันสลิปซ้ำต้องไม่พังตามไปด้วย
+  await seller.evaluate(() => clearTroubles());
+  await seller.waitForTimeout(900);
+  await tap(seller.locator('#dlg button', { hasText:'ล้างเลย' }), 'กล่องล้างประวัติมีปุ่มยืนยัน');
+  await seller.waitForTimeout(1000);
+  push('ล้างประวัติแล้วว่างจริง', await seller.evaluate(() => (db.troubles || []).length) === 0);
+  push('ล้างประวัติแล้ว การกันสลิปซ้ำยังทำงานอยู่',
+    await seller.evaluate(() => (db.slipSeen || []).length) > 0);
 
   await b.close();
   try{ fs.rmSync(SLIPS.dir, { recursive:true, force:true }); }catch(e){}

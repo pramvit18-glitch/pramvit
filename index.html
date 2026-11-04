@@ -465,6 +465,23 @@
   .ord-act .btn{flex:0 0 auto}
   .ord-act .btn.primary, .ord-act .btn.wide{flex:1}
 
+  /* ---------- สมุดบันทึกออเดอร์มีปัญหา ----------
+     ป้ายซ้ายกว้างเท่ากันทุกแถว (flex:0 0 76px) แม่ค้าจะได้กวาดตาลงมาทีเดียว
+     เห็นว่าอันไหนเรื่องอะไร ไม่ต้องอ่านทีละบรรทัด */
+  .trlist{display:flex; flex-direction:column; gap:10px; max-height:52vh; overflow-y:auto}
+  .tr-row{display:flex; gap:10px; align-items:flex-start; background:var(--soft);
+    border-radius:var(--r); padding:10px 12px}
+  .tr-tag{flex:0 0 76px; text-align:center; border-radius:var(--r-pill);
+    padding:3px 6px 4px; font-size:10.5px; font-weight:800; line-height:1.4}
+  .tr-tag.warn{background:var(--warn-bg); color:var(--warn-ink)}
+  .tr-tag.bad{background:var(--bad); color:#fff}
+  .tr-m{flex:1; min-width:0}
+  .tr-m b{display:block; font-size:13.5px; font-weight:800; line-height:1.45}
+  .tr-m i{display:block; font-style:normal; font-size:11.5px; font-weight:700;
+    color:var(--muted); margin-top:2px; line-height:1.45}
+  /* บรรทัด "ใช้ซ้ำกับคิวที่…" คือคำตอบที่แม่ค้าอยากรู้ที่สุด ต้องไม่จางเท่าบรรทัดเวลา */
+  .tr-m i.of{color:var(--bad-ink); font-weight:800}
+
   /* ---------- แถวเมนูขายดี เลื่อนข้างได้ ---------- */
   .hil{display:flex; gap:14px; overflow-x:auto; scrollbar-width:none; margin:0 -20px; padding:6px 20px 10px}
   .hil::-webkit-scrollbar{display:none}
@@ -2133,7 +2150,8 @@ const blank = () => ({
   orderOn: 0,                // เปิดให้ลูกค้าสั่งเองผ่าน QR อยู่ไหม
   orderKey: '',              // รหัสช่องรับออเดอร์ของร้านนี้ (อยู่ในลิงก์ที่ให้ลูกค้า)
   queueNo: 0,                // เลขคิวล่าสุดของวันนี้
-  queueDay: ''               // คิวนับใหม่ทุกวัน เก็บไว้ว่านับของวันไหนอยู่
+  queueDay: '',              // คิวนับใหม่ทุกวัน เก็บไว้ว่านับของวันไหนอยู่
+  troubles: []               // ประวัติออเดอร์มีปัญหา (ไม่รับ · ยอดไม่ตรง · สลิปซ้ำ) เก็บในเครื่อง
 });
 
 /* ---------- วันที่ ---------- */
@@ -2954,6 +2972,8 @@ function rejectOrder(id){
     'ปฏิเสธ', async () => {
       try{ await cloudReq('PATCH', `s/${db.orderKey}/orders/${id}`, { status:'rej' }); }
       catch(e){ toast('ส่งไม่ถึงลูกค้า เน็ตอาจหลุด'); return; }
+      // จดก่อนเอาออกจากรายการ ไม่งั้นหาของมาจดไม่ได้แล้ว
+      addTrouble('rej', o);
       cloudOrders = cloudOrders.filter(x => x.id !== id);
       render();
       toast('ปฏิเสธออเดอร์แล้ว');
@@ -3071,9 +3091,103 @@ function rememberSlip(o){
   if(!o.slip) return;
   db.slipSeen = db.slipSeen || [];
   if(db.slipSeen.some(x => x.id === o.id)) return;
-  db.slipSeen.push({ id:o.id, h:o.slip, at:n(o.at) || Date.now(), total:n(o.total) });
+  /* เจอสลิปที่เคยใช้มาแล้ว → จดลงสมุดปัญหาเดี๋ยวนั้น พร้อมบอกว่าซ้ำกับใบไหน
+     **ต้องถามก่อน push** ไม่งั้นมันไปเจอตัวเองที่เพิ่งใส่เข้าไป แล้วทุกใบจะกลายเป็นซ้ำ
+     จดเลยไม่ต้องรอแม่ค้ากดดูสลิป เพราะอีก 12-24 ชม. ออเดอร์ถูกลบจากที่เก็บ
+     แล้วจะย้อนดูไม่ได้ว่าใบที่ซ้ำเมื่อวานคือใบไหน */
+  const was = slipSeenBefore(o.slip, o.id);
+  if(was) addTrouble('dup', o, {
+    ofId: was.id, ofNo: n(was.no), ofWho: String(was.who || ''),
+    ofAt: n(was.at), ofTotal: n(was.total)
+  });
+  /* เก็บเลขคิวกับชื่อไปด้วย ไม่งั้นพอเจอสลิปซ้ำจะบอกได้แค่ "เคยใช้แล้ว"
+     แต่บอกไม่ได้ว่าซ้ำกับใบไหน ซึ่งเป็นสิ่งที่แม่ค้าอยากรู้ที่สุด */
+  db.slipSeen.push({ id:o.id, h:o.slip, at:n(o.at) || Date.now(), total:n(o.total),
+                     no:n(o.no), who:String(o.who || '') });
   if(db.slipSeen.length > SLIP_KEEP) db.slipSeen = db.slipSeen.slice(-SLIP_KEEP);
   save();
+}
+
+/* ===================== สมุดบันทึกออเดอร์มีปัญหา =====================
+   **ต้องเก็บในเครื่อง ไม่ใช่ดูจากออเดอร์ที่ค้างอยู่**
+   เพราะออเดอร์ถูกลบจากที่เก็บทุก 12-24 ชม. พอข้ามวันแล้วจะย้อนดูไม่ได้เลย
+   ว่าใบที่โดนปฏิเสธหรือยอดไม่ตรงเมื่อวานคือใบไหน
+
+   เจ้าของขอมาเอง: "บางทีจะได้รู้ว่าซ้ำจากออเดอร์ไหน แล้วถ้าวันถัดไปใช้อันเดิมอีกก็ต้องแจ้ง"
+   ของที่จดมี 3 อย่าง: ไม่รับ (`rej`) · ยอดไม่ตรง (`bad`) · สลิปซ้ำ (`dup`)
+   **ห้ามขึ้นคลาวด์** เป็นเรื่องภายในร้าน ลูกค้าไม่ต้องเห็น (`menuForCustomers()` ไม่มีช่องนี้) */
+const TROUBLE_KEEP = 300;
+const TROUBLE_NAME = { rej:'ไม่รับออเดอร์', bad:'ยอดไม่ตรง', dup:'สลิปซ้ำ' };
+
+function addTrouble(kind, o, extra){
+  db.troubles = db.troubles || [];
+  // กันจดซ้ำใบเดิมเรื่องเดิม (รอบถามออเดอร์วิ่งทุก 5 วินาที)
+  if(db.troubles.some(t => t.id === o.id && t.kind === kind)) return;
+  db.troubles.push(Object.assign({
+    kind, id:o.id, at:Date.now(), orderAt:n(o.at),
+    no:n(o.no), who:String(o.who || ''), total:n(o.total),
+    what:(o.items || []).map(it => `${it.name} ×${n(it.qty)}`).join(' · ')
+  }, extra || {}));
+  if(db.troubles.length > TROUBLE_KEEP) db.troubles = db.troubles.slice(-TROUBLE_KEEP);
+  save();
+}
+
+const troubleList = () => (db.troubles || []).slice().sort((a,b) => n(b.at) - n(a.at));
+
+/* การ์ดท้ายหน้าออเดอร์ โผล่เฉพาะตอนมีของให้ดู ไม่งั้นรกเปล่า ๆ */
+function troubleCard(){
+  const all = troubleList();
+  if(!all.length) return '';
+  const today = all.filter(t => dayKey(new Date(n(t.at))) === dayKey()).length;
+  return `<div class="card">
+    ${cardHead('alert', 'ออเดอร์ที่มีปัญหา',
+      today ? `วันนี้ ${today} ราย · ย้อนหลังทั้งหมด ${all.length} ราย`
+            : `ย้อนหลังทั้งหมด ${all.length} ราย`,
+      `<button type="button" class="btn sm" onclick="troubleDialog()">ดูประวัติ</button>`)}
+    <p class="hint" style="margin:0">เก็บไว้ในเครื่องนี้ ไม่หายไปพร้อมออเดอร์ ·
+      ใช้ดูว่าสลิปที่ซ้ำนั้นซ้ำกับใบไหน และใครเคยมีปัญหามาก่อน</p>
+  </div>`;
+}
+
+function troubleDialog(){
+  const all = troubleList();
+  const row = t => {
+    const cls = t.kind === 'dup' ? 'bad' : t.kind === 'bad' ? 'bad' : 'warn';
+    const ของ = t.what ? esc(t.what) : '(ไม่มีรายการ)';
+    const ซ้ำกับ = t.kind === 'dup' && t.ofAt
+      ? `<i class="of">ใช้ซ้ำกับ ${t.ofNo ? 'คิวที่ ' + esc(String(t.ofNo)) : 'ออเดอร์'}${
+          t.ofWho ? ' ของ' + esc(t.ofWho) : ''} เมื่อ ${esc(whenText(t.ofAt))} ยอด ${money(n(t.ofTotal))}</i>`
+      : '';
+    return `<div class="tr-row">
+      <span class="tr-tag ${cls}">${esc(TROUBLE_NAME[t.kind] || t.kind)}</span>
+      <span class="tr-m">
+        <b>${t.no ? 'คิวที่ ' + esc(String(t.no)) + ' · ' : ''}${ของ}</b>
+        <i>${esc(whenText(t.at))}${t.who ? ' · ' + esc(t.who) : ''} · ${money(n(t.total))}</i>
+        ${ซ้ำกับ}
+      </span>
+    </div>`;
+  };
+  openDialog({ icon:'alert', title:'ออเดอร์ที่มีปัญหา',
+    sub: `ย้อนหลัง ${all.length} ราย · เก็บในเครื่องนี้เท่านั้น`,
+    html: all.length
+      ? `<div class="trlist">${all.map(row).join('')}</div>
+         <p class="hint" style="margin:12px 0 0">เก็บล่าสุด ${TROUBLE_KEEP} รายการ
+           ของเก่ากว่านั้นถูกลบให้เอง · <b>ไม่เกี่ยวกับยอดขาย</b> ลบทิ้งแล้วเงินไม่หาย</p>`
+      : `<div class="empty"><p>ยังไม่มีออเดอร์ที่มีปัญหา</p></div>`,
+    foot: all.length
+      ? [{label:'ล้างประวัติ', cls:'ghost danger', fn:'clearTroubles()'},
+         {label:'ปิด', cls:'primary', fn:'dlg.close()'}]
+      : [{label:'ปิด', cls:'primary wide', fn:'dlg.close()'}]
+  });
+}
+
+function clearTroubles(){
+  askConfirm('ล้างประวัติออเดอร์มีปัญหา?',
+    'ประวัติจะหายหมด · ยอดขายไม่เกี่ยวและไม่หายไปด้วย · การกันสลิปซ้ำยังทำงานเหมือนเดิม',
+    'ล้างเลย', () => {
+      db.troubles = []; save(); render();
+      toast('ล้างประวัติแล้ว');
+    });
 }
 
 // รูปโหลดเฉพาะตอนกดดู ไม่เอามาปนกับรอบถามออเดอร์ทุก 5 วินาที ไม่งั้นโควตาฟรีหมดเร็ว
@@ -3086,7 +3200,8 @@ async function viewSlip(id){
     /* คำเตือนต้องอยู่ **เหนือรูป** รูปสลิปสูงกว่าจอ ถ้าเอาไว้ใต้รูป
        แม่ค้าต้องเลื่อนลงไปหา แล้วจะไม่มีใครเห็น — เท่ากับไม่ได้เตือน */
     html:`${dup ? `<div class="note bad" style="margin-bottom:12px">${icon('alert',17)}<span>
-        <b>สลิปใบนี้เคยใช้มาแล้ว</b> เมื่อ ${esc(whenText(dup.at))} ยอด ${money(dup.total)}<br>
+        <b>สลิปใบนี้เคยใช้มาแล้ว</b> กับ ${n(dup.no) ? 'คิวที่ ' + esc(String(dup.no)) : 'ออเดอร์เก่า'}${
+          dup.who ? ' ของ' + esc(dup.who) : ''} เมื่อ ${esc(whenText(dup.at))} ยอด ${money(dup.total)}<br>
         อาจเป็นการเอาสลิปเดิมมาใช้ซ้ำ — เช็กแอปธนาคารให้ดีก่อนนะครับ
       </span></div>` : ''}
       <div class="slipwant"><span>ยอดที่ต้องได้</span><b>${money(n(o && o.total))}</b></div>
@@ -3118,6 +3233,8 @@ async function markPaidChecked(id, val){
   const o = cloudOrders.find(x => x.id === id);
   if(!o) return;
   o.chk = val;
+  // ยอดไม่ตรงต้องจดไว้ ออเดอร์ใบนี้หายไปใน 12-24 ชม. แต่คนที่ทำต้องยังจำได้
+  if(val < 0) addTrouble('bad', o);
   dlg.close();
   render();
   toast(val > 0 ? 'บันทึกแล้ว เงินเข้าจริง' : 'บันทึกแล้ว ยอดไม่ตรง — อย่าเพิ่งทำ');
@@ -3140,12 +3257,17 @@ function openSlipFull(){
   }catch(e){ toast('เปิดรูปใหญ่ไม่ได้'); }
 }
 
-// บอกเวลาแบบคนพูด ไม่ใช่ timestamp
+/* บอกเวลาแบบคนพูด ไม่ใช่ timestamp
+   **ต้องมี "เมื่อวาน"** เพราะเรื่องที่ต้องรู้ให้ไวที่สุดคือสลิปที่ข้ามวันมาใช้ซ้ำ
+   เขียนเป็น "3/11 14:20" แม่ค้าต้องนึกเองว่าเมื่อวานวันที่เท่าไหร่ กว่าจะรู้ตัวก็ทอดไปแล้ว */
 function whenText(ms){
   const d = new Date(n(ms));
-  const today = dayKey();
-  return dayKey(d) === today ? `วันนี้ ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
-                             : `${d.getDate()}/${d.getMonth()+1} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  const hm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  const k = dayKey(d);
+  if(k === dayKey()) return `วันนี้ ${hm}`;
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  if(k === dayKey(y)) return `เมื่อวาน ${hm}`;
+  return `${d.getDate()}/${d.getMonth()+1} ${hm}`;
 }
 
 /* ---------- การ์ดออเดอร์บนหน้าแรก ---------- */
@@ -3211,7 +3333,7 @@ function viewOrders(){
       ${cardHead('cart','ยังไม่ได้เปิดรับออเดอร์','ลูกค้ายังสั่งผ่าน QR ไม่ได้')}
       <button type="button" class="btn primary block" onclick="orderSetupDialog()">
         ${icon('cart',16)} ไปตั้งค่าการรับออเดอร์</button>
-    </div>`;
+    </div>` + troubleCard();
   }
 
   if(!cloudOrders.length){
@@ -3221,7 +3343,7 @@ function viewOrders(){
         <h3>ไม่มีออเดอร์ค้าง</h3>
         <p>ทำครบหมดแล้ว · ออเดอร์ใหม่จะเด้งขึ้นมาเองพร้อมเสียงเตือน</p>
       </div>
-    </div>` + clearTodayCard();
+    </div>` + clearTodayCard() + troubleCard();
   }
 
   const fresh = cloudOrders.filter(o => o.status === 'new');
@@ -3234,7 +3356,7 @@ function viewOrders(){
   return back
     + sec(fresh, 'cart', 'ออเดอร์ใหม่ รอรับ', 'กดรับแล้วลูกค้าเห็นเลขคิว')
     + sec(cook,  'today', 'กำลังทำอยู่',      'ลูกค้ามารับแล้วกดเสร็จ · รับเงิน')
-    + clearTodayCard();
+    + clearTodayCard() + troubleCard();
 }
 
 /* กล่องล้างออเดอร์วันนี้ อยู่ท้ายหน้าออเดอร์เสมอ
@@ -3281,7 +3403,10 @@ function orderRowHTML(o){
   const dup = o.slip ? slipSeenBefore(o.slip, o.id) : null;
   const slipTag = o.slip
     ? `<button type="button" class="ord-slip${dup ? ' dup' : ''}" onclick="viewSlip('${jsq(o.id)}')">
-         ${icon(dup ? 'alert' : 'menu', 13)} ${dup ? 'สลิปซ้ำ! เคยใช้แล้ว · แตะดู' : 'ดูสลิปที่แนบมา'}
+         ${icon(dup ? 'alert' : 'menu', 13)} ${dup
+             ? 'สลิปซ้ำ! เคยใช้กับ ' + (n(dup.no) ? 'คิวที่ ' + esc(String(dup.no)) : 'ออเดอร์เก่า')
+               + ' ' + esc(whenText(dup.at)) + ' · แตะดู'
+             : 'ดูสลิปที่แนบมา'}
        </button>`
     : '';
 
@@ -3396,6 +3521,10 @@ function orderSetupDialog(){
         onclick="clearOldOrders()">ล้างออเดอร์เก่าเดี๋ยวนี้</button>
         <button type="button" class="seeall" style="margin-top:8px"
         onclick="dlg.close(); clearTodayOrders()">ล้างออเดอร์วันนี้</button></p>` : ''}
+      ${troubleList().length ? `<p class="hint" style="margin:12px 0 0">เคยมีออเดอร์ที่มีปัญหา
+        <b>${troubleList().length} ราย</b> (ไม่รับ · ยอดไม่ตรง · สลิปซ้ำ) เก็บไว้ในเครื่องนี้
+        ไม่หายไปพร้อมออเดอร์ · <button type="button" class="seeall" style="margin-top:8px"
+        onclick="dlg.close(); troubleDialog()">ดูประวัติออเดอร์มีปัญหา</button></p>` : ''}
       <p class="hint" style="margin:12px 0 0">พิมพ์แค่<b>ชื่อโปรเจกต์</b>ก็พอ แอปจะหา URL เต็มให้เอง ·
         ยังไม่มี? สร้างฟรีที่ console.firebase.google.com → Realtime Database → Create Database</p>`,
     foot: [
