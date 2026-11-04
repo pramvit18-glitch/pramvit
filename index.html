@@ -1682,7 +1682,9 @@
     .dash-a{grid-column:1/-1}
     .dash-d{grid-column:1/-1}
   }
-  @media(min-width:1040px){
+  /* 1120 ให้ตรงกับจุดที่เปลือกแอปกว้างขึ้นจริง
+     เดิมเป็น 1040 ทำให้ช่วง 1040-1119 สลับเป็น 4 คอลัมน์ทั้งที่ยังมีที่แค่ ~700px การ์ดเลยเบียด */
+  @media(min-width:1120px){
     .dash{grid-template-columns:repeat(4,1fr)}
     .dash-a{grid-column:span 2; grid-row:span 2}
     .dash-b{grid-column:span 1}
@@ -1798,6 +1800,57 @@
     /* จอกว้าง: เมนูเรียง 2 คอลัมน์ในหน้าต่าง เห็นเยอะขึ้นอีก */
     .dlg-body .poslist{display:grid; grid-template-columns:1fr 1fr; gap:0 14px; align-content:start}
     .dlg-body .posrow{margin:0}
+  }
+
+  /* ===================== จอคอม =====================
+     เจ้าของบอกว่าบนมือถือสวยแล้ว แต่เปิดบนคอมไม่สวย — ไล่ดูแล้วเจอสาเหตุ
+
+     `@media` วัดจาก **ความกว้างของจอ** ไม่ใช่ความกว้างของเปลือกแอป
+     แต่เปลือกถูกล็อกไว้ที่ 780px พอเปิดบนคอมกว้าง 1440
+     แดชบอร์ดเลยสลับไปใช้แบบ 4 คอลัมน์ ทั้ง ๆ ที่มีที่จริงแค่ ~700px
+     ได้การ์ดผอมเบียดกัน และการ์ดใบใหญ่ถูกสั่งให้กินสองแถว เลยยืดสูงจนว่างเปล่าครึ่งใบ
+
+     แก้สองอย่าง: ให้เปลือกกว้างขึ้นจริงบนจอใหญ่ และห้ามการ์ดยืดตามความสูงของแถว */
+  @media(min-width:1120px){
+    .shell{max-width:1120px}
+    .appbar{padding:26px 44px 10px}
+    main{padding:0 44px 80px}
+    .bottomnav{margin:10px 44px 16px}
+  }
+  @media(min-width:1120px){
+    /* การ์ดสูงไม่เท่ากันเป็นเรื่องปกติ ห้ามยืดให้เท่าแถว ไม่งั้นได้กล่องขาวว่างครึ่งใบ */
+    .dash{align-items:start}
+    .dash-a{grid-row:auto}
+    /* การ์ดกราฟกินเต็มแถว ไม่งั้นเหลือที่ว่างยาวข้างขวาเพราะแท็บนี้มีการ์ดไม่พอดีแถว
+       **แต่ตัวกราฟต้องคุมความกว้างไว้** เพราะเป็น SVG ที่ย่อ-ขยายทั้งภาพ
+       ปล่อยให้กว้าง 1,000px ตัวหนังสือจะโตตามจนเทอะทะ (ลองแล้วเลขขึ้นใหญ่เท่าหัวข้อ) */
+    .dash-d{grid-column:1/-1}
+    .chart svg{max-width:620px; margin:0 auto}
+    /* แท็บย่อยที่มีการ์ดใบเดียว ให้กินเต็มแถว ไม่งั้นได้การ์ดครึ่งจอแล้วว่างอีกครึ่ง */
+    .dash > .card:only-child{grid-column:1/-1}
+  }
+  @media(min-width:1120px){
+    /* หัวหน้าแรกวางสองคอลัมน์ ไม่งั้นแถววันกับแถวทางลัดถูกยืดข้ามจอ
+       เหลือไอคอน 5 อันกองซ้ายแล้วว่างยาวไปถึงขอบขวา ดูโล่งจนเหมือนหน้าพัง
+       ใช้ > เจาะเฉพาะลูกตรง ๆ เพราะ .home-sec มีซ้ำอยู่ข้างใน #hiliteWrap ด้วย */
+    #homeBody{
+      display:grid; grid-template-columns:1fr 400px; gap:0 30px; align-items:start;
+      grid-template-areas:
+        "sec   wk"
+        "quick wk"
+        "hil   status";
+    }
+    #homeBody > .home-sec{grid-area:sec}
+    #homeBody > .quick{grid-area:quick}
+    /* ใช้ 24px ให้ตรงกับจังหวะหัวข้อทั้งแอป (check-space คุมไว้ ใส่ 22 แล้วตกทันที) */
+    #homeBody > .wk{grid-area:wk; margin-top:24px}
+    #homeBody > #hiliteWrap{grid-area:hil}
+    #homeBody > #statusRow{grid-area:status}
+    /* สองแถวนี้ยื่นออกนอกขอบไว้ให้ปัดบนมือถือ พออยู่ในคอลัมน์ต้องดึงกลับ ไม่งั้นล้นออกข้าง */
+    .quick, .hil{margin:0; padding-left:0; padding-right:0}
+    /* บนมือถือหัวข้อดันปุ่มไปสุดขอบขวา พอแบ่งสองคอลัมน์ ปุ่มจะไปจ่ออยู่ติดปฏิทิน
+       เหมือนเป็นปุ่มของปฏิทิน ให้ปุ่มมาอยู่ติดหัวข้อของตัวเองแทน */
+    #homeBody .home-sec h2{flex:0 0 auto}
   }
 
 </style>
