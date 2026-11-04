@@ -1697,6 +1697,9 @@
     .dash{grid-template-columns:repeat(3,1fr)}
     .dash-a{grid-column:span 2}
     .dash-b{grid-column:span 1}
+    /* ลองย้ายกราฟไปซ้ายแล้วกลับแย่กว่า: กริดวางของตามลำดับ พอบังคับการ์ดเล็กไปคอลัมน์ 3
+       กราฟที่ต้องกิน 2 คอลัมน์เลยไม่ย้อนกลับมาเติมแถวเดิม ตกไปขึ้นแถวใหม่ทั้งแถว
+       ปล่อยให้ไหลตามลำดับแบบนี้ลงตัวที่สุดแล้ว */
     .dash-c{grid-column:span 1}
     .dash-d{grid-column:span 2}
     .dash-e{grid-column:span 2}
@@ -1908,21 +1911,39 @@
     /* หัวหน้าแรกวางสองคอลัมน์ ไม่งั้นแถววันกับแถวทางลัดถูกยืดข้ามจอ
        เหลือไอคอน 5 อันกองซ้ายแล้วว่างยาวไปถึงขอบขวา ดูโล่งจนเหมือนหน้าพัง
        ใช้ > เจาะเฉพาะลูกตรง ๆ เพราะ .home-sec มีซ้ำอยู่ข้างใน #hiliteWrap ด้วย */
+    /* สามคอลัมน์: ทางลัด | ขายดี | ปฏิทิน+สถานะ
+       เคยจัดสองคอลัมน์แล้วคอลัมน์ซ้ายกว้าง 694px แต่ของในนั้นใช้จริงแค่ 256-340
+       เหลือที่ว่างยาวเป็นแถบ ๆ · แบ่งสามแล้วแต่ละกองได้ ~346px พอดีของที่มี */
     #homeBody{
-      display:grid; grid-template-columns:1fr 400px; gap:0 30px; align-items:start;
+      display:grid; align-items:start; gap:0 26px;
+      grid-template-columns:minmax(0,1fr) minmax(0,1fr) 380px;
+      /* คอลัมน์ที่กินสองแถว (ทางลัด · ขายดี) ไหลเองได้ตามเนื้อหา
+         ไม่โดนความสูงของปฏิทินในแถวแรกดันให้ห่าง */
       grid-template-areas:
-        "sec   wk"
-        "quick wk"
-        "hil   status";
+        "qw hil wk"
+        "qw hil status";
     }
-    #homeBody > .home-sec{grid-area:sec}
-    #homeBody > .quick{grid-area:quick}
+    #homeBody > #quickWrap{grid-area:qw}
+    #homeBody > #hiliteWrap{grid-area:hil}
     /* ใช้ 24px ให้ตรงกับจังหวะหัวข้อทั้งแอป (check-space คุมไว้ ใส่ 22 แล้วตกทันที) */
     #homeBody > .wk{grid-area:wk; margin-top:24px}
-    #homeBody > #hiliteWrap{grid-area:hil}
     #homeBody > #statusRow{grid-area:status}
     /* ช่องค้นหาเป็น "ปุ่มกด" ไม่ใช่เนื้อหา ยาวเต็มจอแล้วดูเป็นแถบว่างเปล่า */
     .hsearch{max-width:620px}
+
+    /* สองแถวนี้เป็นแถวปัดข้างบนมือถือ ของเลยกองชิดซ้ายเป็นก้อนเดียว
+       พอมาอยู่บนคอมที่คอลัมน์กว้าง 694px มันใช้จริงแค่ 340 กับ 256
+       เหลือที่ว่างยาว 354-438px — เจ้าของบอกว่า "โล่งเยอะเลย"
+       จอคอมไม่ต้องปัด จึงเปลี่ยนเป็นกริดกระจายเต็มคอลัมน์ไปเลย */
+    .quick, .hil{
+      display:grid; grid-auto-flow:row; overflow:visible;
+      grid-template-columns:repeat(auto-fit, minmax(96px, 1fr));
+      gap:16px 10px;
+    }
+    .quick-b, .hil-b{width:auto; min-width:0}
+    .quick-b span, .hil-b span{
+      max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
     /* สองแถวนี้ยื่นออกนอกขอบไว้ให้ปัดบนมือถือ พออยู่ในคอลัมน์ต้องดึงกลับ ไม่งั้นล้นออกข้าง */
     .quick, .hil{margin:0; padding-left:0; padding-right:0}
     /* บนมือถือหัวข้อดันปุ่มไปสุดขอบขวา พอแบ่งสองคอลัมน์ ปุ่มจะไปจ่ออยู่ติดปฏิทิน
@@ -2021,11 +2042,15 @@
     <div id="searchRes" hidden></div>
 
     <div id="homeBody">
-      <div class="home-sec">
-        <h2>เมนูของฉัน</h2>
-        <button type="button" onclick="quickCustomize()">ปรับแต่ง</button>
+      <!-- หัวข้อกับแถวทางลัดต้องอยู่ด้วยกัน ไม่งั้นบนจอคอมที่จัดเป็นคอลัมน์
+           หัวข้อกับของจะถูกแถวของกริดดันให้ห่างกัน (เจอมาแล้ว ช่องว่างกลางหน้า) -->
+      <div id="quickWrap">
+        <div class="home-sec">
+          <h2>เมนูของฉัน</h2>
+          <button type="button" onclick="quickCustomize()">ปรับแต่ง</button>
+        </div>
+        <div class="quick" id="quickRow"></div>
       </div>
-      <div class="quick" id="quickRow"></div>
       <div class="wk" id="wkStrip"></div>
       <div id="statusRow"></div>
       <div id="hiliteWrap"></div>

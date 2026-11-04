@@ -90,6 +90,39 @@ const MIN_4COL = 860;
   const nCols = dash ? dash.cols.split(' ').length : 0;
   push(`จอ 1440: แดชบอร์ดแตก ${nCols} คอลัมน์ และกว้างพอ (${dash ? dash.w : 0}px)`,
     !!dash && (nCols < 4 || dash.w >= MIN_4COL));
+  /* ---------- เจ้าของบอกว่า "โล่งเยอะเลย" — วัดกันตรง ๆ ว่าแต่ละแถวใช้ที่ไปเท่าไหร่ ----------
+     แถวทางลัดกับแถวขายดีเป็นแถวปัดข้างของมือถือ ของเลยกองชิดซ้ายเป็นก้อนเดียว
+     เคยวัดได้ว่าคอลัมน์กว้าง 694px แต่ใช้จริงแค่ 256-340 เหลือว่างยาว 354-438px */
+  const fill = await pg.evaluate(() => {
+    const used = el => {
+      let right = el.getBoundingClientRect().left;
+      el.querySelectorAll('*').forEach(c => {
+        const b = c.getBoundingClientRect();
+        if(b.width > 2 && b.height > 2) right = Math.max(right, b.right);
+      });
+      return (right - el.getBoundingClientRect().left) / el.getBoundingClientRect().width;
+    };
+    const hb = document.getElementById('homeBody');
+    /* หาหัวข้อ "เมนูของฉัน" แบบไม่ผูกกับตัวครอบ — ถ้าผูกแล้วตัวครอบหายไป
+       querySelector จะคืน null แล้วโยน error ทำให้ **ล้มทั้งชุด** แทนที่จะตกข้อเดียว */
+    const sec = [...document.querySelectorAll('#homeBody .home-sec')]
+      .find(x => x.textContent.includes('เมนูของฉัน'));
+    const qEl = document.querySelector('.quick');
+    return {
+      cols: getComputedStyle(hb).gridTemplateColumns.split(' ').length,
+      quick: qEl ? used(qEl) : 0,
+      hil:   used(document.querySelector('.hil')),
+      หัวห่างของ: (sec && qEl)
+        ? Math.round(qEl.getBoundingClientRect().top - sec.getBoundingClientRect().bottom)
+        : 9999
+    };
+  });
+  push(`หัวหน้าแรกจัด ${fill.cols} คอลัมน์ ไม่ใช่กองเดียวยาว`, fill.cols === 3);
+  push(`แถวทางลัดใช้ที่เกือบเต็มคอลัมน์ (${Math.round(fill.quick*100)}%)`, fill.quick > 0.8);
+  push(`แถวขายดีใช้ที่เกือบเต็มคอลัมน์ (${Math.round(fill.hil*100)}%)`, fill.hil > 0.8);
+  /* เคยพลาด: หัวข้อกับแถวทางลัดอยู่คนละแถวของกริด ความสูงปฏิทินเลยดันให้ห่างกัน 100px */
+  push(`หัวข้อติดกับของที่มันพูดถึง (ห่าง ${fill.หัวห่างของ}px)`, fill.หัวห่างของ <= 40);
+
   const chart = await box(pg, '.chart svg');
   push(`จอ 1440: กราฟถูกคุมความกว้างไว้ (${chart ? chart.w : '-'}px) ตัวหนังสือจะได้ไม่โตเทอะทะ`,
     !!chart && chart.w <= 680);
