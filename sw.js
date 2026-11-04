@@ -1,6 +1,6 @@
 // Service worker — ทำให้แอปเปิดได้ตอนไม่มีเน็ต
 // เวลาแก้ index.html แล้วอยากให้เครื่องที่ติดตั้งไปแล้วได้ของใหม่ ให้ขยับเลข CACHE
-const CACHE = 'crepe-cost-v137';
+const CACHE = 'crepe-cost-v139';
 
 const ASSETS = [
   './',
@@ -8,7 +8,10 @@ const ASSETS = [
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/apple-touch-icon.png'
+  './icons/apple-touch-icon.png',
+  // ฟอนต์ต้องอยู่ในแคชด้วย ไม่งั้นเปิดตอนไม่มีเน็ตแล้วตัวหนังสือเปลี่ยนไปเป็นของเครื่อง
+  './fonts/noto-sans-thai-thai.woff2',
+  './fonts/noto-sans-thai-latin.woff2'
 ];
 
 self.addEventListener('install', e => {

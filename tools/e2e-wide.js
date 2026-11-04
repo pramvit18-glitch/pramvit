@@ -15,6 +15,7 @@ const SHOT = process.env.SHOT_DIR || require('os').tmpdir();
 
 const ok = [];
 const push = (name, v) => ok.push([name, !!v]);
+const outsideFont = [];
 
 // เนื้อหาต้องกว้างพอจริงก่อนถึงจะแตกเป็น 4 คอลัมน์ ไม่งั้นการ์ดผอมจนอ่านไม่ออก
 const MIN_4COL = 860;
@@ -25,6 +26,11 @@ const MIN_4COL = 860;
   const look = async (w, h) => {
     const pg = await b.newPage({ viewport:{ width:w, height:h }, deviceScaleFactor:1 });
     pg.on('pageerror', e => push(`แอปตายที่จอ ${w}: ` + e.message.slice(0,60), false));
+    // ฟอนต์ต้องมาจากในโปรเจกต์ ไม่ใช่ยิงออกไปโหลดจากข้างนอกทุกครั้งที่เปิดแอป
+    pg.on('request', r => {
+      const u = r.url();
+      if(/\.woff2?($|\?)/.test(u) && !u.startsWith(APP)) outsideFont.push(u);
+    });
     await pg.goto(APP + '/index.html');
     await pg.waitForTimeout(700);
     return pg;
@@ -127,6 +133,15 @@ const MIN_4COL = 860;
   push(`จอ 1440: กราฟถูกคุมความกว้างไว้ (${chart ? chart.w : '-'}px) ตัวหนังสือจะได้ไม่โตเทอะทะ`,
     !!chart && chart.w <= 680);
 
+  /* ---------- ฟอนต์ต้องโหลดได้จริง ไม่ใช่แค่ประกาศไว้ใน CSS ---------- */
+  const font = await pg.evaluate(async () => {
+    await document.fonts.ready;
+    return { พร้อมใช้: document.fonts.check('16px "Noto Sans Thai"'),
+             สแตก: getComputedStyle(document.body).fontFamily.split(',')[0].replace(/"/g,'') };
+  });
+  push('ฟอนต์ Noto Sans Thai โหลดได้จริงในเบราว์เซอร์', font.พร้อมใช้);
+  push(`ตัวหนังสือใช้ฟอนต์นั้นจริง (${font.สแตก})`, font.สแตก === 'Noto Sans Thai');
+
   /* ---------- เอาเมาส์ชี้แล้วมีเมนูย่อยโผล่ ---------- */
   push('มีกล่องเมนูย่อยให้ชี้มากกว่า 1 เมนู', await pg.locator('.navfly').count() >= 2);
   const setup = pg.locator('.navitem:has(button[data-tab="setup"])');
@@ -161,6 +176,8 @@ const MIN_4COL = 860;
   await pg.mouse.move(1000, 700);
   await pg.waitForTimeout(400);
   push('กดเสร็จแล้วกล่องย่อยปิดเอง ไม่ค้างบังเนื้อหา', !(await fly.isVisible()));
+  push(`ไม่ได้ไปโหลดฟอนต์จากข้างนอกเลย${outsideFont.length ? ' — เจอ ' + outsideFont[0] : ''}`,
+    outsideFont.length === 0);
   await pg.close();
 
   await b.close();

@@ -13,6 +13,25 @@
 <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
 <title>คำนวณต้นทุนร้านเครป</title>
 <style>
+  /* ===================== ฟอนต์ =====================
+     Noto Sans Thai เก็บไว้ในโปรเจกต์เอง ไม่ได้ลิงก์ไป Google Fonts
+     เพราะต้องเปิดได้ตอนไม่มีเน็ต และไม่อยากพึ่งของนอก (ดู fonts/อ่านก่อน.md)
+     เป็น variable font ไฟล์เดียวครอบคลุมน้ำหนัก 400-800 จึงไม่ต้องโหลดหลายไฟล์
+     แยกสองไฟล์ตามภาษา เบราว์เซอร์จะโหลดเฉพาะอันที่ต้องใช้จริง (รวม 58KB)
+     `swap` = โชว์ตัวหนังสือด้วยฟอนต์ของเครื่องไปก่อน ไม่ต้องรอฟอนต์โหลดเสร็จ */
+  @font-face{
+    font-family:'Noto Sans Thai'; font-style:normal; font-weight:400 800;
+    font-display:swap; src:url('fonts/noto-sans-thai-thai.woff2') format('woff2');
+    unicode-range:U+02D7, U+0303, U+0331, U+0E01-0E5B, U+200C-200D, U+25CC;
+  }
+  @font-face{
+    font-family:'Noto Sans Thai'; font-style:normal; font-weight:400 800;
+    font-display:swap; src:url('fonts/noto-sans-thai-latin.woff2') format('woff2');
+    unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+      U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+      U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+
   /* ===================== ธีมขาว–ส้ม (เรียบ) ===================== */
   :root{
     --page:#eef0f3;          /* พื้นหลังหน้า เทาอ่อน */
@@ -63,7 +82,7 @@
       radial-gradient(90% 50% at 10% 8%, rgba(255,255,255,.75), rgba(255,255,255,0) 55%),
       linear-gradient(160deg, rgba(255,255,255,.55), rgba(255,255,255,0) 35%);
     background-attachment:fixed;
-    font-family:"Sarabun","Leelawadee UI","Segoe UI",system-ui,-apple-system,sans-serif;
+    font-family:'Noto Sans Thai','Sarabun','Leelawadee UI','Segoe UI',system-ui,-apple-system,sans-serif;
     font-size:15px; line-height:1.65; -webkit-text-size-adjust:100%;
   }
 

@@ -15,7 +15,7 @@ const WWW  = path.resolve(process.argv[2] || path.join(ROOT, 'www'));
 // ทุกหน้าเว็บที่อยู่ชั้นบนสุด จะได้ไม่ลืมหน้าที่เพิ่มใหม่
 const pages = fs.readdirSync(ROOT).filter(f => f.endsWith('.html')).sort();
 const FILES = [...pages, 'manifest.webmanifest', 'sw.js'];
-const DIRS  = ['icons'];
+const DIRS  = ['icons', 'fonts'];   // ฟอนต์เก็บไว้เอง ไม่ได้ลิงก์ไป Google
 
 if (!pages.includes('index.html')) { console.error('  ✗ ไม่พบ index.html'); process.exit(1); }
 
@@ -32,7 +32,9 @@ for (const f of FILES) {
 for (const d of DIRS) {
   const src = path.join(ROOT, d);
   if (!fs.existsSync(src)) continue;
-  fs.cpSync(src, path.join(WWW, d), {recursive: true});
+  // ไฟล์อธิบาย (.md) เป็นของคนทำ ไม่ต้องเอาขึ้นเว็บให้คนทั่วไปโหลด
+  fs.cpSync(src, path.join(WWW, d), {recursive: true,
+    filter: p2 => !p2.endsWith('.md')});
   console.log(`  ✓ ${d}/ (${fs.readdirSync(src).length} ไฟล์)`);
 }
 

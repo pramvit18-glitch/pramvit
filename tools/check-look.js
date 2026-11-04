@@ -19,6 +19,43 @@ global.navigator = {};
 const out = [];
 const push = (name, v) => out.push([name, !!v]);
 
+/* ---------- ฟอนต์ ----------
+   เคยพังเงียบ ๆ: แอปร้านกับหน้าลูกค้าตั้งชุดฟอนต์ไว้คนละชุด
+   index ขึ้นต้นด้วย Sarabun ส่วน order ขึ้นต้นด้วย -apple-system
+   บนไอโฟนจึงเห็นคนละฟอนต์กันทั้งที่ตั้งใจให้เป็นแอปเดียวกัน
+   ตอนนี้โหลด Noto Sans Thai เองจากในโปรเจกต์ ทุกเครื่องเลยเห็นเหมือนกันหมด */
+let ordCss = '';
+try{ ordCss = fs.readFileSync('order.html', 'utf8').split('<style>')[1].split('</style>')[0]; }catch(e){}
+/* ต้องตัดบล็อก @font-face ทิ้งก่อน ไม่งั้นไปจับ font-family:'Noto Sans Thai' ที่อยู่ข้างใน
+   ซึ่งเหมือนกันทั้งสองไฟล์อยู่แล้ว กลายเป็นเทสต์ที่ผ่านตลอดไม่ว่าชุดฟอนต์จริงจะต่างกันแค่ไหน
+   (เขียนผิดแบบนี้มาแล้วรอบหนึ่ง จับบั๊กที่ตั้งใจจะจับไม่ได้เลย) */
+const stackOf = css2 => {
+  const noFace = String(css2).replace(/@font-face\{[^}]*\}/g, '');
+  return (noFace.match(/font-family:([^;]*,[^;]*);/) || [])[1];
+};
+const stackA = stackOf(css), stackB = stackOf(ordCss);
+push('แอปร้านกับหน้าลูกค้าใช้ชุดฟอนต์เดียวกันเป๊ะ', !!stackA && stackA === stackB);
+push('ฟอนต์หลักเป็น Noto Sans Thai', /^'Noto Sans Thai'/.test(String(stackA).trim()));
+[['index.html', css], ['order.html', ordCss]].forEach(([name, c]) => {
+  push(`${name} ประกาศ @font-face ครบทั้งไทยและอังกฤษ`,
+    (c.match(/@font-face\{[^}]*Noto Sans Thai/g) || []).length >= 2);
+  /* โหลดจากในโปรเจกต์เอง ไม่ใช่ลิงก์ออกไป Google
+     ลิงก์ออกข้างนอก = เน็ตไม่ดีแล้วตัวหนังสือเปลี่ยนไปมา และเปิดออฟไลน์ไม่ได้ */
+  push(`${name} โหลดฟอนต์จากในโปรเจกต์ ไม่ได้ลิงก์ออกไปข้างนอก`,
+    /url\('fonts\/noto-sans-thai/.test(c) && !/fonts\.(googleapis|gstatic)\.com/.test(c));
+});
+// ฟอนต์ต้องอยู่ในแคชของ service worker ไม่งั้นเปิดตอนไม่มีเน็ตแล้วตัวหนังสือเปลี่ยน
+let swTxt = '';
+try{ swTxt = fs.readFileSync('sw.js', 'utf8'); }catch(e){}
+push('ฟอนต์ถูกเก็บไว้ในแคชออฟไลน์ด้วย',
+  (swTxt.match(/fonts\/noto-sans-thai[^']*\.woff2/g) || []).length >= 2);
+['fonts/noto-sans-thai-thai.woff2', 'fonts/noto-sans-thai-latin.woff2'].forEach(f => {
+  let sz = 0;
+  try{ sz = fs.statSync(f).size; }catch(e){}
+  push(`มีไฟล์ ${f.split('/')[1]} และขนาดสมเหตุผล (${Math.round(sz/1024)}KB)`,
+    sz > 10000 && sz < 400000);
+});
+
 /* ---------- จอคอม ----------
    เคยพังมาแล้ว: `@media` วัดจาก "ความกว้างจอ" แต่เนื้อหาถูกล็อกด้วย .shell{max-width}
    แดชบอร์ดสลับเป็น 4 คอลัมน์ตั้งแต่จอกว้าง 1040 ทั้งที่เปลือกยังกว้างแค่ 780
