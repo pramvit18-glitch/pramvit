@@ -144,40 +144,71 @@ async function tap(loc, why){
      ของที่ต้องคุมคือ **ชี้ของจริงและกล่องอธิบายอยู่ในจอ** ไม่ใช่แค่มีโค้ดอยู่ */
   await p.evaluate(() => { dlg.close(); });
   await p.waitForTimeout(900);
-  await p.evaluate(() => startTour());
-  await p.waitForTimeout(1600);
-  ok('กดพาทัวร์แล้วตัวคลุมโผล่', await p.locator('#tour').isVisible());
+  const keys = await p.evaluate(() => TOURS.map(t => t[0]));
+  ok(`มีทัวร์แยกตามหน้าหลายชุด (${keys.length} ชุด)`, keys.length >= 4);
 
-  let steps = 0, offEdge = 0, badHole = 0, titles = [], total = 0;
-  for(let i = 0; i < 14; i++){
-    if(!(await p.locator('#tour').isVisible().catch(() => false))) break;
-    const st = await p.evaluate(() => {
-      const tip = document.getElementById('tourTip');
-      const t = tip.getBoundingClientRect(), h = document.getElementById('tourHole').getBoundingClientRect();
-      return {
-        title: (tip.querySelector('h3') || {}).textContent || '',
-        total: Number(String((tip.querySelector('.tour-no') || {}).textContent || '').split('/')[1] || 0),
-        // กล่องอธิบายต้องอยู่ในจอทั้งใบ ไม่งั้นอ่านไม่จบหรือกดปุ่มไม่ถึง
-        inView: t.top >= 0 && t.bottom <= innerHeight && t.left >= 0 && t.right <= innerWidth,
-        // รูต้องคร่อมของจริง ไม่ใช่ลอยเป็นสี่เหลี่ยมเล็ก ๆ อยู่มุมจอ
-        hole: h.width > 10 && h.height > 10 && h.top > -60 && h.bottom < innerHeight + 60
-      };
-    });
-    steps++; titles.push(st.title); total = st.total || total;
-    if(!st.inView) offEdge++;
-    if(!st.hole) badHole++;
-    if(!await tap(p.locator('#tourTip button', { hasText: /ถัดไป|จบแล้ว/ }), `กดถัดไปที่ขั้น ${steps} ได้`)) break;
-    await p.waitForTimeout(800);
+  let allSteps = 0, offEdge = 0, misAligned = 0, noTitle = 0, countBad = 0;
+  for(const key of keys){
+    await p.evaluate(k => startTour(k), key);
+    await p.waitForTimeout(1500);
+    if(!(await p.locator('#tour').isVisible().catch(() => false))){
+      ok(`ทัวร์ "${key}" เปิดได้`, false);
+      continue;
+    }
+    let n = 0, total = 0;
+    for(let i = 0; i < 14; i++){
+      if(!(await p.locator('#tour').isVisible().catch(() => false))) break;
+      const st = await p.evaluate(k => {
+        const t = TOURS.find(x => x[0] === k);
+        const tip = document.getElementById('tourTip');
+        const lab = String((tip.querySelector('.tour-no') || {}).textContent || '');
+        const idx = Number(lab.split('/')[0]) - 1;
+        const vis = t[3].filter(([sel]) => {
+          const e = document.querySelector(sel);
+          if(!e || e.hidden) return false;
+          const r = e.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        });
+        const step = vis[idx] || [];
+        const el = step[0] ? document.querySelector(step[0]) : null;
+        const tr = tip.getBoundingClientRect();
+        const hr = document.getElementById('tourHole').getBoundingClientRect();
+        /* รูต้องคร่อม "กรอบของ element ที่ขั้นนั้นชี้" จริง ๆ บวกขอบ 6px
+           ข้อนี้คือหัวใจ — ถ้ารูไปคร่อมที่ว่างหรือคร่อมของผิดชิ้น ทัวร์ก็ไร้ความหมาย
+           (เคยเขียนข้อนี้ด้วย elementFromPoint แล้วมันไปโดนตัวคลุมทุกครั้ง = เทสต์ที่ผ่านตลอด) */
+        let off = 999;
+        if(el){
+          const er = el.getBoundingClientRect();
+          off = Math.max(Math.abs(hr.left - (er.left - 6)), Math.abs(hr.top - (er.top - 6)),
+                         Math.abs(hr.width - (er.width + 12)), Math.abs(hr.height - (er.height + 12)));
+        }
+        return {
+          total: Number(lab.split('/')[1] || 0),
+          title: (tip.querySelector('h3') || {}).textContent || '',
+          off,
+          inView: tr.top >= 0 && tr.bottom <= innerHeight && tr.left >= 0 && tr.right <= innerWidth
+        };
+      }, key);
+      n++; allSteps++; total = st.total || total;
+      if(!st.inView) offEdge++;
+      if(st.off > 12) misAligned++;
+      if(st.title.trim().length < 3) noTitle++;
+      if(!await tap(p.locator('#tourTip button', { hasText: /ถัดไป|จบแล้ว/ }),
+                    `ทัวร์ "${key}" กดถัดไปที่ขั้น ${n} ได้`)) break;
+      await p.waitForTimeout(800);
+    }
+    if(total !== n) countBad++;
+    ok(`ทัวร์ "${key}" เดินจนจบแล้วปิดเอง (${n} ขั้น)`,
+      n >= 2 && !(await p.locator('#tour').isVisible().catch(() => false)));
   }
-  ok(`ทัวร์เดินได้หลายขั้น (${steps} ขั้น)`, steps >= 8);
-  ok('ทุกขั้นมีหัวข้อบอกว่าปุ่มนั้นทำอะไร', titles.every(t => t.trim().length > 2));
+  ok(`ทุกทัวร์รวมกันเดินได้ ${allSteps} ขั้น`, allSteps >= 18);
+  ok(`ทุกขั้นมีหัวข้อบอกว่าปุ่มนั้นทำอะไร (${noTitle} ขั้นที่ไม่มี)`, noTitle === 0);
   ok(`ทุกขั้นกล่องอธิบายอยู่ในจอ ไม่ตกขอบ (${offEdge} ขั้นที่ตก)`, offEdge === 0);
-  ok(`ทุกขั้นรูคร่อมของจริง (${badHole} ขั้นที่ไม่คร่อม)`, badHole === 0);
-  ok(`ตัวนับตรงกับจำนวนขั้นที่เดินจริง (ป้ายบอก ${total} เดินได้ ${steps})`, total === steps);
-  ok('กดจนจบแล้วทัวร์ปิดเอง', !(await p.locator('#tour').isVisible().catch(() => false)));
+  ok(`ทุกขั้นรูคร่อมของที่ชี้จริง ไม่ใช่ที่ว่าง (${misAligned} ขั้นที่เพี้ยน)`, misAligned === 0);
+  ok(`ตัวนับตรงกับจำนวนขั้นที่เดินจริงทุกทัวร์ (${countBad} ทัวร์ที่ไม่ตรง)`, countBad === 0);
 
   /* ระหว่างทัวร์ต้องกดทะลุไปโดนของจริงไม่ได้ แม่ค้ามือเปื้อนแป้ง เผลอแตะโดนง่าย */
-  await p.evaluate(() => { go('today'); startTour(); });
+  await p.evaluate(() => { go('today'); startTour('intro'); });
   await p.waitForTimeout(1600);
   const tabWas = await p.evaluate(() => tab);
   await p.mouse.click(200, 520);

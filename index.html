@@ -1027,6 +1027,19 @@
   /* ---------- พาทัวร์ทีละปุ่ม ----------
      เจาะรูให้เห็นปุ่มจริงด้วย box-shadow วงใหญ่รอบ ๆ ไม่ต้องวาด canvas หรือ svg
      ตัวคลุมกินคลิกไว้หมด แม่ค้าจะได้ไม่เผลอกดโดนของจริงระหว่างดูคำอธิบาย */
+  /* แถวปุ่มเลือกทัวร์ บนสุดของคู่มือ */
+  .tourpick{background:var(--tint); border-radius:var(--r); padding:13px 15px 14px; margin-bottom:14px}
+  .tourpick b{display:block; font-size:14.5px; font-weight:800; letter-spacing:-.01em}
+  .tourpick i{display:block; font-style:normal; font-size:12.5px; color:var(--ink-2); margin:3px 0 11px}
+  .tourpick-r{display:flex; flex-wrap:wrap; gap:8px}
+  .tourpick-b{
+    border:none; cursor:pointer; font:inherit; font-weight:800; font-size:12.5px;
+    background:var(--bg); color:var(--brand); border-radius:var(--r-pill);
+    padding:8px 14px; box-shadow:var(--sh-card);
+    transition:transform var(--tap-out) var(--ease), background .16s;
+  }
+  .tourpick-b:active{transform:scale(.95); background:var(--soft)}
+
   #tour{position:fixed; inset:0; z-index:70}
   .tour-hole{
     position:fixed; border-radius:var(--r); pointer-events:none;
@@ -5042,32 +5055,77 @@ function guideHTML(){
 
    **ทุกขั้นต้องชี้ของที่มีอยู่จริงและมองเห็นอยู่** ขั้นไหนหาไม่เจอให้ข้ามไปเลย
    (เช่นกระดิ่งจะโผล่เฉพาะตอนเปิดรับออเดอร์) ไม่งั้นทัวร์จะชี้ไปที่ว่าง ๆ */
-const TOUR = [
-  ['#searchQ', 'ช่องค้นหา',
-   'พิมพ์ชื่อเมนูหรือของที่ซื้อมา แล้วแตะผลที่ขึ้นมาเพื่อเปิดบิลได้เลย'],
-  ['#quickRow', 'เมนูของฉัน',
-   'ทางลัดของเมนูที่ขายบ่อย แตะตรงนี้ทีเดียว แอปเปิดบิลให้เอง ไม่ต้องไปแท็บขาย'],
-  ['#wkStrip', 'แถบวัน',
-   'แตะวันไหนก็ย้อนดูยอดของวันนั้นได้ จุดใต้ตัวเลขแปลว่าวันนั้นมีขาย'],
-  ['#statusRow', 'การ์ดสถานะ',
-   'บอกว่าวันนี้ขายไปกี่บิล ได้เท่าไหร่ และเหลือเข้ากระเป๋าเท่าไหร่'],
-  ['.bottomnav button[data-tab="sale"]', 'ปุ่มขาย',
-   'เปิดบิลขายหน้าร้าน กดเมนูที่ลูกค้าสั่ง เลือกไส้ แล้วกดรับเงิน'],
-  ['.bottomnav button[data-tab="money"]', 'ปุ่มรายจ่าย',
-   'จดเงินที่จ่ายออกไป เช่น ซื้อแป้ง ซื้อไข่ ค่าแก๊ส จะได้รู้กำไรจริง'],
-  ['.bottomnav button[data-tab="hist"]', 'ปุ่มย้อนหลัง',
-   'ดูบิลเก่าทีละใบ กดผิดก็แก้หรือลบทิ้งได้ตรงนี้'],
-  ['.bottomnav button[data-tab="setup"]', 'ปุ่มตั้งค่า',
-   'แก้เมนู ราคา ค่าเช่าค่าไฟ ตั้งรหัสคนดูแล และเปิดให้ลูกค้าสั่งเองผ่าน QR'],
-  ['#bellBtn', 'กระดิ่งออเดอร์',
-   'โผล่ตอนเปิดรับออเดอร์จากลูกค้า แดงพร้อมตัวเลขแปลว่ามีออเดอร์รออยู่'],
-  ['.icon-btn[aria-label="สำรอง / กู้คืนข้อมูล"]', 'ปุ่มสำรองข้อมูล',
-   'กดเก็บข้อมูลไว้เป็นระยะ มือถือหายแล้วจะได้ไม่เสียยอดขายไปทั้งหมด'],
-  ['.icon-btn[aria-label="คู่มือการใช้งาน"]', 'ปุ่มคู่มือ',
-   'ลืมเมื่อไหร่กดอ่านได้ตลอด และกดเรียกทัวร์นี้ซ้ำได้จากในนั้น']
+/* ทัวร์แยกเป็นชุดสั้น ๆ ตามหน้า **ไม่ใช่ทัวร์เดียวยาว 25 ขั้น**
+   ยาวไปไม่มีใครกดจนจบ และคนที่อยากรู้แค่เรื่องขายก็ไม่ต้องนั่งดูเรื่องรายจ่าย
+   ชุดละ [คีย์, ชื่อ, แท็บที่ต้องพาไปก่อน, ขั้นตอน]
+   ขั้นตอน = [selector ของจริง, หัวข้อ, คำอธิบาย] */
+const TOURS = [
+  ['intro', 'รู้จักแอป', 'today', [
+    ['#searchQ', 'ช่องค้นหา',
+     'พิมพ์ชื่อเมนูหรือของที่ซื้อมา แล้วแตะผลที่ขึ้นมาเพื่อเปิดบิลได้เลย'],
+    ['#quickRow', 'เมนูของฉัน',
+     'ทางลัดของเมนูที่ขายบ่อย แตะตรงนี้ทีเดียว แอปเปิดบิลให้เอง ไม่ต้องไปแท็บขาย'],
+    ['#wkStrip', 'แถบวัน',
+     'แตะวันไหนก็ย้อนดูยอดของวันนั้นได้ จุดใต้ตัวเลขแปลว่าวันนั้นมีขาย'],
+    ['#statusRow', 'การ์ดสถานะ',
+     'บอกว่าวันนี้ขายไปกี่บิล ได้เท่าไหร่ และเหลือเข้ากระเป๋าเท่าไหร่'],
+    ['.bottomnav button[data-tab="sale"]', 'ปุ่มขาย',
+     'เปิดบิลขายหน้าร้าน กดเมนูที่ลูกค้าสั่ง เลือกไส้ แล้วกดรับเงิน'],
+    ['.bottomnav button[data-tab="money"]', 'ปุ่มรายจ่าย',
+     'จดเงินที่จ่ายออกไป เช่น ซื้อแป้ง ซื้อไข่ ค่าแก๊ส จะได้รู้กำไรจริง'],
+    ['.bottomnav button[data-tab="hist"]', 'ปุ่มย้อนหลัง',
+     'ดูบิลเก่าทีละใบ กดผิดก็แก้หรือลบทิ้งได้ตรงนี้'],
+    ['.bottomnav button[data-tab="setup"]', 'ปุ่มตั้งค่า',
+     'แก้เมนู ราคา ค่าเช่าค่าไฟ ตั้งรหัสคนดูแล และเปิดให้ลูกค้าสั่งเองผ่าน QR'],
+    ['#bellBtn', 'กระดิ่งออเดอร์',
+     'โผล่ตอนเปิดรับออเดอร์จากลูกค้า แดงพร้อมตัวเลขแปลว่ามีออเดอร์รออยู่'],
+    ['.icon-btn[aria-label="สำรอง / กู้คืนข้อมูล"]', 'ปุ่มสำรองข้อมูล',
+     'กดเก็บข้อมูลไว้เป็นระยะ มือถือหายแล้วจะได้ไม่เสียยอดขายไปทั้งหมด'],
+    ['.icon-btn[aria-label="คู่มือการใช้งาน"]', 'ปุ่มคู่มือ',
+     'ลืมเมื่อไหร่กดอ่านได้ตลอด และกดเรียกทัวร์นี้ซ้ำได้จากในนั้น']
+  ]],
+
+  ['sale', 'หน้าขาย', 'sale', [
+    ['.shoppill', 'ร้านเปิดอยู่ไหม',
+     'แตะเพื่อเปิด-ปิดร้าน · ปิดอยู่แล้วลูกค้าที่สแกน QR จะสั่งไม่ได้'],
+    ['.orderbtn', 'ปุ่มเปิดบิล',
+     'กดแล้วหน้าต่างสั่งสินค้าจะเด้งขึ้นมา เลือกเมนู ใส่ไส้ แล้วกดรับเงินจบบิล'],
+    ['#view .qmenu-b', 'เมนูลัด',
+     'ไม่อยากเปิดบิลก่อนก็กดเมนูตรงนี้ได้เลย แอปเปิดบิลให้เอง กดซ้ำ = เพิ่มจำนวน']
+  ]],
+
+  ['money', 'หน้ารายจ่าย', 'money', [
+    ['#view .dseg-b', 'วันนี้ / เดือนนี้',
+     'สลับดูว่าจ่ายไปเท่าไหร่ เฉพาะวันนี้ หรือรวมทั้งเดือน'],
+    ['#view .srow-a', 'ปุ่มเพิ่ม',
+     'จดรายจ่ายใหม่ เช่น ซื้อแป้ง ค่าแก๊ส ค่าถุง · ไม่จดแล้วกำไรที่เห็นจะเกินจริง'],
+    ['#view .li', 'รายการที่จดไว้',
+     'แตะรายการเพื่อแก้หรือลบ · ตัวเลขแดงคือเงินที่จ่ายออกไป']
+  ]],
+
+  ['hist', 'หน้าย้อนหลัง', 'hist', [
+    ['#view .wk-d.on', 'เลือกวัน',
+     'แตะวันที่อยากดู · ลูกศรข้างบนเลื่อนไปสัปดาห์ก่อนหน้าได้'],
+    ['#view .srow-a', 'ดูรายการของวันนั้น',
+     'เปิดดูบิลทีละใบ แตะบิลที่กดผิดเพื่อแก้หรือลบทิ้ง · ลบแล้วยอดขายลดตาม'],
+    ['#view .dayx-row', 'สรุปรายวัน',
+     'แต่ละแถวคือหนึ่งวัน บอกว่าขายได้เท่าไหร่ และเหลือเข้ากระเป๋าเท่าไหร่'],
+    ['#view .cat', 'ตัวกรอง',
+     'กรองดูเฉพาะวันที่ขายดี หรือเรียงตามกำไรได้']
+  ]],
+
+  ['setup', 'หน้าตั้งค่า', 'setup', [
+    ['#view .dseg-b', 'แท็บย่อย 4 อัน',
+     'ตั้งค่าแบ่งเป็น 4 กอง: ร้าน · เมนู · ต้นทุน · ข้อมูล แตะสลับดูได้'],
+    ['#view .srow-a', 'เปิด-ปิดร้าน',
+     'ปิดร้านแล้วลูกค้าที่สแกน QR จะเห็นว่าร้านปิด สั่งไม่ได้'],
+    ['#view .shoprow-main', 'ร้านของคุณ',
+     'มีหลายร้านก็เพิ่มได้ แต่ละร้านแยกเมนูและยอดขายขาดจากกัน']
+  ]]
 ];
 
-let tourAt = 0, tourSteps = [];
+/* เปิดทัวร์ไหนอยู่ · รายการขั้นที่ใช้ได้จริงในรอบนี้ */
+let tourAt = 0, tourList = [];
 
 // เห็นอยู่จริงไหม — ของที่ซ่อนอยู่หรือกว้างศูนย์ ชี้ไปก็ไม่มีใครเห็นว่าชี้อะไร
 function tourVisible(sel){
@@ -5077,18 +5135,22 @@ function tourVisible(sel){
   return (r.width > 0 && r.height > 0) ? el : null;
 }
 
-function startTour(){
+function startTour(key){
+  const t = TOURS.find(x => x[0] === (key || 'intro')) || TOURS[0];
   dlg.close();
-  go('today');                       // ทุกขั้นแรก ๆ อยู่บนหน้าแรก ต้องพาไปก่อน
+  go(t[2]);                          // พาไปหน้าที่ทัวร์ชุดนี้พูดถึงก่อน
+  tourList = t[3];
   setTimeout(() => {
-    tourSteps = TOUR.filter(([sel]) => tourVisible(sel));
-    if(!tourSteps.length){ toast('ยังไม่มีอะไรให้พาดูตอนนี้'); return; }
+    if(!tourNow().length){ toast('ยังไม่มีอะไรให้พาดูตอนนี้'); return; }
     tourAt = 0;
     document.getElementById('tour').hidden = false;
     document.addEventListener('keydown', tourKey);
     paintTour();
   }, 420);
 }
+
+// ขั้นที่ "ตอนนี้" ชี้ได้จริง — คิดใหม่ทุกครั้ง ไม่จำค่าเก่าไว้
+const tourNow = () => tourList.filter(([sel]) => tourVisible(sel));
 
 function endTour(){
   document.getElementById('tour').hidden = true;
@@ -5098,19 +5160,21 @@ function tourKey(e){ if(e.key === 'Escape') endTour(); }
 function tourGo(d){
   const next = tourAt + d;
   if(next < 0) return;
-  if(next >= tourSteps.length) return endTour();
+  if(next >= tourNow().length) return endTour();
   tourAt = next;
   paintTour();
 }
 
 function paintTour(){
-  const [sel, title, text] = tourSteps[tourAt];
+  const vis = tourNow();
+  if(!vis.length) return endTour();
+  if(tourAt >= vis.length) tourAt = vis.length - 1;
+  const [sel, title, text] = vis[tourAt];
   const el = tourVisible(sel);
   if(!el) return tourGo(1);          // หายไประหว่างทาง ข้ามไปขั้นถัดไป
   el.scrollIntoView({ block:'center', behavior:'smooth' });
 
-  // รอให้เลื่อนจอจบก่อนค่อยวัด ไม่งั้นได้ตำแหน่งเก่า กรอบไปคร่อมที่ว่าง
-  setTimeout(() => {
+  tourSettled(el, () => {
     const r = el.getBoundingClientRect();
     const pad = 6;
     const hole = document.getElementById('tourHole');
@@ -5119,11 +5183,12 @@ function paintTour(){
     hole.style.width  = (r.width + pad * 2) + 'px';
     hole.style.height = (r.height + pad * 2) + 'px';
 
-    const last = tourAt === tourSteps.length - 1;
+    const nTotal = tourNow().length;
+    const last = tourAt === nTotal - 1;
     const tip = document.getElementById('tourTip');
     tip.innerHTML = `<h3>${esc(title)}</h3><p>${esc(text)}</p>
       <div class="tour-foot">
-        <span class="tour-no">${tourAt + 1} / ${tourSteps.length}</span>
+        <span class="tour-no">${tourAt + 1} / ${nTotal}</span>
         ${tourAt > 0 ? '<button type="button" class="tour-b" onclick="tourGo(-1)">ก่อนหน้า</button>' : ''}
         <button type="button" class="tour-b" onclick="endTour()">ปิด</button>
         <button type="button" class="tour-b go" onclick="tourGo(1)">${last ? 'จบแล้ว' : 'ถัดไป'}</button>
@@ -5137,7 +5202,21 @@ function paintTour(){
     let left = r.left + r.width / 2 - tw / 2;
     left = Math.max(edge, Math.min(left, innerWidth - tw - edge));
     tip.style.left = left + 'px';
-  }, 260);
+  });
+}
+
+/* เรียก cb เมื่อ element หยุดขยับแล้ว (หรือครบเวลารอ)
+   วัดตำแหน่งซ้ำทุก 60ms ได้ค่าเดิมสองรอบติด = จอดนิ่งแล้ว */
+function tourSettled(el, cb){
+  let last = null, left = 12;
+  const tick = () => {
+    const r = el.getBoundingClientRect();
+    const now = Math.round(r.top) + ':' + Math.round(r.left);
+    if(now === last || left <= 0) return cb();
+    last = now; left--;
+    setTimeout(tick, 60);
+  };
+  tick();
 }
 
 function openHelp(){
@@ -5153,8 +5232,12 @@ function openHelp(){
   openDialog({ icon:'menu',
     title:'คู่มือการใช้งาน',
     sub:'แตะหัวข้อที่อยากรู้ ไม่ต้องอ่านทั้งหมด',
-    html: `<button type="button" class="btn primary block" style="margin-bottom:14px"
-        onclick="startTour()">${icon('check',16)} พาทัวร์ทีละปุ่ม — ชี้ให้ดูบนหน้าจอจริง</button>`
+    html: `<div class="tourpick">
+        <b>พาทัวร์ทีละปุ่ม</b>
+        <i>ชี้ให้ดูบนหน้าจอจริงว่าปุ่มไหนทำอะไร แล้วกดถัดไปทีละขั้น</i>
+        <div class="tourpick-r">${TOURS.map(([k, name]) =>
+          `<button type="button" class="tourpick-b" onclick="startTour('${k}')">${esc(name)}</button>`).join('')}</div>
+      </div>`
       + guideHTML() + `<details class="gd-s" style="margin-top:10px">
       <summary><span class="gd-n">${GUIDE.length + 1}</span>คำในแอปแปลว่าอะไร</summary>
       <div class="gd-b" style="padding-left:16px">
