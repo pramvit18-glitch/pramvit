@@ -27,14 +27,43 @@ const probe = `
   const wk = weekOf(today);
   out.push(['สัปดาห์มี 7 วัน เรียงจันทร์→อาทิตย์', wk.length === 7 && wk.includes(today)
     && new Date(wk[0].replace(/-/g,'/')).getDay() === 1]);
-  out.push(['แถบวันวาดครบ 7 ปุ่ม', (wkHTML().match(/class="wk-d/g)||[]).length === 7]);
-  out.push(['วันนี้ถูกไฮไลต์อยู่', wkHTML().indexOf(' on') >= 0 && wkHTML().indexOf('today') >= 0]);
-  out.push(['แถบวันแท็กปิดครบ', bal(wkHTML())]);
-
-  // วันในอนาคตต้องกดไม่ได้ และปุ่มสัปดาห์ถัดไปต้องถูกปิด
+  /* ถาดวันเป็นแถวยาวที่ลากไหลได้ (เจ้าของขอ: "เลื่อนให้มันสมูทหน่อย เหมือนเมนูของฉัน")
+     ไม่ใช่ 7 ช่องตายตัวแล้ว ต้องมีของให้ลากย้อนหลายสัปดาห์ */
   const wkNow = wkHTML();
-  const fut = wk.filter(k => k > today).length;
-  out.push(['วันในอนาคตกดไม่ได้', (wkNow.match(/disabled/g)||[]).length >= fut]);
+  const cellCount = (wkNow.match(/class="wk-d[ "]/g)||[]).length;
+  out.push(['ถาดวันมีของให้ลากย้อนหลายสัปดาห์ (' + cellCount + ' วัน)', cellCount >= 60]);
+  out.push(['สัปดาห์นี้อยู่ในถาดครบทั้ง 7 วัน',
+    wk.filter(k => k <= today).every(k => wkNow.indexOf('data-day="' + k + '"') >= 0)]);
+  out.push(['วันนี้ถูกไฮไลต์อยู่', wkNow.indexOf(' on') >= 0 && wkNow.indexOf('today') >= 0]);
+  out.push(['ถาดวันแท็กปิดครบ', bal(wkNow)]);
+  /* ถาดจบที่วันนี้ ไม่ต้องมีวันข้างหน้าให้กดเลย
+     (ของเดิมเป็น 7 ช่องตายตัว เลยมีวันข้างหน้าโผล่มาแล้วต้องปิดทีละอัน) */
+  const latest = [...wkNow.matchAll(/data-day="([\\d-]+)"/g)].map(m => m[1]).sort().pop();
+  out.push(['ถาดวันจบที่วันนี้ ไม่มีวันข้างหน้าให้กด (' + latest + ')', latest === today]);
+  // วันอาทิตย์ต้องเป็นสีแดงถูกวันจริง ไม่ใช่นับช่องที่ 7 เอา
+  /* ตัวหนังสือบอกวันต้องตรงกับวันจริง **ห้ามนับจากลำดับช่อง**
+     ถาดยาวต่อเนื่องแล้ว "ช่องที่ 7" ไม่ได้แปลว่าวันอาทิตย์อีกต่อไป
+     ข้อเดิมนับแค่จำนวนช่องที่เป็นสีแดง ซึ่งจับไม่ได้เลยตอนทุกวันเลื่อนไปหนึ่งวัน */
+  const dowOf = {};
+  wkNow.split('<button').forEach(ch => {
+    const i = ch.indexOf('data-day="'); if(i < 0) return;
+    const k = ch.slice(i + 10, ch.indexOf('"', i + 10));
+    const j = ch.indexOf('class="dow">'); if(j < 0) return;
+    dowOf[k] = { dow: ch.slice(j + 12, ch.indexOf('<', j + 12)), sun: ch.indexOf(' sun"') >= 0 };
+  });
+  const TH7 = ['อา','จ','อ','พ','พฤ','ศ','ส'];
+  const dayOf = k => new Date(k.replace(/-/g, '/')).getDay();
+  const wrongDow = Object.keys(dowOf).filter(k => dowOf[k].dow !== TH7[dayOf(k)]);
+  out.push(['ตัวหนังสือบอกวันตรงกับวันจริงทุกช่อง' + (wrongDow.length ? ' — ผิด ' + wrongDow.length + ' ช่อง' : ''),
+    !wrongDow.length && Object.keys(dowOf).length >= 60]);
+  const wrongSun = Object.keys(dowOf).filter(k => dowOf[k].sun !== (dayOf(k) === 0));
+  out.push(['วันอาทิตย์เป็นสีแดงถูกวันทุกอัน' + (wrongSun.length ? ' — ผิด ' + wrongSun.length + ' ช่อง' : ''),
+    !wrongSun.length]);
+  // ถาดเลื่อนเองด้วยเบราว์เซอร์ ไม่ใช่ JS ลากเอง — ลื่นกว่าและไม่แย่งจังหวะเลื่อนหน้าจอ
+  out.push(['ถาดวันเลื่อนด้วยการเลื่อนของเบราว์เซอร์เอง',
+    /\.wk-row\{[^}]*overflow-x:auto/.test(src)]);
+  out.push(['เลื่อนถาดไปหาวันที่เลือกให้เอง', /function centerWkRow/.test(src)]);
+  out.push(['ชื่อเดือนวิ่งตามวันที่เลื่อนไปเห็น', /wk-mt/.test(src)]);
 
   /* ---- ปฏิทินเต็มเดือน (กดที่ชื่อเดือน) ----
      เจ้าของขอมาเอง: ของเดิมเป็นรายชื่อเดือน ไปได้แค่เดือนที่เคยมีบันทึก */
@@ -59,14 +88,16 @@ const probe = `
   out.push(['วันนี้ถูกทำเครื่องหมายในปฏิทิน', calNow.indexOf('cal-d on today') >= 0
     || /class="cal-d[^"]*today/.test(calNow)]);
   // ปัดนิ้วต้องเปลี่ยนสัปดาห์ได้จริง ไม่ใช่มีแค่ปุ่มลูกศร
-  out.push(['แถบวันติดป้ายว่าปัดนิ้วได้', /data-swipe="week"/.test(src)]);
   out.push(['ปฏิทินติดป้ายว่าปัดนิ้วได้', /data-swipe="cal"/.test(src)]);
-  /* ปัดแล้วนิ้วไปหยุดทับปุ่มวันพอดี เบราว์เซอร์จะยิง click ตามมาด้วย
-     ถ้าไม่กินทิ้ง ปัดทีเดียวได้ทั้งเปลี่ยนสัปดาห์และเลือกวันที่บังเอิญอยู่ใต้นิ้ว */
+  /* **ถาดวันต้องไม่ดักปัดทับการเลื่อนของเบราว์เซอร์**
+     ถ้าดักไว้ด้วย พอสะบัดถาดแล้วปล่อย มันจะกระโดดสัปดาห์ให้อีกต่อหนึ่ง */
+  out.push(['ถาดวันไม่ดักปัดทับการเลื่อน', !/data-swipe="week"/.test(src)]);
+  /* ปัดในปฏิทินแล้วนิ้วไปหยุดทับปุ่มวันพอดี เบราว์เซอร์จะยิง click ตามมาด้วย
+     ถ้าไม่กินทิ้ง ปัดทีเดียวได้ทั้งเปลี่ยนเดือนและเลือกวันที่บังเอิญอยู่ใต้นิ้ว */
   out.push(['ปัดแล้วไม่เผลอเลือกวันที่นิ้วไปหยุดทับ',
     /swAte\\s*=\\s*true/.test(src) && /stopPropagation/.test(src)]);
-  // ปัดแนวตั้ง = เขากำลังเลื่อนหน้าจอ ห้ามไปเปลี่ยนสัปดาห์ให้
-  out.push(['เลื่อนหน้าจอแนวตั้งไม่ไปเปลี่ยนสัปดาห์', /Math\\.abs\\(dy\\)/.test(src)]);
+  // ปัดแนวตั้ง = เขากำลังเลื่อนหน้าจอ ห้ามไปเปลี่ยนเดือนให้
+  out.push(['เลื่อนหน้าจอแนวตั้งไม่ไปเปลี่ยนเดือน', /Math\\.abs\\(dy\\)/.test(src)]);
 
   /* ---- ย้อนวันแล้วแดชบอร์ดเปลี่ยนตาม ---- */
   const y = addDays(today, -1);

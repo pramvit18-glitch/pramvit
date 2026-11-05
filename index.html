@@ -224,7 +224,6 @@
     .bottomnav button::before, .bottomnav button svg{transition:none}
     .bottomnav button.on::before, .bottomnav button.on svg{animation:none}
     .icon-btn.bell.ring{animation:none}
-    .wk-row.in-r, .wk-row.in-l{animation:none}
   }
 
   /* ===================== หน้าแรก: หัวใหญ่ ค้นหา ทางลัด แถบวัน =====================
@@ -310,8 +309,18 @@
   }
   .wk-nav button:disabled{opacity:.35; cursor:default; box-shadow:none}
   .wk-nav svg{width:15px; height:15px}
-  .wk-row{display:grid; grid-template-columns:repeat(7,1fr); gap:2px}
+  /* ถาดวันลากไหลได้เหมือนแถว "เมนูของฉัน" (เจ้าของขอมาเอง: "เลื่อนให้มันสมูทหน่อย")
+     ใช้การเลื่อนของเบราว์เซอร์เองล้วน ๆ จึงได้แรงเฉื่อยกับความลื่นมาฟรีทุกเครื่อง
+     ลื่นกว่าเขียน JS ลากเองเยอะ และไม่ไปแย่งจังหวะการเลื่อนหน้าจอ */
+  .wk-row{
+    display:flex; gap:2px; overflow-x:auto; scrollbar-width:none;
+    margin:0 -20px; padding:2px 20px 4px;
+    overscroll-behavior-x:contain;      /* ลากสุดขอบแล้วไม่ไปลากทั้งหน้าต่อ */
+    -webkit-overflow-scrolling:touch;
+  }
+  .wk-row::-webkit-scrollbar{display:none}
   .wk-d{
+    flex:0 0 48px;                      /* กว้างเท่าเดิมตอนแบ่ง 7 ช่องพอดีบนมือถือ */
     border:none; background:none; cursor:pointer; font:inherit; padding:4px 0 6px; color:var(--ink);
     display:flex; flex-direction:column; align-items:center; gap:6px;
   }
@@ -328,13 +337,6 @@
   .wk-d .dot{width:5px; height:5px; border-radius:50%; background:var(--brand-l)}
   .wk-d.on .dot{background:var(--brand)}
   .wk-d .dot.off{background:transparent}
-  /* เปลี่ยนสัปดาห์แล้วแถววันเลื่อนเข้ามาตามทิศที่ปัด
-     ทิศเดียวกับทั้งแอป: ไปข้างหน้า = ของใหม่มาจากขวา */
-  @keyframes wkInR{from{opacity:0; transform:translateX(22%)} to{opacity:1; transform:none}}
-  @keyframes wkInL{from{opacity:0; transform:translateX(-22%)} to{opacity:1; transform:none}}
-  .wk-row.in-r{animation:wkInR .26s cubic-bezier(.32,.72,0,1) both}
-  .wk-row.in-l{animation:wkInL .26s cubic-bezier(.32,.72,0,1) both}
-
   /* ---------- ปฏิทินเลือกวัน (กล่องที่เปิดจากชื่อเดือน) ---------- */
   .cal-head{display:flex; align-items:center; gap:8px; margin-bottom:14px}
   .cal-head b{flex:1; text-align:center; font-size:17px; font-weight:800; letter-spacing:-.01em}
@@ -2150,6 +2152,8 @@
       grid-template-columns:repeat(auto-fit, minmax(96px, 1fr));
       gap:16px 10px;
     }
+    /* ถาดวันยังเลื่อนได้เหมือนเดิม แค่ไม่ต้องล้นออกไปชนขอบจอ */
+    .wk-row{margin:0; padding-left:0; padding-right:0}
     .quick-b, .hil-b{width:auto; min-width:0}
     .quick-b span, .hil-b span{
       max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
@@ -2266,7 +2270,7 @@
         </div>
         <div class="quick" id="quickRow"></div>
       </div>
-      <div class="wk" id="wkStrip" data-swipe="week"></div>
+      <div class="wk" id="wkStrip"></div>
       <div id="statusRow"></div>
       <div id="hiliteWrap"></div>
     </div>
@@ -4222,6 +4226,11 @@ function render(){
     tab==='fixed' ? viewFixed() :
     tab==='dash'  ? viewDash()  :
     tab==='orders'? viewOrders(): viewMore();
+
+  /* ถาดวันในหน้าย้อนหลังอยู่ใน #view ซึ่งถูกวาดใหม่ทั้งก้อนทุกรอบ
+     ตำแหน่งที่เลื่อนค้างไว้หายไปอยู่แล้ว จึงต้องเลื่อนไปหาวันที่เลือกให้ใหม่ทุกครั้ง
+     (ของหน้าแรกไม่ต้อง paintWeek() ดูแลเองและเก็บตำแหน่งที่แม่ค้าเลื่อนไว้) */
+  centerWkRow(view.querySelector('.wk-row'), false);
 
   // เนื้อหาลอยขึ้นมาเฉพาะตอนเปลี่ยนหน้า
   // render() ถูกเรียกบ่อยมาก (กดบันทึก เปิด-ปิดร้าน สลับวัน) ถ้าเล่นทุกครั้งจะรำคาญ
@@ -6476,7 +6485,20 @@ function cardHead(ic, title, sub, right){
    เพราะช่องค้นหาต้องไม่ถูกสร้างใหม่ทุกครั้งที่พิมพ์ ไม่งั้นคีย์บอร์ดเด้งปิด */
 
 let dashDay = dayKey();        // วันที่แดชบอร์ดกำลังดูอยู่ แตะแถบวันเพื่อย้อนหลัง
-let wkDir  = 0;                // ทิศที่เพิ่งเลื่อนสัปดาห์ (-1 ถอย · 1 ไปหน้า) ใช้เลือกทิศของภาพ
+/* ถาดวันเก็บวันไว้เป็นช่วงยาว ๆ ให้ลากย้อนได้เรื่อย ๆ ไม่ใช่ 7 ช่องตายตัว
+   **ช่วงนี้เปลี่ยนให้น้อยที่สุด** ตราบใดที่วันที่เลือกยังอยู่ในช่วงเดิมก็ไม่ต้องวาดใหม่
+   ไม่งั้นแตะวันทีหนึ่งถาดถูกสร้างใหม่ทั้งแถว วงแดงจะกระโดดแทนที่จะไหล
+   และตำแหน่งที่แม่ค้าเลื่อนค้างไว้ก็หายทุกครั้ง */
+const WK_SPAN = 90;            // ลากย้อนได้ราว 3 เดือน ไกลกว่านี้กดชื่อเดือนเปิดปฏิทินเร็วกว่า
+let wkFrom = '', wkTo = '';
+function wkSpan(){
+  const today = dayKey();
+  if(wkFrom && dashDay >= addDays(wkFrom, 7) && dashDay <= wkTo) return [wkFrom, wkTo];
+  wkFrom = addDays(dashDay, -WK_SPAN);
+  wkTo   = addDays(dashDay, WK_SPAN);
+  if(wkTo > today) wkTo = today;
+  return [wkFrom, wkTo];
+}
 let homeQ   = '';              // คำค้นบนหน้าแรก
 
 const DOW_TH = ['จ','อ','พ','พฤ','ศ','ส','อา'];
@@ -6484,6 +6506,11 @@ const DOW_TH = ['จ','อ','พ','พฤ','ศ','ส','อา'];
 function addDays(key, step){
   const [y,m,d] = key.split('-').map(Number);
   return dayKey(new Date(y, m-1, d + step));
+}
+// จันทร์ = 0 ให้ตรงกับลำดับใน DOW_TH (ของเบราว์เซอร์เริ่มที่อาทิตย์)
+function dowIdx(key){
+  const [y,m,d] = key.split('-').map(Number);
+  return (new Date(y, m-1, d).getDay() + 6) % 7;
 }
 // จันทร์–อาทิตย์ ของสัปดาห์ที่วันนั้นอยู่
 function weekOf(key){
@@ -6566,23 +6593,26 @@ function saveQuick(){
 /* ---------- เดือน + แถบวันในสัปดาห์ ---------- */
 function wkHTML(){
   const today = dayKey();
-  const days = weekOf(dashDay);
-  const nextOk = addDays(days[0], 7) <= today;
+  const [from, to] = wkSpan();
+  const days = [];
+  for(let k = from; k <= to; k = addDays(k, 1)) days.push(k);
+  const nextOk = addDays(weekOf(dashDay)[0], 7) <= today;
   return `
     <div class="wk-head">
       <button type="button" class="wk-m" onclick="monthPick()">
-        ${thaiMonth(monthKey(dashDay))}${icon('down',16)}
+        <span class="wk-mt">${thaiMonth(monthKey(dashDay))}</span>${icon('down',16)}
       </button>
       <span class="wk-nav">
         <button type="button" onclick="shiftWeek(-1)" aria-label="สัปดาห์ก่อนหน้า">${icon('back',15)}</button>
         <button type="button" onclick="shiftWeek(1)" ${nextOk ? '' : 'disabled'} aria-label="สัปดาห์ถัดไป">${icon('chev',15)}</button>
       </span>
     </div>
-    <div class="wk-row">${days.map((k,i) => `
+    <div class="wk-row">${days.map(k => `
       <button type="button" onclick="pickDay('${k}')" ${k > today ? 'disabled' : ''}
               data-day="${k}" aria-label="${thaiDate(k, true)}"
-              class="wk-d${k === dashDay ? ' on' : ''}${k === today ? ' today' : ''}${i === 6 ? ' sun' : ''}">
-        <span class="dow">${DOW_TH[i]}</span>
+              class="wk-d${k === dashDay ? ' on' : ''}${k === today ? ' today' : ''}${
+                dowIdx(k) === 6 ? ' sun' : ''}">
+        <span class="dow">${DOW_TH[dowIdx(k)]}</span>
         <span class="num">${Number(k.slice(8))}</span>
         <span class="dot${hasRecord(k) ? '' : ' off'}"></span>
       </button>`).join('')}</div>`;
@@ -6590,27 +6620,63 @@ function wkHTML(){
 /* วาดแถบวันใหม่เฉพาะตอนเปลี่ยนสัปดาห์ อยู่สัปดาห์เดิมก็แค่สลับคลาส
    เหตุผลเดียวกับแถบเมนูล่าง — ถ้าสร้าง element ใหม่ วงแดงจะกระโดดทันที
    ไม่มีสถานะเดิมให้ CSS ไหลออกมา และ :active ก็ไม่มีโอกาสแสดง */
+/* เลื่อนถาดให้วันที่เลือกมาอยู่กลาง — ไม่งั้นกระโดดไปวันไกล ๆ แล้วมองไม่เห็นว่าอยู่ตรงไหน */
+function centerWkRow(row, smooth){
+  if(!row) return;
+  const on = row.querySelector('.wk-d.on');
+  if(!on) return;
+  const left = on.offsetLeft - row.clientWidth / 2 + on.offsetWidth / 2;
+  try{ row.scrollTo({ left, behavior: (smooth && !reduceMotion()) ? 'smooth' : 'auto' }); }
+  catch(e){ row.scrollLeft = left; }
+}
+
+let wkPainted = '';    // วันที่วงแดงอยู่ตอนวาดรอบก่อน ใช้ดูว่าต้องเลื่อนถาดตามไหม
 function paintWeek(){
   const box = document.getElementById('wkStrip');
   if(!box) return;
-  const week = weekOf(dashDay).join();
+  const week = wkSpan().join();          // คีย์คือ "ช่วงวันในถาด" ไม่ใช่สัปดาห์แล้ว
   if(box.dataset.week !== week){
     box.innerHTML = wkHTML();
     box.dataset.week = week;
-    // เลื่อนเข้ามาทางที่ปัดไป คนจะได้รู้ว่าเพิ่งย้ายสัปดาห์ ไม่ใช่เลขเปลี่ยนเฉย ๆ
-    const row = wkDir && box.querySelector('.wk-row');
-    if(row) row.classList.add(wkDir > 0 ? 'in-r' : 'in-l');
-    wkDir = 0;
+    wkPainted = dashDay;
+    centerWkRow(box.querySelector('.wk-row'), false);   // เพิ่งสร้าง ยังไม่มีอะไรให้ค่อย ๆ เลื่อน
     return;
   }
-  // สัปดาห์เดิม: ย้ายวงแดงกับจุดบอกว่ามีบันทึก โดยไม่แตะโครง
+  // ช่วงเดิม: ย้ายวงแดงกับจุดบอกว่ามีบันทึก โดยไม่แตะโครง
   box.querySelectorAll('.wk-d').forEach(el => {
     const k = el.dataset.day;
     el.classList.toggle('on', k === dashDay);
     const dot = el.querySelector('.dot');
     if(dot) dot.classList.toggle('off', !hasRecord(k));
   });
+  // เปลี่ยนวันเอง (กดลูกศร / เลือกจากปฏิทิน) ให้ถาดไหลตามไปหา
+  if(wkPainted !== dashDay){
+    wkPainted = dashDay;
+    centerWkRow(box.querySelector('.wk-row'), true);
+  }
 }
+
+/* ชื่อเดือนบนหัวต้องวิ่งตามวันที่เลื่อนไปเห็น
+   ไม่งั้นลากย้อนไปถึง ก.ย. แล้วหัวยังเขียน พ.ย. ค้างอยู่ อ่านแล้วงง
+   ดักที่ชั้นนอกสุดเพราะ scroll ไม่ลอยขึ้นมาเอง · หน่วงด้วยเฟรมภาพ ไม่งั้นคิดทุกพิกเซลที่เลื่อน */
+let wkTick = 0;
+document.addEventListener('scroll', e => {
+  const row = e.target;
+  if(!row || !row.classList || !row.classList.contains('wk-row')) return;
+  if(wkTick) return;
+  wkTick = requestAnimationFrame(() => {
+    wkTick = 0;
+    const head = row.parentElement && row.parentElement.querySelector('.wk-mt');
+    if(!head) return;
+    const mid = row.scrollLeft + row.clientWidth / 2;
+    let best = null, gap = Infinity;
+    row.querySelectorAll('.wk-d').forEach(el => {
+      const d = Math.abs(el.offsetLeft + el.offsetWidth / 2 - mid);
+      if(d < gap){ gap = d; best = el; }
+    });
+    if(best) head.textContent = thaiMonth(monthKey(best.dataset.day));
+  });
+}, true);
 
 function pickDay(k){
   if(k > dayKey()) return;
@@ -6621,18 +6687,16 @@ function pickDay(k){
 function shiftWeek(step){
   // ไปข้างหน้าได้ไม่เกินสัปดาห์ที่มีวันนี้อยู่ — เงื่อนไขเดียวกับที่ปิดปุ่มลูกศร
   if(step > 0 && addDays(weekOf(dashDay)[0], 7) > dayKey()) return;
-  wkDir = step;
   const next = addDays(dashDay, step * 7);
   pickDay(next > dayKey() ? dayKey() : next);
 }
 
-/* ---------- ปัดนิ้วซ้าย-ขวาเพื่อเปลี่ยนสัปดาห์/เดือน ----------
-   เจ้าของขอมาเอง: "อยากปรับวันที่ให้สามารถปัดเลื่อนวันได้"
-   ปุ่มลูกศรยังอยู่ครบ การปัดเป็นทางลัดเพิ่ม ไม่ได้มาแทน (จอคอมใช้เมาส์ลากก็ได้)
-   ของที่ปัดได้ติดป้าย data-swipe ไว้ แล้วดักที่ document ทีเดียว
-   จะได้ใช้ได้ทั้งแถบวันบนหน้าแรกและบนหน้าย้อนหลัง โดยไม่ต้องไปผูกทีละที่ */
-const SWIPE_MIN = 40;          // ต้องลากไกลกว่านี้ถึงนับว่าปัด ไม่งั้นแค่แตะก็เปลี่ยนวัน
-const SWIPE_DO = { week: step => shiftWeek(step), cal: step => calShift(step) };
+/* ---------- ปัดนิ้วซ้าย-ขวาในปฏิทินเพื่อเปลี่ยนเดือน ----------
+   **ถาดวันไม่ใช้ตัวนี้แล้ว** มันเลื่อนเองด้วยการเลื่อนของเบราว์เซอร์ ซึ่งลื่นกว่ามาก
+   ถ้ายังดักปัดทับไว้ด้วย พอสะบัดถาดแล้วปล่อย มันจะกระโดดสัปดาห์ให้อีกต่อหนึ่ง
+   เหลือไว้เฉพาะปฏิทิน เพราะตารางเดือนเลื่อนเองไม่ได้ */
+const SWIPE_MIN = 40;          // ต้องลากไกลกว่านี้ถึงนับว่าปัด ไม่งั้นแค่แตะก็เปลี่ยนเดือน
+const SWIPE_DO = { cal: step => calShift(step) };
 let swFrom = null, swAte = false;
 
 document.addEventListener('pointerdown', e => {
@@ -7313,7 +7377,7 @@ function viewHist(){
   const avgSale = m.days ? m.sale / m.days : 0;
 
   return `
-  <div class="wk" data-swipe="week">${wkHTML()}</div>
+  <div class="wk">${wkHTML()}</div>
 
   ${srow(sumDay(dashDay).sale > 0 ? '' : 'flat', 'today', thaiDate(dashDay, true),
     billsOf(dashDay) ? `${billsOf(dashDay)} บิล · ขายได้ ฿${baht(sumDay(dashDay).sale)}` : 'วันนี้ไม่มีบันทึก',

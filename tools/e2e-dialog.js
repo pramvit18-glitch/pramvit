@@ -316,7 +316,6 @@ async function tap(loc, why){
   await p.evaluate(() => { endTour(); go('today'); });
   await p.waitForTimeout(500);
 
-  // ลากนิ้วจากขวาไปซ้ายบนแถบวัน = ขอดูของถัดไป (แต่สัปดาห์นี้มีวันนี้อยู่ จึงไปต่อไม่ได้)
   const swipe = async (sel, dx, dy = 0) => {
     const box = await p.locator(sel).first().boundingBox();
     if(!box) return false;
@@ -330,26 +329,70 @@ async function tap(loc, why){
     return true;
   };
   const dayNow = () => p.evaluate(() => dashDay);
+  const rail = () => p.evaluate(() => {
+    const r = document.querySelector('#wkStrip .wk-row');
+    if(!r) return null;
+    const on = r.querySelector('.wk-d.on');
+    return {
+      cells: r.querySelectorAll('.wk-d').length,
+      scrollW: r.scrollWidth, clientW: r.clientWidth, left: Math.round(r.scrollLeft),
+      onMid: on ? Math.round(on.offsetLeft + on.offsetWidth / 2) : -1,
+      month: (document.querySelector('#wkStrip .wk-mt') || {}).textContent || ''
+    };
+  });
 
-  const wasDay = await dayNow();
-  await swipe('#wkStrip .wk-row', 140);          // ลากไปขวา = ถอยไปสัปดาห์ก่อน
-  const backDay = await dayNow();
-  ok(`ปัดขวาแล้วถอยไปสัปดาห์ก่อน (${wasDay} → ${backDay})`,
-    backDay !== wasDay && new Date(backDay) < new Date(wasDay));
+  /* ถาดวันต้องลากไหลได้เองเหมือนแถว "เมนูของฉัน"
+     เจ้าของขอมาเอง: "เลื่อนให้มันสมูทหน่อยได้มั้ยละ เลื่อนเหมือนตรงเมนูของฉันอะ"
+     ของเดิมเป็น 7 ช่องตายตัว ต้องกดลูกศรหรือปัดแล้วกระโดดทีละสัปดาห์ */
+  const r0 = await rail();
+  ok('ถาดวันมีวันให้ลากย้อนหลายสัปดาห์ (' + (r0 ? r0.cells : 0) + ' วัน)', r0 && r0.cells >= 60);
+  ok('ถาดวันเลื่อนได้จริง ไม่ได้อัดอยู่ในจอเดียว', r0 && r0.scrollW > r0.clientW + 200);
+  /* เปิดมาต้องเห็นวันที่เลือกเลย ไม่ใช่ต้องลากหาเอง
+     วันนี้อยู่ท้ายสุดของถาด จึงเลื่อนให้มากลางจอไม่ได้ (สุดทางแล้ว) ขอแค่อยู่ในจอก็พอ */
+  ok('เปิดมาเห็นวันที่เลือกเลย ไม่ต้องลากหา',
+    r0 && r0.onMid > r0.left && r0.onMid < r0.left + r0.clientW);
 
-  await swipe('#wkStrip .wk-row', -140);         // ลากไปซ้าย = กลับมาสัปดาห์ถัดไป
-  ok('ปัดซ้ายแล้วกลับมาสัปดาห์ถัดไป', await dayNow() === wasDay);
+  // เลื่อนถาดเอง: วันที่เลือกต้องไม่เปลี่ยน แค่เลื่อนดูเฉย ๆ
+  const dayWas = await dayNow();
+  await p.evaluate(() => { document.querySelector('#wkStrip .wk-row').scrollLeft -= 600; });
+  await p.waitForTimeout(400);
+  const r1 = await rail();
+  ok('เลื่อนถาดแล้วเลื่อนจริง (' + r0.left + ' → ' + r1.left + ')', r1.left < r0.left - 100);
+  ok('เลื่อนดูเฉย ๆ ไม่เผลอเปลี่ยนวันที่เลือก', await dayNow() === dayWas);
+  /* ชื่อเดือนต้องวิ่งตามวันที่เลื่อนไปเห็น ไม่งั้นลากย้อนไปเดือนก่อนแล้วหัวยังค้างเดือนเดิม */
+  const farMonth = await p.evaluate(() => {
+    const r = document.querySelector('#wkStrip .wk-row');
+    r.scrollLeft = 0;
+    return new Promise(res => setTimeout(() =>
+      res((document.querySelector('#wkStrip .wk-mt') || {}).textContent || ''), 300));
+  });
+  ok('ลากย้อนไปไกลแล้วชื่อเดือนเปลี่ยนตาม (' + r0.month + ' → ' + farMonth + ')',
+    farMonth && farMonth !== r0.month);
 
-  /* ปัดแล้วนิ้วไปหยุดทับปุ่มวันพอดี เบราว์เซอร์จะยิง click ตามมาด้วย
-     ถ้าไม่กินทิ้ง จะได้ทั้งเปลี่ยนสัปดาห์และเลือกวันที่บังเอิญอยู่ใต้นิ้ว */
-  await swipe('#wkStrip .wk-row', 140);
-  const twoWeeks = await p.evaluate(() => addDays(dashDay, 7));
-  ok('ปัดทีเดียวขยับสัปดาห์เดียว ไม่เผลอเลือกวันที่นิ้วไปหยุดทับ', twoWeeks === wasDay);
+  // แตะวันที่เลื่อนมาเจอ ต้องเลือกได้ปกติ
+  const pick = await p.evaluate(() => {
+    const r = document.querySelector('#wkStrip .wk-row');
+    const d = [...r.querySelectorAll('.wk-d')].find(el =>
+      el.offsetLeft > r.scrollLeft + 40 && el.offsetLeft < r.scrollLeft + r.clientWidth - 40);
+    return d ? d.dataset.day : '';
+  });
+  await tap(p.locator('#wkStrip .wk-d[data-day="' + pick + '"]'), 'แตะวันในถาดได้');
+  await p.waitForTimeout(600);
+  ok('แตะวันที่ลากมาเจอแล้วเลือกได้ (' + pick + ')', await dayNow() === pick);
 
-  // ลากแนวตั้ง = เขากำลังเลื่อนหน้าจอ ห้ามไปเปลี่ยนสัปดาห์ให้
-  const beforeV = await dayNow();
-  await swipe('#wkStrip .wk-row', 30, 120);
-  ok('เลื่อนหน้าจอแนวตั้งแล้วสัปดาห์ไม่เปลี่ยน', await dayNow() === beforeV);
+  // กดลูกศรยังใช้ได้เหมือนเดิม และถาดต้องไหลตามไปหาวันใหม่
+  await tap(p.locator('#wkStrip .wk-nav button').first(), 'กดลูกศรถอยสัปดาห์ได้');
+  await p.waitForTimeout(900);
+  const afterArrow = await dayNow();
+  ok('กดลูกศรแล้วถอยไปสัปดาห์ก่อน (' + pick + ' → ' + afterArrow + ')',
+    new Date(afterArrow) < new Date(pick));
+  const r2 = await rail();
+  ok('ถาดไหลตามไปหาวันใหม่เอง (ยังเห็นอยู่ในจอ)',
+    r2.onMid > r2.left && r2.onMid < r2.left + r2.clientW);
+
+  // กลับมาวันนี้ก่อน เพื่อให้ข้อต่อ ๆ ไปเริ่มจากสภาพเดิม
+  await p.evaluate(() => pickDay(dayKey()));
+  await p.waitForTimeout(600);
 
   // แตะชื่อเดือน → ต้องได้ปฏิทินเต็มเดือน ไม่ใช่รายชื่อเดือนแบบเดิม
   await tap(p.locator('#wkStrip .wk-m'), 'แตะชื่อเดือนแล้วเปิดปฏิทินได้');
