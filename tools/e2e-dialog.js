@@ -309,6 +309,75 @@ async function tap(loc, why){
   await p.waitForTimeout(300);
   ok('กดปิดแล้วทัวร์หายไปจริง', !(await p.locator('#tour').isVisible().catch(() => false)));
 
+  /* ---- แถบวัน: ปัดนิ้วเปลี่ยนสัปดาห์ + ปฏิทินเต็มเดือน ----
+     เจ้าของขอมาเอง: "อยากปรับวันที่ให้สามารถปัดเลื่อนวันได้
+     แล้วก็ตรงเดือนให้สามารถเป็นแบบปฏิทินได้"
+     ข้อพวกนี้ต้องปัดจริงในเบราว์เซอร์ ดูแต่โค้ดไม่พอ — เคยพลาดมาแล้วหลายรอบ */
+  await p.evaluate(() => { endTour(); go('today'); });
+  await p.waitForTimeout(500);
+
+  // ลากนิ้วจากขวาไปซ้ายบนแถบวัน = ขอดูของถัดไป (แต่สัปดาห์นี้มีวันนี้อยู่ จึงไปต่อไม่ได้)
+  const swipe = async (sel, dx, dy = 0) => {
+    const box = await p.locator(sel).first().boundingBox();
+    if(!box) return false;
+    const y = box.y + box.height / 2;
+    const x = box.x + box.width / 2 - dx / 2;
+    await p.mouse.move(x, y);
+    await p.mouse.down();
+    for(let i = 1; i <= 6; i++) await p.mouse.move(x + dx * i / 6, y + dy * i / 6);
+    await p.mouse.up();
+    await p.waitForTimeout(450);
+    return true;
+  };
+  const dayNow = () => p.evaluate(() => dashDay);
+
+  const wasDay = await dayNow();
+  await swipe('#wkStrip .wk-row', 140);          // ลากไปขวา = ถอยไปสัปดาห์ก่อน
+  const backDay = await dayNow();
+  ok(`ปัดขวาแล้วถอยไปสัปดาห์ก่อน (${wasDay} → ${backDay})`,
+    backDay !== wasDay && new Date(backDay) < new Date(wasDay));
+
+  await swipe('#wkStrip .wk-row', -140);         // ลากไปซ้าย = กลับมาสัปดาห์ถัดไป
+  ok('ปัดซ้ายแล้วกลับมาสัปดาห์ถัดไป', await dayNow() === wasDay);
+
+  /* ปัดแล้วนิ้วไปหยุดทับปุ่มวันพอดี เบราว์เซอร์จะยิง click ตามมาด้วย
+     ถ้าไม่กินทิ้ง จะได้ทั้งเปลี่ยนสัปดาห์และเลือกวันที่บังเอิญอยู่ใต้นิ้ว */
+  await swipe('#wkStrip .wk-row', 140);
+  const twoWeeks = await p.evaluate(() => addDays(dashDay, 7));
+  ok('ปัดทีเดียวขยับสัปดาห์เดียว ไม่เผลอเลือกวันที่นิ้วไปหยุดทับ', twoWeeks === wasDay);
+
+  // ลากแนวตั้ง = เขากำลังเลื่อนหน้าจอ ห้ามไปเปลี่ยนสัปดาห์ให้
+  const beforeV = await dayNow();
+  await swipe('#wkStrip .wk-row', 30, 120);
+  ok('เลื่อนหน้าจอแนวตั้งแล้วสัปดาห์ไม่เปลี่ยน', await dayNow() === beforeV);
+
+  // แตะชื่อเดือน → ต้องได้ปฏิทินเต็มเดือน ไม่ใช่รายชื่อเดือนแบบเดิม
+  await tap(p.locator('#wkStrip .wk-m'), 'แตะชื่อเดือนแล้วเปิดปฏิทินได้');
+  await p.waitForTimeout(900);
+  ok('เปิดแล้วได้ปฏิทินเต็มเดือน', await p.locator('#calBox .cal-grid').count() === 1);
+  const cells = await p.locator('#calBox .cal-d').count();
+  ok(`ปฏิทินมีวันครบทั้งเดือน (${cells} วัน)`, cells >= 28 && cells <= 31);
+  ok('ปฏิทินมีหัววัน จ-อา', await p.locator('#calBox .cal-dow span').count() === 7);
+  await p.screenshot({ path: S + '/cal.png' });
+
+  // ปัดในปฏิทิน = เปลี่ยนเดือน
+  const monWas = await p.evaluate(() => calMon);
+  await swipe('#calBox .cal-grid', 140);
+  ok(`ปัดในปฏิทินแล้วถอยเดือนได้ (${monWas} → ${await p.evaluate(() => calMon)})`,
+    await p.evaluate(() => calMon) < monWas);
+  await swipe('#calBox .cal-grid', -140);
+  ok('ปัดกลับมาเดือนเดิมได้', await p.evaluate(() => calMon) === monWas);
+
+  // แตะวันในปฏิทิน → แดชบอร์ดต้องย้ายไปวันนั้น และกล่องต้องปิด
+  const want = await p.evaluate(() => {
+    const d = [...document.querySelectorAll('#calBox .cal-d:not([disabled])')];
+    return (d[0] || {}).dataset ? d[0].dataset.day : '';
+  });
+  await tap(p.locator(`#calBox .cal-d[data-day="${want}"]`), 'แตะวันในปฏิทินได้');
+  await p.waitForTimeout(900);
+  ok(`แตะวันในปฏิทินแล้วแดชบอร์ดย้ายไปวันนั้น (${want})`, await dayNow() === want);
+  ok('เลือกวันแล้วกล่องปิดเอง', !(await p.evaluate(() => dlg.open)));
+
   ok('ไม่มี error หลุดออกมาเลย', errs.length === 0);
   await b.close();
   let bad=0; out.forEach(([n,v])=>{console.log(`  ${v?'✓':'✗'} ${n}`); if(!v)bad++;});

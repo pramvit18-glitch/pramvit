@@ -224,6 +224,7 @@
     .bottomnav button::before, .bottomnav button svg{transition:none}
     .bottomnav button.on::before, .bottomnav button.on svg{animation:none}
     .icon-btn.bell.ring{animation:none}
+    .wk-row.in-r, .wk-row.in-l{animation:none}
   }
 
   /* ===================== หน้าแรก: หัวใหญ่ ค้นหา ทางลัด แถบวัน =====================
@@ -327,6 +328,48 @@
   .wk-d .dot{width:5px; height:5px; border-radius:50%; background:var(--brand-l)}
   .wk-d.on .dot{background:var(--brand)}
   .wk-d .dot.off{background:transparent}
+  /* เปลี่ยนสัปดาห์แล้วแถววันเลื่อนเข้ามาตามทิศที่ปัด
+     ทิศเดียวกับทั้งแอป: ไปข้างหน้า = ของใหม่มาจากขวา */
+  @keyframes wkInR{from{opacity:0; transform:translateX(22%)} to{opacity:1; transform:none}}
+  @keyframes wkInL{from{opacity:0; transform:translateX(-22%)} to{opacity:1; transform:none}}
+  .wk-row.in-r{animation:wkInR .26s cubic-bezier(.32,.72,0,1) both}
+  .wk-row.in-l{animation:wkInL .26s cubic-bezier(.32,.72,0,1) both}
+
+  /* ---------- ปฏิทินเลือกวัน (กล่องที่เปิดจากชื่อเดือน) ---------- */
+  .cal-head{display:flex; align-items:center; gap:8px; margin-bottom:14px}
+  .cal-head b{flex:1; text-align:center; font-size:17px; font-weight:800; letter-spacing:-.01em}
+  .cal-nav{
+    width:34px; height:34px; border:none; border-radius:50%; cursor:pointer;
+    background:var(--page); color:var(--ink-2); display:grid; place-items:center;
+    transition:transform var(--tap-out), background var(--tap-out);
+  }
+  .cal-nav svg{width:16px; height:16px}
+  .cal-nav:disabled{opacity:.3; cursor:default}
+  .cal-nav:active:not(:disabled){transform:scale(.9); background:var(--tint); transition-duration:var(--tap-in)}
+  .cal-dow{display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:4px}
+  .cal-dow span{text-align:center; font-size:12px; font-weight:700; color:var(--muted)}
+  .cal-dow .sun{color:var(--brand)}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:2px}
+  .cal-x{height:46px}          /* ช่องว่างก่อนวันที่ 1 ให้ตรงคอลัมน์วัน */
+  .cal-d{
+    border:none; background:none; cursor:pointer; font:inherit; color:var(--ink); padding:0;
+    height:46px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  }
+  .cal-n{
+    width:34px; height:34px; border-radius:50%; display:grid; place-items:center;
+    font-size:15px; font-weight:700; font-variant-numeric:tabular-nums;
+    transition:transform var(--tap-out), background var(--tap-out);
+  }
+  .cal-d.today:not(.on) .cal-n{box-shadow:inset 0 0 0 2px var(--brand-l)}
+  .cal-d.on .cal-n{background:var(--brand); color:#fff; font-weight:800}
+  .cal-d:disabled{opacity:.28; cursor:default}
+  .cal-d:active:not(:disabled) .cal-n{transform:scale(.88); transition-duration:var(--tap-in)}
+  /* จุดใต้วัน = วันนั้นมีบันทึก (กติกาเดียวกับแถบวันบนหน้าแรก) */
+  .cal-d .dot{width:5px; height:5px; border-radius:50%; background:var(--brand-l)}
+  .cal-d.on .dot{background:var(--brand)}
+  .cal-d .dot.off{background:transparent}
+  .cal-sum{margin:16px 0 0; text-align:center; font-size:13px; color:var(--muted)}
+  .cal-sum b{color:var(--ink); font-weight:800}
 
   /* ---------- การ์ดสถานะของวันที่เลือก ---------- */
   .srow{
@@ -2223,7 +2266,7 @@
         </div>
         <div class="quick" id="quickRow"></div>
       </div>
-      <div class="wk" id="wkStrip"></div>
+      <div class="wk" id="wkStrip" data-swipe="week"></div>
       <div id="statusRow"></div>
       <div id="hiliteWrap"></div>
     </div>
@@ -6433,6 +6476,7 @@ function cardHead(ic, title, sub, right){
    เพราะช่องค้นหาต้องไม่ถูกสร้างใหม่ทุกครั้งที่พิมพ์ ไม่งั้นคีย์บอร์ดเด้งปิด */
 
 let dashDay = dayKey();        // วันที่แดชบอร์ดกำลังดูอยู่ แตะแถบวันเพื่อย้อนหลัง
+let wkDir  = 0;                // ทิศที่เพิ่งเลื่อนสัปดาห์ (-1 ถอย · 1 ไปหน้า) ใช้เลือกทิศของภาพ
 let homeQ   = '';              // คำค้นบนหน้าแรก
 
 const DOW_TH = ['จ','อ','พ','พฤ','ศ','ส','อา'];
@@ -6553,6 +6597,10 @@ function paintWeek(){
   if(box.dataset.week !== week){
     box.innerHTML = wkHTML();
     box.dataset.week = week;
+    // เลื่อนเข้ามาทางที่ปัดไป คนจะได้รู้ว่าเพิ่งย้ายสัปดาห์ ไม่ใช่เลขเปลี่ยนเฉย ๆ
+    const row = wkDir && box.querySelector('.wk-row');
+    if(row) row.classList.add(wkDir > 0 ? 'in-r' : 'in-l');
+    wkDir = 0;
     return;
   }
   // สัปดาห์เดิม: ย้ายวงแดงกับจุดบอกว่ามีบันทึก โดยไม่แตะโครง
@@ -6571,31 +6619,110 @@ function pickDay(k){
   render();
 }
 function shiftWeek(step){
+  // ไปข้างหน้าได้ไม่เกินสัปดาห์ที่มีวันนี้อยู่ — เงื่อนไขเดียวกับที่ปิดปุ่มลูกศร
+  if(step > 0 && addDays(weekOf(dashDay)[0], 7) > dayKey()) return;
+  wkDir = step;
   const next = addDays(dashDay, step * 7);
   pickDay(next > dayKey() ? dayKey() : next);
 }
+
+/* ---------- ปัดนิ้วซ้าย-ขวาเพื่อเปลี่ยนสัปดาห์/เดือน ----------
+   เจ้าของขอมาเอง: "อยากปรับวันที่ให้สามารถปัดเลื่อนวันได้"
+   ปุ่มลูกศรยังอยู่ครบ การปัดเป็นทางลัดเพิ่ม ไม่ได้มาแทน (จอคอมใช้เมาส์ลากก็ได้)
+   ของที่ปัดได้ติดป้าย data-swipe ไว้ แล้วดักที่ document ทีเดียว
+   จะได้ใช้ได้ทั้งแถบวันบนหน้าแรกและบนหน้าย้อนหลัง โดยไม่ต้องไปผูกทีละที่ */
+const SWIPE_MIN = 40;          // ต้องลากไกลกว่านี้ถึงนับว่าปัด ไม่งั้นแค่แตะก็เปลี่ยนวัน
+const SWIPE_DO = { week: step => shiftWeek(step), cal: step => calShift(step) };
+let swFrom = null, swAte = false;
+
+document.addEventListener('pointerdown', e => {
+  swAte = false;               // เริ่มนิ้วใหม่ = ล้างธงเก่าทิ้งเสมอ ไม่งั้นค้างไปกินคลิกถัดไป
+  const box = e.target.closest && e.target.closest('[data-swipe]');
+  swFrom = box ? { box, x:e.clientX, y:e.clientY } : null;
+}, { passive:true });
+
+document.addEventListener('pointerup', e => {
+  const from = swFrom; swFrom = null;
+  if(!from) return;
+  const dx = e.clientX - from.x, dy = e.clientY - from.y;
+  // แนวตั้งมากกว่า = เขากำลังเลื่อนหน้าจอ ไม่ใช่ปัดเปลี่ยนวัน ต้องปล่อยผ่าน
+  if(Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+  swAte = true;                // ปัดจบตรงปุ่มวันพอดี เบราว์เซอร์จะยิง click ตามมา ต้องกินทิ้ง
+  const go = SWIPE_DO[from.box.dataset.swipe];
+  if(go) go(dx < 0 ? 1 : -1);  // ลากไปทางซ้าย = ดูของถัดไป
+}, { passive:true });
+
+document.addEventListener('pointercancel', () => { swFrom = null; }, { passive:true });
+// ดักตั้งแต่ชั้นนอกสุด ไม่งั้นปัดทีหนึ่งได้ทั้งเปลี่ยนสัปดาห์และเลือกวันที่นิ้วไปหยุดทับ
+document.addEventListener('click', e => {
+  if(!swAte) return;
+  swAte = false;
+  e.stopPropagation(); e.preventDefault();
+}, true);
+/* ---------- ปฏิทินเต็มเดือน ----------
+   เจ้าของขอมาเอง: "ตรงเดือนให้สามารถเป็นแบบปฏิทินได้"
+   ของเดิมเป็นรายชื่อเดือนให้กด ซึ่งไปได้แค่เดือนที่เคยมีบันทึก
+   และยังต้องมาไล่หาวันในแถบ 7 ช่องอีกที ตอนนี้เห็นทั้งเดือนแล้วแตะวันได้เลย */
+let calMon = '';       // เดือนที่ปฏิทินกำลังเปิดดูอยู่ (คนละตัวกับวันที่เลือกไว้)
+
 function monthPick(){
-  const months = [...new Set([monthKey(dayKey()), ...allMonths()])].sort().reverse();
-  const cur = monthKey(dashDay);
+  calMon = monthKey(dashDay);
   openDialog({ icon:'today',
-    title:'เลือกเดือน',
-    sub:'แตะเดือนเพื่อกระโดดไปดูวันในเดือนนั้น',
-    html:`<div class="tops">${months.map(mk => {
-      const m = sumMonth(mk);
-      return `<button type="button" class="top${mk === cur ? ' on' : ''}" onclick="jumpMonth('${mk}')">
-        ${thaiMonth(mk)} <b>${m.days ? baht(m.sale) : 'ยังไม่มี'}</b></button>`;
-    }).join('')}</div>`,
-    foot:[{label:'ปิด', cls:'ghost', fn:'dlg.close()'}]
+    title:'เลือกวัน',
+    sub:'แตะวันไหนก็ได้ · ปัดซ้าย-ขวาเพื่อเปลี่ยนเดือน',
+    html:`<div id="calBox" data-swipe="cal">${calHTML()}</div>`,
+    foot:[{label:'ปิด', cls:'ghost', fn:'dlg.close()'},
+          {label:'วันนี้', cls:'primary', fn:`jumpDay('${dayKey()}')`}]
   });
 }
-function jumpMonth(mk){
+
+function calHTML(){
   const today = dayKey();
-  const inMonth = allDays().filter(k => monthKey(k) === mk);   // เรียงใหม่→เก่า
-  let k = monthKey(today) === mk ? today : (inMonth[0] || mk + '-01');
-  if(k > today) k = today;
-  dlg.close(); pickDay(k);
+  const [y, m] = calMon.split('-').map(Number);
+  const lead = (new Date(y, m-1, 1).getDay() + 6) % 7;   // 0 = จันทร์ ให้ตรงกับแถบวันบนหน้าแรก
+  const len  = new Date(y, m, 0).getDate();              // วันที่ 0 ของเดือนถัดไป = วันสุดท้ายของเดือนนี้
+  const sum  = sumMonth(calMon);
+  const cells = [];
+  for(let i = 0; i < lead; i++) cells.push('<span class="cal-x"></span>');
+  for(let d = 1; d <= len; d++){
+    const k = `${calMon}-${pad2(d)}`;
+    cells.push(`<button type="button" class="cal-d${k === dashDay ? ' on' : ''}${
+      k === today ? ' today' : ''}" ${k > today ? 'disabled' : ''}
+      data-day="${k}" onclick="jumpDay('${k}')" aria-label="${thaiDate(k, true)}">
+      <span class="cal-n">${d}</span>
+      <span class="dot${hasRecord(k) ? '' : ' off'}"></span>
+    </button>`);
+  }
+  return `
+    <div class="cal-head">
+      <button type="button" class="cal-nav" onclick="calShift(-1)" aria-label="เดือนก่อนหน้า">${icon('back',16)}</button>
+      <b>${thaiMonth(calMon)}</b>
+      <button type="button" class="cal-nav" onclick="calShift(1)"
+              ${calMon < monthKey(today) ? '' : 'disabled'} aria-label="เดือนถัดไป">${icon('chev',16)}</button>
+    </div>
+    <div class="cal-dow">${DOW_TH.map((d,i) => `<span${i === 6 ? ' class="sun"' : ''}>${d}</span>`).join('')}</div>
+    <div class="cal-grid">${cells.join('')}</div>
+    <p class="cal-sum">${sum.days
+      ? `เดือนนี้ขายได้ <b>${baht(sum.sale)}</b> บาท · มีบันทึก ${sum.days} วัน`
+      : 'เดือนนี้ยังไม่มีบันทึกสักวัน'}</p>`;
 }
 
+/* เปลี่ยนเดือนแล้ววาดเฉพาะในกล่อง ไม่เปิดกล่องใหม่
+   ไม่งั้นกล่องจะเล่นภาพเปิด-ปิดใหม่ทุกครั้งที่กดลูกศร ตาลาย */
+function calShift(step){
+  const [y, m] = calMon.split('-').map(Number);
+  const d = new Date(y, m-1+step, 1);
+  const mk = `${d.getFullYear()}-${pad2(d.getMonth()+1)}`;
+  if(mk > monthKey(dayKey())) return;        // ยังไม่ถึงเดือนนั้น ไม่ต้องให้ไปดู
+  calMon = mk;
+  const box = document.getElementById('calBox');
+  if(box) box.innerHTML = calHTML();
+}
+
+function jumpDay(k){
+  if(k > dayKey()) return;
+  dlg.close(); pickDay(k);
+}
 /* ---------- การ์ดสถานะของวันที่เลือก ---------- */
 function srow(cls, ic, title, sub, act, fn){
   return `<div class="srow ${cls}">
@@ -7186,7 +7313,7 @@ function viewHist(){
   const avgSale = m.days ? m.sale / m.days : 0;
 
   return `
-  <div class="wk">${wkHTML()}</div>
+  <div class="wk" data-swipe="week">${wkHTML()}</div>
 
   ${srow(sumDay(dashDay).sale > 0 ? '' : 'flat', 'today', thaiDate(dashDay, true),
     billsOf(dashDay) ? `${billsOf(dashDay)} บิล · ขายได้ ฿${baht(sumDay(dashDay).sale)}` : 'วันนี้ไม่มีบันทึก',
