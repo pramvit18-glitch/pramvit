@@ -822,6 +822,56 @@ const push = (name, v) => { ok.push([name, !!v]); };
   await seller.unroute('**/*.firebasedatabase.app/**');
   await seller.unroute('**/*.firebaseio.com/**');
 
+  /* ---------- การ์ดออเดอร์ที่มีหลายรายการ ต้องอ่านรู้เรื่อง ----------
+     เจ้าของเจอเอง: "ตอนที่ลูกค้าส่งออเดอร์มาถ้ามีหลายรายการ เราดูแล้วงง ๆ อยู่นะ"
+     ของเดิมต่อชื่อทุกจานเป็นพรืดเดียว แล้วเอาไส้ของทุกจานมากองรวมกันไว้บรรทัดเดียว
+     อ่านแล้วไม่มีทางรู้ว่าไส้ไหนของจานไหน ซึ่งเป็นสิ่งเดียวที่ต้องรู้ตอนยืนทอด */
+  const putOrd = async (id, o) => fetch(`${CLOUD}/s/${key}/orders/${id}.json`, {
+    method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(o) });
+  await putOrd('multi', { at: Date.now(), status:'new', total:235, who:'เต้', paid:false, items:[
+    { id:'m1', name:'แพนเค้กมินิ 15 ชิ้น', qty:5, price:25,
+      addons:[{name:'พิซซ่า'},{name:'พริกเผา'},{name:'ไก่หยอง'}], total:125 },
+    { id:'m2', name:'ไข่ว่ง 8 ชิ้น', qty:3, price:25,
+      addons:[{name:'โบโลน่า'},{name:'ซอสพริก'}], total:75 },
+    { id:'m3', name:'เครป แป้งวานิลา', qty:1, price:35,
+      addons:[{name:'ซอสมะเขือเทศ'},{name:'มายองเนส'}], total:35 }
+  ]});
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(700);
+  await seller.evaluate(() => go('orders'));
+  await seller.waitForTimeout(500);
+
+  const card = seller.locator('.ord').filter({ hasText:'แพนเค้กมินิ' }).first();
+  push('ของแยกเป็นแถวละอย่าง ไม่ต่อกันเป็นพรืดเดียว',
+    await card.locator('.ord-it').count() === 3);
+  // ไส้ต้องอยู่ใต้ชื่อของจานตัวเอง ไม่ใช่เอามากองรวมกันหมด
+  const rows = await card.locator('.ord-it').evaluateAll(els => els.map(el => ({
+    name: (el.querySelector('.ord-it-n') || {}).textContent || '',
+    qty:  (el.querySelector('.ord-it-q') || {}).textContent || '',
+    tops: (el.querySelector('.ord-it-a') || {}).textContent || ''
+  })));
+  push('แถวแรกเป็นแพนเค้ก 5 ชิ้น และมีแต่ไส้ของตัวเอง',
+    rows[0] && rows[0].name.includes('แพนเค้ก') && rows[0].qty.trim() === '5'
+    && rows[0].tops.includes('พิซซ่า') && !rows[0].tops.includes('โบโลน่า'));
+  push('แถวสองเป็นไข่ว่ง 3 ชิ้น และมีแต่ไส้ของตัวเอง',
+    rows[1] && rows[1].name.includes('ไข่ว่ง') && rows[1].qty.trim() === '3'
+    && rows[1].tops.includes('โบโลน่า') && !rows[1].tops.includes('พิซซ่า'));
+  push('แถวสามเป็นเครป 1 ชิ้น และมีแต่ไส้ของตัวเอง',
+    rows[2] && rows[2].name.includes('เครป') && rows[2].qty.trim() === '1'
+    && rows[2].tops.includes('มายองเนส') && !rows[2].tops.includes('ซอสพริก'));
+  push('บอกราคาแยกรายจานให้เทียบยอดได้',
+    await card.locator('.ord-it-p').count() === 3);
+  push('ชื่อลูกค้าขึ้นหัวการ์ด ไม่ไปปนกับรายการของ',
+    (await card.locator('.ord-n').textContent()).includes('เต้'));
+  /* จ่ายเงินสด / มารับเองที่ร้าน **ต้องกดรับได้เลย ห้ามไปบังคับให้ดูสลิป**
+     (เจ้าของสั่งเอง — ใบนี้ไม่มีสลิปเพราะลูกค้าเลือกจ่ายตอนมารับของ) */
+  const cashBtn = card.locator('.btn.primary').first();
+  push('ออเดอร์เงินสด/มารับเอง กดรับได้เลย ไม่ต้องดูสลิป',
+    !(await cashBtn.isDisabled()) && (await cashBtn.textContent()).includes('รับออเดอร์'));
+  await seller.screenshot({ path: SHOT + '/ord-multi.png' });
+  await seller.evaluate(async () => { await deleteOrder('multi'); });
+  await seller.waitForTimeout(600);
+
   /* ---------- เก็บกวาดออเดอร์เก่าทิ้งเอง ---------- */
   const DAY = 24*3600*1000, HR = 3600*1000;
   const put = async (id, o) => fetch(`${CLOUD}/s/${key}/orders/${id}.json`, {

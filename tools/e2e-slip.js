@@ -202,6 +202,22 @@ const IMG_C  = SLIPS.c;
   push('ใบแรกยังไม่ซ้ำกับใคร ไม่ขึ้นเตือนผิด', await seller.locator('.ord-slip.dup').count() === 0);
   push('ถามออเดอร์ตั้งหลายรอบแล้วยังไม่โหลดรูปเลย (ประหยัดโควตา)', slipGET === 0);
 
+  /* ---------- ต้องดูสลิปก่อนถึงจะกดรับออเดอร์ได้ ----------
+     เจ้าของสั่งเอง: "ต้องให้แม่ค้ากดดูหลักฐานสลิปก่อน แล้วถึงจะกดรับออเดอร์ได้" */
+  const takeBtn = seller.locator('.ord .btn.primary').first();
+  push('ยังไม่ได้ดูสลิป = ปุ่มรับออเดอร์ถูกปิดไว้', await takeBtn.isDisabled());
+  push('ปุ่มบอกด้วยว่าต้องทำอะไรก่อน (' + (await takeBtn.textContent()).trim() + ')',
+    (await takeBtn.textContent()).includes('ดูสลิปก่อน'));
+  /* กันอีกชั้นเผื่อถูกเรียกตรง ๆ (ปุ่มที่ถูกปิดกดไม่ได้ก็จริง แต่โค้ดเรียกเองได้)
+     เรียกแล้วต้องไม่กลายเป็น "กำลังทำอยู่" */
+  await seller.evaluate(() => takeOrder(cloudOrders[0].id));
+  await seller.waitForTimeout(600);
+  push('เรียก takeOrder ตรง ๆ ก็ยังรับไม่ได้ถ้ายังไม่ดูสลิป',
+    await seller.evaluate(() => cloudOrders[0].status) === 'new');
+  await seller.evaluate(() => dlg.close());      // ตัวกันชั้นในเปิดกล่องสลิปให้ ปิดทิ้งก่อน
+  await seller.waitForTimeout(900);
+  slipGET = 0;                                   // กล่องนั้นโหลดรูปไปแล้ว เริ่มนับใหม่ให้ข้อถัดไป
+
   await tap(seller.locator('.ord-slip'), 'มีปุ่มดูสลิปให้กด');
   await seller.waitForTimeout(900);
   push('กดดูแล้วค่อยโหลดรูป', slipGET === 1);
@@ -211,6 +227,18 @@ const IMG_C  = SLIPS.c;
   await seller.screenshot({ path: SHOT + '/slip-view.png' });
   await seller.evaluate(() => dlg.close());
   await seller.waitForTimeout(900);
+
+  // ดูแล้วปุ่มต้องปลดล็อก และต้องจำได้แม้โหลดหน้าใหม่ (เก็บในเครื่อง ไม่ใช่ในก้อนออเดอร์)
+  push('ดูสลิปแล้วปุ่มรับออเดอร์ปลดล็อก',
+    !(await seller.locator('.ord .btn.primary').first().isDisabled()));
+  push('ปุ่มกลับมาเขียนว่ารับออเดอร์',
+    (await seller.locator('.ord .btn.primary').first().textContent()).includes('รับออเดอร์'));
+  /* ออเดอร์ถูกอ่านทับจากที่เก็บทุก 5 วินาที ถ้าไปแปะธงไว้บนก้อนออเดอร์
+     มันจะหายทุกรอบแล้วปุ่มกลับมาล็อกเอง */
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(700);
+  push('ถามออเดอร์รอบใหม่แล้วปุ่มไม่กลับมาล็อกอีก',
+    !(await seller.locator('.ord .btn.primary').first().isDisabled()));
 
   /* ---------- ส่งสลิปใบเดิมซ้ำ ต้องจับได้ ---------- */
   await cust.evaluate(() => { try{ localStorage.clear(); }catch(e){} });

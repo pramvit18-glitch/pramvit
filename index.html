@@ -472,6 +472,29 @@
   .ord.cook .ord-q{background:var(--brand); color:#fff}
   .ord-s{font-size:12.5px; color:var(--muted); font-weight:600; margin-top:2px; line-height:1.45}
   .ord-p{flex:0 0 auto; font-size:17px; font-weight:800; font-variant-numeric:tabular-nums}
+  /* ---------- รายการของในออเดอร์ ----------
+     เจ้าของเจอเอง: "ตอนที่ลูกค้าส่งออเดอร์มาถ้ามีหลายรายการ เราดูแล้วงง ๆ"
+     ของเดิมต่อชื่อของทุกจานเป็นพรืดเดียวด้วย · แล้วเอา **ไส้ของทุกจานมากองรวมกัน**
+     อ่านแล้วไม่มีทางรู้เลยว่าไส้ไหนเป็นของจานไหน ซึ่งเป็นสิ่งเดียวที่แม่ค้าต้องรู้ตอนทอด
+     ตอนนี้แยกเป็นแถวละจาน ไส้ของใครอยู่ใต้ชื่อคนนั้น */
+  .ord-items{margin:10px 0 0; display:flex; flex-direction:column; gap:9px}
+  .ord-it{display:flex; gap:10px; align-items:flex-start}
+  .ord-it-q{
+    flex:0 0 auto; min-width:27px; height:24px; padding:0 7px; border-radius:var(--r-pill);
+    background:var(--soft); color:var(--ink); font-size:13px; font-weight:800;
+    display:grid; place-items:center; font-variant-numeric:tabular-nums;
+  }
+  .ord-it-m{flex:1; min-width:0}
+  .ord-it-n{font-size:14.5px; font-weight:700; line-height:1.35}
+  /* ไส้ของจานนี้ — สีจางกว่าชื่อของ จะได้กวาดตาหาชื่อของก่อนได้ */
+  .ord-it-a{margin:2px 0 0; font-size:12.5px; color:var(--ink-2); font-weight:600; line-height:1.45}
+  .ord-it-p{
+    flex:0 0 auto; font-size:13.5px; font-weight:700; color:var(--muted);
+    font-variant-numeric:tabular-nums; padding-top:3px;
+  }
+  /* ป้ายบอกสถานะการจ่ายเงินกับปุ่มดูสลิป ย้ายลงมาอยู่แถวของตัวเอง
+     ไม่งั้นมันไปเบียดอยู่ใต้ชื่อลูกค้า แล้วรายการของถูกดันลงไปไกล */
+  .ord-tags{display:flex; flex-wrap:wrap; align-items:center; gap:0 2px}
   /* ป้าย "ลูกค้าแจ้งว่าโอนแล้ว" — เขียวอ่อน ไม่ใช่เขียวเข้มแบบยืนยันแล้ว
      เพราะแอปยังเช็กเงินเข้าเองไม่ได้ แม่ค้าต้องเปิดแอปธนาคารดูเอง */
   .ord-paid{
@@ -486,6 +509,9 @@
     padding:3px 11px 4px; font-size:11.5px; font-weight:800; line-height:1.4;
     transition:transform var(--tap-out) var(--ease), background .16s;
   }
+  /* ยังไม่ได้ดู = ปุ่มนี้คือขั้นต่อไปที่ต้องทำ ทำให้เด่นขึ้นหน่อยจะได้หาเจอ
+     (ปุ่มรับออเดอร์ข้างล่างถูกปิดไว้จนกว่าจะกดอันนี้) */
+  .ord-slip.need{background:var(--tint); color:var(--brand-d)}
   /* สลิปซ้ำ = แดงเต็ม ต้องสะดุดตากว่าป้ายอื่นทั้งหมดบนการ์ด */
   .ord-slip.dup{background:var(--bad-bg); color:var(--bad-ink)}
   /* แม่ค้าเช็กแอปธนาคารแล้วกดยืนยันเอง — เขียวเข้มได้ เพราะคนเช็กแล้วจริง
@@ -1356,6 +1382,9 @@
   }
   .bl-del:hover{color:#fff; background:var(--bad)}
   .btn[disabled]{opacity:.45; pointer-events:none}
+  /* ปุ่มที่ปิดอยู่ต้องไม่มีเงาเรืองแสงเหมือนปุ่มที่กดได้ ไม่งั้นมองแล้วนึกว่ากดได้
+     แล้วกดไม่ติดจะงงว่าแอปค้างหรือเปล่า */
+  .btn.primary[disabled]{box-shadow:none}
 
   /* ข้อความแจ้งผลมุมล่าง */
   .toast{
@@ -3170,6 +3199,15 @@ function nextQueueNo(){
 /* ---------- ปุ่มที่แม่ค้ากด ---------- */
 async function takeOrder(id){
   const o = cloudOrders.find(x => x.id === id); if(!o) return;
+  /* ลูกค้าแจ้งว่าโอนมาแล้วและแนบสลิปไว้ **ต้องเปิดดูก่อนถึงจะรับได้** (เจ้าของสั่งเอง)
+     กันเผลอกดรับรวดเดียวแล้วทอดไปโดยไม่ได้ดูหลักฐานเลย
+     เงินสด / จ่ายตอนมารับของ ไม่เกี่ยว กดรับได้ตามปกติ
+     กันไว้ตรงนี้อีกชั้นเผื่อถูกเรียกตรง ๆ เหมือนที่หน้าลูกค้าทำกับปุ่มส่ง */
+  if(o.paid && o.slip && !slipLooked(id)){
+    toast('กดดูสลิปก่อนนะ แล้วค่อยรับออเดอร์');
+    viewSlip(id);
+    return;
+  }
   const no = n(o.no) || nextQueueNo();   // ปกติมีเลขตั้งแต่ตอนเข้ามาแล้ว
   save();
   try{ await cloudReq('PATCH', `s/${db.orderKey}/orders/${id}`, { status:'cook', no }); }
@@ -3405,7 +3443,25 @@ function clearTroubles(){
 }
 
 // รูปโหลดเฉพาะตอนกดดู ไม่เอามาปนกับรอบถามออเดอร์ทุก 5 วินาที ไม่งั้นโควตาฟรีหมดเร็ว
+/* ---------- จำว่าเปิดดูสลิปใบไหนไปแล้ว ----------
+   เจ้าของสั่งเอง: "ต้องให้แม่ค้ากดดูหลักฐานสลิปก่อน แล้วถึงจะกดรับออเดอร์ได้"
+   **เก็บในเครื่อง ไม่ใช่ในก้อนออเดอร์** เพราะออเดอร์ถูกอ่านทับจากที่เก็บทุก 5 วินาที
+   ธงที่แปะไว้บนออเดอร์จะหายทุกรอบ แล้วปุ่มจะกลับมาล็อกเองเรื่อย ๆ
+   และ **ไม่ขึ้นคลาวด์** เป็นเรื่องภายในร้าน ลูกค้าไม่ต้องรู้ว่าแม่ค้าเปิดดูหรือยัง */
+const LOOK_KEEP = 300;
+const slipLooked = id => (db.slipLook || []).includes(id);
+function markSlipLooked(id){
+  if(!id || slipLooked(id)) return;
+  db.slipLook = (db.slipLook || []).concat(id);
+  if(db.slipLook.length > LOOK_KEEP) db.slipLook = db.slipLook.slice(-LOOK_KEEP);
+  save();
+  /* วาดการ์ดใหม่ทันที ไม่งั้นปุ่มรับออเดอร์ยังล็อกค้างอยู่
+     จนกว่ารอบถามออเดอร์ถัดไปจะมาถึง (อีก 5 วินาที) ซึ่งนานเกินไปตอนยืนหน้าร้าน */
+  render();
+}
+
 async function viewSlip(id){
+  markSlipLooked(id);          // เปิดดูแล้ว ปลดล็อกปุ่มรับออเดอร์
   const o = cloudOrders.find(x => x.id === id);
   const dup = o && o.slip ? slipSeenBefore(o.slip, id) : null;
   const done = o ? n(o.chk) : 0;
@@ -3590,13 +3646,31 @@ function clearTodayCard(){
    แม่ค้ามือเปื้อนแป้งกดตอนยืนทอด ปุ่มใหญ่ไว้ดีกว่า */
 function orderRowHTML(o){
   const items = Array.isArray(o.items) ? o.items : [];
-  const what = items.map(it => `${esc(it.name)} ×${esc(String(it.qty))}`).join(' · ');
-  const tops = [...new Set(items.flatMap(it => (it.addons || []).map(a => a.name)))];
   const cook = o.status === 'cook';
+
+  /* แยกของเป็นแถวละจาน พร้อมไส้ของจานนั้นอยู่ใต้ชื่อ
+     ของเดิมต่อทุกจานเป็นพรืดเดียวแล้วเอาไส้ทุกจานมากองรวมกัน
+     เจ้าของเจอเอง: "มีหลายรายการแล้วดูงง ๆ" — ไม่มีทางรู้ว่าไส้ไหนของจานไหน */
+  const itemsHTML = items.length
+    ? `<div class="ord-items">${items.map(it => {
+        const tops = (it.addons || []).map(a => a && a.name).filter(Boolean);
+        return `<div class="ord-it">
+          <span class="ord-it-q">${esc(String(n(it.qty) || 1))}</span>
+          <div class="ord-it-m">
+            <div class="ord-it-n">${esc(it.name || 'ไม่มีชื่อ')}</div>
+            ${tops.length ? `<p class="ord-it-a">${esc(tops.join(' · '))}</p>` : ''}
+          </div>
+          ${n(it.total) ? `<span class="ord-it-p">${money(n(it.total))}</span>` : ''}
+        </div>`;
+      }).join('')}</div>`
+    : '<div class="ord-s">(ไม่มีรายการ)</div>';
+
+  // บรรทัดบนเหลือแค่ว่าใครสั่ง / กี่รายการ ส่วนของอยู่ในรายการข้างล่างแล้ว
+  const head = o.who ? esc(o.who)
+             : items.length > 1 ? `${items.length} รายการ`
+             : 'ลูกค้าไม่ได้ฝากชื่อ';
   const bits = [
     cook ? 'กำลังทำอยู่' : 'ออเดอร์ใหม่ · รอรับ',
-    o.who  ? esc(o.who) : '',
-    tops.length ? esc(tops.join(', ')) : '',
     o.note ? esc(o.note) : ''
   ].filter(Boolean);
 
@@ -3613,10 +3687,15 @@ function orderRowHTML(o){
         : `<span class="ord-paid">${icon('check',13)} ลูกค้าแจ้งว่าโอนแล้ว ${money(n(o.total))} · เช็กแอปธนาคารก่อนนะ</span>`)
     : '';
 
+  /* ยังไม่ได้เปิดดูสลิปที่ลูกค้าแนบมา = ยังกดรับไม่ได้ (เจ้าของสั่งเอง)
+     ทรงเดียวกับฝั่งลูกค้าที่ปิดปุ่มส่งไว้จนกว่าจะแนบสลิป — ปิดปุ่มแล้วบอกว่าต้องทำอะไรก่อน
+     **เงินสด / จ่ายตอนมารับของ ไม่เกี่ยว** กดรับได้ตามปกติ */
+  const needLook = !cook && o.paid && o.slip && !slipLooked(o.id);
+
   // สลิปซ้ำต้องเตือนตั้งแต่บนการ์ด ไม่ต้องรอให้กดเข้าไปดู
   const dup = o.slip ? slipSeenBefore(o.slip, o.id) : null;
   const slipTag = o.slip
-    ? `<button type="button" class="ord-slip${dup ? ' dup' : ''}" onclick="viewSlip('${jsq(o.id)}')">
+    ? `<button type="button" class="ord-slip${dup ? ' dup' : needLook ? ' need' : ''}" onclick="viewSlip('${jsq(o.id)}')">
          ${icon(dup ? 'alert' : 'menu', 13)} ${dup
              ? 'สลิปซ้ำ! เคยใช้กับ ' + (n(dup.no) ? 'คิวที่ ' + esc(String(dup.no)) : 'ออเดอร์เก่า')
                + ' ' + esc(whenText(dup.at)) + ' · แตะดู'
@@ -3628,18 +3707,21 @@ function orderRowHTML(o){
     <div class="ord-top">
       <span class="ord-no">${o.no ? esc(String(o.no)) : '–'}</span>
       <div class="ord-m">
-        <div class="ord-n">${o.no ? `<span class="ord-q">คิวที่ ${esc(String(o.no))}</span>` : ''}${what || '(ไม่มีรายการ)'}</div>
+        <div class="ord-n">${o.no ? `<span class="ord-q">คิวที่ ${esc(String(o.no))}</span>` : ''}${head}</div>
         <div class="ord-s">${bits.join(' · ')}</div>
-        ${paidTag}${slipTag}
       </div>
       <b class="ord-p">${money(n(o.total))}</b>
     </div>
+    ${itemsHTML}
+    ${paidTag || slipTag ? `<div class="ord-tags">${paidTag}${slipTag}</div>` : ''}
     <div class="ord-act">
       ${cook
         ? `<button type="button" class="btn ghost" onclick="deleteOrder('${jsq(o.id)}')">ลบทิ้ง</button>
            <button type="button" class="btn primary wide" onclick="finishOrder('${jsq(o.id)}')">เสร็จแล้ว · รับเงิน</button>`
         : `<button type="button" class="btn ghost" onclick="rejectOrder('${jsq(o.id)}')">ไม่รับ</button>
-           <button type="button" class="btn primary" onclick="takeOrder('${jsq(o.id)}')">รับออเดอร์</button>`}
+           <button type="button" class="btn primary" ${needLook ? 'disabled' : ''}
+                   onclick="takeOrder('${jsq(o.id)}')">${
+             needLook ? 'ดูสลิปก่อนถึงจะรับได้' : 'รับออเดอร์'}</button>`}
     </div>
   </div>`;
 }
