@@ -27,10 +27,23 @@ const push = (name, v) => ok.push([name, !!v]);
 /* กดของที่อาจไม่มี — ถ้าไม่มีให้ตกเฉพาะข้อนั้น
    เคยพลาดมาแล้ว: click() ของที่ไม่มีจะรอจนหมดเวลาแล้ว **ล้มทั้งชุด**
    ไม่รายงานผลสักข้อ กลายเป็นเทสต์ที่จับบั๊กได้แต่ไม่บอกว่าจับอะไรได้ */
+/* **ต้องมี timeout + try/catch เสมอ** ของที่ "มีอยู่แต่กดไม่ถึง" (เช่นโดนกล่องบังอยู่)
+   จะรอจนหมดเวลาแล้วโยน error = **ล้มทั้งชุดโดยไม่รายงานผลสักข้อ**
+   อาการเวลาโดนเข้าคือถอดการแก้ออกแล้วได้ "ตก 0 ข้อ" ซึ่งดูเหมือนเทสต์จับไม่ได้ */
 async function tap(loc, why){
-  if(await loc.count() === 0){ push(why, false); return false; }
-  await loc.first().click();
-  return true;
+  try{
+    if(await loc.count() === 0){ push(why, false); return false; }
+    await loc.first().click({ timeout: 4000 });
+    return true;
+  }catch(e){
+    push(why + ' (กดไม่ได้: ' + String(e.message).split('\n')[0].slice(0,50) + ')', false);
+    return false;
+  }
+}
+// ปิดกล่องที่เผลอเปิดค้างไว้ ไม่งั้นมันไปบังปุ่มของข้อถัด ๆ ไป
+async function shut(pg){
+  await pg.evaluate(() => { try{ if(dlg.open) dlg.close(); }catch(e){} });
+  await pg.waitForTimeout(900);
 }
 
 const put = (p, b) => fetch(`${CLOUD}/${p}.json`, {
@@ -202,19 +215,20 @@ const IMG_C  = SLIPS.c;
   push('ใบแรกยังไม่ซ้ำกับใคร ไม่ขึ้นเตือนผิด', await seller.locator('.ord-slip.dup').count() === 0);
   push('ถามออเดอร์ตั้งหลายรอบแล้วยังไม่โหลดรูปเลย (ประหยัดโควตา)', slipGET === 0);
 
-  /* ---------- ต้องดูสลิปก่อนถึงจะกดรับออเดอร์ได้ ----------
-     เจ้าของสั่งเอง: "ต้องให้แม่ค้ากดดูหลักฐานสลิปก่อน แล้วถึงจะกดรับออเดอร์ได้" */
+  /* ---------- ต้องกดเช็กยอดก่อนถึงจะกดรับออเดอร์ได้ ----------
+     เจ้าของสั่งเอง: **"มันต้องให้แม่ค้ากดตรวจสอบก่อนแล้วถึงจะกดรับได้"**
+     แค่เปิดดูรูปสลิปไม่นับ — รูปไม่ได้บอกว่าเงินเข้าจริง ต้องเปิดแอปธนาคารแล้วกดบอกผล */
   const takeBtn = seller.locator('.ord .btn.primary').first();
-  push('ยังไม่ได้ดูสลิป = ปุ่มรับออเดอร์ถูกปิดไว้', await takeBtn.isDisabled());
+  push('ยังไม่ได้เช็กยอด = ปุ่มรับออเดอร์ถูกปิดไว้', await takeBtn.isDisabled());
   push('ปุ่มบอกด้วยว่าต้องทำอะไรก่อน (' + (await takeBtn.textContent()).trim() + ')',
-    (await takeBtn.textContent()).includes('ดูสลิปก่อน'));
+    (await takeBtn.textContent()).includes('เช็กยอดก่อน'));
   /* กันอีกชั้นเผื่อถูกเรียกตรง ๆ (ปุ่มที่ถูกปิดกดไม่ได้ก็จริง แต่โค้ดเรียกเองได้)
      เรียกแล้วต้องไม่กลายเป็น "กำลังทำอยู่" */
   await seller.evaluate(() => takeOrder(cloudOrders[0].id));
   await seller.waitForTimeout(600);
-  push('เรียก takeOrder ตรง ๆ ก็ยังรับไม่ได้ถ้ายังไม่ดูสลิป',
+  push('เรียก takeOrder ตรง ๆ ก็ยังรับไม่ได้ถ้ายังไม่เช็กยอด',
     await seller.evaluate(() => cloudOrders[0].status) === 'new');
-  await seller.evaluate(() => dlg.close());      // ตัวกันชั้นในเปิดกล่องสลิปให้ ปิดทิ้งก่อน
+  await seller.evaluate(() => { try{ dlg.close(); }catch(e){} });   // ตัวกันชั้นในเปิดกล่องให้ ปิดทิ้งก่อน
   await seller.waitForTimeout(900);
   slipGET = 0;                                   // กล่องนั้นโหลดรูปไปแล้ว เริ่มนับใหม่ให้ข้อถัดไป
 
@@ -228,17 +242,46 @@ const IMG_C  = SLIPS.c;
   await seller.evaluate(() => dlg.close());
   await seller.waitForTimeout(900);
 
-  // ดูแล้วปุ่มต้องปลดล็อก และต้องจำได้แม้โหลดหน้าใหม่ (เก็บในเครื่อง ไม่ใช่ในก้อนออเดอร์)
-  push('ดูสลิปแล้วปุ่มรับออเดอร์ปลดล็อก',
+  /* **เปิดดูเฉย ๆ ยังรับไม่ได้** นี่คือข้อที่เจ้าของทักมา:
+     "ตอนนี้มันกดดูแล้วรับได้เลย มันต้องให้แม่ค้ากดตรวจสอบก่อน" */
+  push('เปิดดูสลิปเฉย ๆ ยังกดรับไม่ได้ ต้องเช็กยอดก่อน',
+    await seller.locator('.ord .btn.primary').first().isDisabled());
+
+  // กดบอกว่ายอดตรง = ตรวจแล้ว ปลดล็อกได้
+  await shut(seller);
+  await tap(seller.locator('.ord-slip'), 'เปิดกล่องสลิปไปกดเช็กยอด');
+  await seller.waitForTimeout(900);
+  const okBtn = seller.locator('#dlg button', { hasText:'ยอดตรง' });
+  await tap(okBtn, 'มีปุ่ม "ยอดตรง · เช็กแล้ว" ให้กด');
+  await seller.waitForTimeout(900);
+  push('กดบอกว่ายอดตรงแล้วปุ่มรับออเดอร์ปลดล็อก',
     !(await seller.locator('.ord .btn.primary').first().isDisabled()));
   push('ปุ่มกลับมาเขียนว่ารับออเดอร์',
     (await seller.locator('.ord .btn.primary').first().textContent()).includes('รับออเดอร์'));
-  /* ออเดอร์ถูกอ่านทับจากที่เก็บทุก 5 วินาที ถ้าไปแปะธงไว้บนก้อนออเดอร์
-     มันจะหายทุกรอบแล้วปุ่มกลับมาล็อกเอง */
+  /* ผลการเช็กอยู่บนก้อนออเดอร์และถูกส่งขึ้นที่เก็บ จึงรอดจากรอบถามทุก 5 วินาที
+     (ถ้าไปเก็บเป็นธงลอย ๆ มันจะหายทุกรอบแล้วปุ่มกลับมาล็อกเอง) */
   await seller.evaluate(() => pollOrders());
   await seller.waitForTimeout(700);
   push('ถามออเดอร์รอบใหม่แล้วปุ่มไม่กลับมาล็อกอีก',
     !(await seller.locator('.ord .btn.primary').first().isDisabled()));
+  /* กด "ยอดไม่ตรง" ก็คือตรวจแล้วเหมือนกัน ต้องปลดล็อกด้วย
+     แล้วให้แม่ค้าเลือกเองว่าจะไม่รับ หรือรับทั้งที่รู้ว่าเงินยังไม่เข้า (ป้ายแดงเตือนอยู่) */
+  const noChk = await seller.evaluate(() => {
+    const o = cloudOrders[0]; o.chk = -1; render();
+    return { lock: !!document.querySelector('.ord .btn.primary').disabled,
+             warn: (document.querySelector('.ord-paid.no') || {}).textContent || '' };
+  });
+  push('กด "ยอดไม่ตรง" ก็นับว่าตรวจแล้ว ปลดล็อกเหมือนกัน', noChk.lock === false);
+  push('แต่ยังขึ้นป้ายแดงเตือนว่าเงินยังไม่เข้า', /ยังไม่ได้เงิน/.test(noChk.warn));
+  /* **คืนสภาพให้เหมือนก่อนเข้าบล็อกนี้** ทั้งในเครื่องและบนที่เก็บ
+     ไม่งั้นข้อถัด ๆ ไปเปิดกล่องสลิปมาแล้วไม่เจอปุ่ม "ยอดตรง/ยอดไม่ตรง"
+     เพราะกล่องขึ้นว่าเช็กไปแล้ว — เทสต์ที่แก้สภาพต้องคืนให้เหมือนเดิมเสมอ */
+  await seller.evaluate(async () => {
+    const o = cloudOrders[0]; o.chk = 0;
+    try{ await cloudReq('PATCH', `s/${db.orderKey}/orders/${o.id}`, { chk: 0 }); }catch(e){}
+    render();
+  });
+  await seller.waitForTimeout(600);
 
   /* ---------- ส่งสลิปใบเดิมซ้ำ ต้องจับได้ ---------- */
   await cust.evaluate(() => { try{ localStorage.clear(); }catch(e){} });
