@@ -194,8 +194,13 @@ const probe = `
   /* การ์ดสถานะเดิมต้องไม่ถูกแถบสะกิดเบียดหาย — ของเดิมคือยอดขายวันนี้ ต้องเห็นทุกวัน */
   out.push(['สะกิดแล้วได้สองแถว ไม่ใช่แถวเดียว',
     (statusHTML() + backupWarnHTML()).match(/<div class="srow /g).length === 2]);
+  /* แถบสะกิดทุกตัวต้อง **ต่อท้าย** การ์ดสถานะ ไม่ใช่เอาไปแทนที่
+     อ่านจากโค้ดจริง เพราะข้อที่เทียบสองก้อนเองไม่จับตอนสลับไปแทนที่ = เทสต์โกหก */
+  const wire = renderHome.toString().replace(/\\s/g, '');
   out.push(['หน้าแรกต่อแถบสะกิดท้ายการ์ดสถานะจริง ไม่ใช่เอาไปแทนที่',
-    renderHome.toString().replace(/\\s/g, '').indexOf('statusHTML()+backupWarnHTML()') >= 0]);
+    wire.indexOf('statusHTML()+') >= 0]);
+  out.push(['แถบสะกิดสำรองข้อมูลยังต่ออยู่', wire.indexOf('+backupWarnHTML()') >= 0]);
+  out.push(['แถบสะกิดของหมดวันนี้ต่ออยู่ด้วย', wire.indexOf('+soldOutWarnHTML()') >= 0]);
 
   /* ต้องรอดจากการปิด-เปิดแอป เหมือน locked กับ pin
      load() สร้าง store ขึ้นใหม่ทุกครั้ง ลืมคัดลอกค่านี้มาเมื่อไหร่

@@ -2821,12 +2821,65 @@ function menuForCustomers(){
     menus:  db.menus.map(m => ({
       id: m.id, name: String(m.name || ''), price: n(m.price),
       incl: n(m.incl), extraTop: n(m.extraTop),   // โควตาไส้ ต้องตรงกับฝั่งร้าน
+      /* วันนี้หมดแล้วไหม — ส่งเป็น true/false ไม่ส่งวันที่
+         ลูกค้าไม่ต้องรู้ว่าปิดตั้งแต่วันไหน และก้อนจะได้เล็ก */
+      off: isSoldOut(m),
       groups: (m.groupIds || []).map(id => findGroup(id)).filter(Boolean).map(g => ({
         name: String(g.name || ''),
         items: (g.items || []).map(it => ({ name: String(it.name || ''), price: n(it.price) }))
       })).filter(g => g.items.length)
     })).filter(m => m.name)
   };
+}
+
+/* ===================== ของหมดวันนี้ =====================
+   เจ้าของเลือกเอง: พอไข่หมดตอนหกโมง ลูกค้าก็ยังสั่งไข่ว่งเข้ามาเรื่อย ๆ
+   แล้วต้องมานั่งกด "ไม่รับ" ทีละใบ · ปิดเมนูทีเดียวจบ
+
+   **จดเป็นวันที่ ไม่ใช่ true/false** พรุ่งนี้มันเปิดขายเองโดยไม่ต้องมีอะไร
+   มารันตอนเที่ยงคืน และไม่ต้องจำไปล้างทีหลัง
+   (ถ้าเก็บเป็น true จะต้องมีคนไปปิดให้ทุกเช้า ซึ่งลืมแน่) */
+const isSoldOut = m => !!m && m.soldDay === dayKey();
+const soldOutList = () => (db.menus || []).filter(isSoldOut);
+
+function toggleSoldOut(id){
+  const m = (db.menus || []).find(x => x.id === id); if(!m) return;
+  const was = isSoldOut(m);
+  m.soldDay = was ? '' : dayKey();
+  save();
+  /* **ต้องส่งขึ้นทันที ห้ามใช้ publishMenuSoon()** ซึ่งหน่วง 1.5 วิ
+     ลูกค้าอาจกำลังนิ้วจ่ออยู่ที่ปุ่มสั่งเมนูนั้นพอดี */
+  if(db.orderOn && cloudReady()) publishMenu().catch(() => {});
+  toast(was ? `${m.name} — กลับมาขายแล้ว` : `${m.name} — ปิดไว้ว่าหมดแล้ว`);
+  render();
+  const box = document.getElementById('soldBox');     // กล่องเปิดค้างอยู่ก็สลับชิปให้ด้วย
+  if(box) box.innerHTML = soldOutHTML();
+}
+
+function soldOutHTML(){
+  if(!(db.menus || []).length)
+    return '<p class="hint" style="margin:0">ยังไม่มีเมนูสักอย่าง ไปเพิ่มที่หน้าเมนูก่อนนะครับ</p>';
+  const off = soldOutList().length;
+  return `<div class="tops">${db.menus.map(m => {
+    const out = isSoldOut(m);
+    return `<button type="button" class="top${out ? ' on' : ''}" onclick="toggleSoldOut('${jsq(m.id)}')">
+      ${esc(m.name)}${out ? ' · หมด' : ''}</button>`;
+  }).join('')}</div>
+  <p class="hint" style="margin:14px 0 0">${off
+    ? `ตอนนี้ปิดไว้ ${off} อย่าง — ลูกค้าเห็นว่าหมดแล้วและกดสั่งไม่ได้`
+    : 'ยังไม่ได้ปิดอะไรเลย ลูกค้าสั่งได้ทุกอย่าง'} ·
+    <b>พรุ่งนี้กลับมาขายเองทุกอย่าง</b> ไม่ต้องมาเปิดเอง</p>
+  <p class="hint" style="margin:8px 0 0">ที่ปิดไว้ยังขายหน้าร้านได้ตามปกติ
+    อันนี้คุมแค่ฝั่งลูกค้าที่สั่งผ่าน QR</p>`;
+}
+
+function soldOutDialog(){
+  openDialog({ icon:'ing',
+    title:'ของหมดวันนี้',
+    sub:'แตะเมนูที่หมดแล้ว · อันที่เป็นสีแดงคือปิดอยู่',
+    html:`<div id="soldBox">${soldOutHTML()}</div>`,
+    foot:[{label:'เสร็จแล้ว', cls:'primary', fn:'dlg.close()'}]
+  });
 }
 
 // แก้เมนู แก้ราคา เปิด-ปิดร้าน ต้องสะท้อนไปที่หน้าลูกค้าด้วย
@@ -3817,6 +3870,12 @@ function orderSetupDialog(){
         onclick="clearOldOrders()">ล้างออเดอร์เก่าเดี๋ยวนี้</button>
         <button type="button" class="seeall" style="margin-top:8px"
         onclick="dlg.close(); clearTodayOrders()">ล้างออเดอร์วันนี้</button></p>` : ''}
+      <p class="hint" style="margin:12px 0 0">${soldOutList().length
+        ? `ตอนนี้ปิดไว้ว่าหมดแล้ว <b>${soldOutList().length} อย่าง</b> ลูกค้ากดสั่งไม่ได้`
+        : `<b>ของหมดระหว่างวันก็ปิดได้</b> ลูกค้าจะเห็นว่าหมดและกดสั่งไม่ได้
+           ไม่ต้องมานั่งกด "ไม่รับ" ทีละใบ · พรุ่งนี้กลับมาขายเอง`}
+        · <button type="button" class="seeall" style="margin-top:8px"
+        onclick="dlg.close(); soldOutDialog()">ตั้งของหมดวันนี้</button></p>
       <p class="hint" style="margin:12px 0 0">${troubleList().length
         ? `เคยมีออเดอร์ที่มีปัญหา <b>${troubleList().length} ราย</b> (ไม่รับ · ยอดไม่ตรง · สลิปซ้ำ)
            เก็บไว้ในเครื่องนี้ ไม่หายไปพร้อมออเดอร์`
@@ -6622,12 +6681,14 @@ const QUICK = [
   ['dash',  'ภาพรวม',       'dash'],
   ['exp',   'เพิ่มรายจ่าย', 'down'],
   ['hist',  'ย้อนหลัง',     'hist'],
+  ['off',   'ของหมดวันนี้', 'alert'],
   ['bk',    'สำรองข้อมูล',  'box'],
   ['shop',  'สลับร้าน',     'store'],
   ['setup', 'ตั้งค่า',      'more']
 ];
 const QUICK_DEF = ['ing','menu','fixed','dash','exp'];
-const QUICK_RUN = { exp: () => expenseDialog(null), bk: () => openBackup(), shop: () => shopHub() };
+const QUICK_RUN = { exp: () => expenseDialog(null), bk: () => openBackup(), shop: () => shopHub(),
+                    off: () => soldOutDialog() };
 
 function quickPicked(){
   try{
@@ -6895,6 +6956,18 @@ function statusHTML(){
 }
 
 /* สะกิดเรื่องสำรองข้อมูล — ว่างเปล่าเมื่อเพิ่งสำรองไป หรือยังไม่มีอะไรจะเสีย */
+/* ปิดเมนูไว้แล้วต้องเห็นบนหน้าแรกตลอด **ไม่งั้นลืมว่าปิดค้างไว้**
+   ของมาเพิ่มกลางวันแล้วอยากเปิดคืน จะได้กดได้เลยไม่ต้องไปหาในตั้งค่า
+   หายเองเมื่อไม่มีอะไรปิดอยู่ (และพรุ่งนี้หายเองอยู่แล้วเพราะธงเป็นวันที่) */
+function soldOutWarnHTML(){
+  const off = soldOutList();
+  if(!off.length) return '';
+  return srow('warn', 'alert',
+    `ปิดขายอยู่ ${off.length} อย่าง`,
+    off.map(m => m.name).join(' · '),
+    'แก้', 'soldOutDialog()');
+}
+
 function backupWarnHTML(){
   if(!hasWorthKeeping()) return '';
   const d = daysSinceBackup();
@@ -6993,7 +7066,8 @@ function searchMenu(id){ clearSearch(); posQuick(id); }
 function renderHome(){
   document.getElementById('quickRow').innerHTML   = quickHTML();
   paintWeek();
-  document.getElementById('statusRow').innerHTML  = statusHTML() + backupWarnHTML();
+  document.getElementById('statusRow').innerHTML  =
+    statusHTML() + soldOutWarnHTML() + backupWarnHTML();
   document.getElementById('hiliteWrap').innerHTML = hiliteHTML();
   runSearch(homeQ);
 }

@@ -141,6 +141,15 @@
 
   /* ===================== รายการเมนู ===================== */
   .list{display:flex; flex-direction:column}
+  /* เมนูที่ร้านปิดไว้ว่าวันนี้หมด — **ยังต้องโชว์อยู่ ห้ามซ่อนทิ้ง**
+     ถ้าหายไปเฉย ๆ ลูกค้าประจำจะนึกว่าร้านเลิกขายของอย่างนั้นแล้ว
+     โชว์ไว้แต่บอกว่าหมด เดี๋ยวพรุ่งนี้เขาก็กลับมาสั่งใหม่ */
+  .li.off{opacity:.55; cursor:default}
+  .li.off .li-title{text-decoration:line-through; text-decoration-thickness:1.5px}
+  .li-out{
+    background:var(--soft); color:var(--muted); border-radius:var(--r-pill);
+    padding:3px 11px 4px; font-size:11.5px; font-weight:800; white-space:nowrap;
+  }
   .li{
     display:flex; align-items:center; gap:12px; width:100%;
     border:none; background:none; font:inherit; color:inherit; text-align:left;
@@ -542,7 +551,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v162';
+const PAGE_VER = 'crepe-cost-v163';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -1338,8 +1347,16 @@ function draw(){
     <div class="card">
       ${cardHead('menu', 'เลือกของที่อยากได้', 'แตะที่เมนู แล้วเลือกไส้กับจำนวน')}
       <div class="list">
-        ${menu.menus.map((m, i) => `
-          <button type="button" class="li" onclick="pick(${i})">
+        ${menu.menus.map((m, i) => m.off
+          ? `<div class="li off">
+            <span class="av">${esc(initial(m.name))}</span>
+            <span class="li-main">
+              <span class="li-title">${esc(m.name)}</span>
+              <span class="li-sub">วันนี้หมดแล้ว · พรุ่งนี้มาใหม่นะครับ</span>
+            </span>
+            <span class="li-end"><span class="li-out">หมดแล้ว</span></span>
+          </div>`
+          : `<button type="button" class="li" onclick="pick(${i})">
             <span class="av">${esc(initial(m.name))}</span>
             <span class="li-main">
               <span class="li-title">${esc(m.name)}</span>
@@ -1444,6 +1461,8 @@ function dropLine(i){ cart.splice(i, 1); draw(); }
 let edit = null;    // {mi, qty, picked:Set(ชื่อไส้)}
 
 function pick(mi){
+  // ของหมดแล้วเปิดกล่องเลือกไส้ไม่ได้ กันไว้อีกชั้นเผื่อถูกเรียกตรง ๆ
+  if((menu.menus[mi] || {}).off) return;
   edit = { mi, qty:1, picked:new Set() };
   drawSheet();
   openSheet();

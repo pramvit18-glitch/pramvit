@@ -99,6 +99,62 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('ลูกค้าเห็นชื่อร้าน', (await cust.textContent('#shopName')).includes('ร้านเครปทดสอบ'));
   push('ลูกค้าเห็นเมนูครบ', (await cust.locator('#view .li').count()) === 2);
 
+  /* ---------- ของหมดวันนี้ ----------
+     เจ้าของเลือกเอง: พอไข่หมดตอนหกโมง ลูกค้าก็ยังสั่งเข้ามาเรื่อย ๆ
+     แล้วต้องมานั่งกด "ไม่รับ" ทีละใบ · ปิดเมนูทีเดียวจบ */
+  const soldId = await seller.evaluate(() => db.menus[1].id);
+  const soldName = await seller.evaluate(() => db.menus[1].name);
+  await seller.evaluate(id => toggleSoldOut(id), soldId);
+  await seller.waitForTimeout(900);
+  const pubOff = await (await fetch(`${CLOUD}/s/${key}/menu.json`)).json();
+  push('ปิดแล้วธง "หมด" ขึ้นไปถึงใบเมนูบนคลาวด์',
+    pubOff.menus.filter(m => m.off).length === 1 && pubOff.menus[1].off === true);
+  push('เมนูอื่นไม่โดนปิดตามไปด้วย', pubOff.menus[0].off === false);
+  /* **ห้ามซ่อนเมนูที่หมดทิ้ง** ถ้าหายไปเฉย ๆ ลูกค้าประจำจะนึกว่าร้านเลิกขายของอย่างนั้นแล้ว
+     ต้องโชว์ไว้แต่บอกว่าหมด เดี๋ยวพรุ่งนี้เขากลับมาสั่งใหม่ */
+  await cust.reload(); await cust.waitForTimeout(900);
+  push('หน้าลูกค้ายังเห็นเมนูที่หมดอยู่ ไม่ได้ซ่อนทิ้ง',
+    (await cust.locator('#view .li').count()) === 2);
+  push('เมนูที่หมดขึ้นป้ายว่าหมดแล้ว',
+    await cust.locator('#view .li.off .li-out').count() === 1);
+  /* **ต้อง count() ก่อนทุกครั้ง** ของที่อาจไม่มีแล้วไป evaluate ตรง ๆ
+     มันรอจนหมดเวลาแล้วโยน error = ล้มทั้งชุดโดยไม่รายงานผลสักข้อ
+     (เจอมาแล้วตอนพิสูจน์ชุดนี้เอง — ถอดการแก้ออกแล้วได้ "ตก 0 ข้อ" ทั้งที่พัง) */
+  push('และกดสั่งไม่ได้ (ไม่ใช่ปุ่มแล้ว)',
+    await cust.locator('#view .li.off').count() === 1
+    && await cust.locator('#view .li.off').first().evaluate(el => el.tagName) === 'DIV');
+  // กันอีกชั้นเผื่อถูกเรียกตรง ๆ — กล่องเลือกไส้ต้องไม่เปิด
+  await cust.evaluate(() => { const i = menu.menus.findIndex(m => m.off); if(i >= 0) pick(i); });
+  await cust.waitForTimeout(400);
+  push('เรียก pick() ตรง ๆ กับของที่หมด กล่องก็ไม่เปิด',
+    !(await cust.evaluate(() => el('dlg').open)));
+  /* เปิดค้างไว้ไม่ได้ **กล่องจะไปบังปุ่มของข้อถัด ๆ ไปจนล้มทั้งชุด**
+     ปิดทิ้งเสมอ ไม่ว่าเมื่อกี้มันจะเผลอเปิดขึ้นมาหรือไม่ */
+  await cust.evaluate(() => { try{ el('dlg').close(); }catch(e){} });
+  await cust.waitForTimeout(900);
+  await cust.screenshot({ path: SHOT + '/cust-soldout.png' });
+
+  // เปิดคืนแล้วต้องกลับมาสั่งได้ทันที
+  await seller.evaluate(id => toggleSoldOut(id), soldId);
+  await seller.waitForTimeout(900);
+  const pubOn = await (await fetch(`${CLOUD}/s/${key}/menu.json`)).json();
+  push('เปิดคืนแล้วธงหายจากใบเมนู', pubOn.menus.every(m => !m.off));
+  /* **พรุ่งนี้ต้องกลับมาขายเองโดยไม่ต้องมีใครไปกดเปิด**
+     จึงจดเป็นวันที่ ไม่ใช่ true/false — ย้อนวันที่จดไว้เป็นเมื่อวานแล้วต้องไม่นับว่าหมด */
+  const stillOut = await seller.evaluate(id => {
+    const m = db.menus.find(x => x.id === id);
+    m.soldDay = '2020-01-01';            // ปิดไว้เมื่อวาน (นานมาก)
+    const out = isSoldOut(m);
+    m.soldDay = ''; save();
+    return out;
+  }, soldId);
+  push('ปิดไว้เมื่อวาน วันนี้กลับมาขายเอง ไม่ต้องกดเปิด', stillOut === false);
+  push('ชื่อเมนูที่ปิดโผล่บนหน้าแรกให้เห็นว่าปิดค้างอยู่',
+    (await seller.evaluate(n2 => {
+      const m = db.menus.find(x => x.name === n2); m.soldDay = dayKey(); save();
+      const h = soldOutWarnHTML(); m.soldDay = ''; save(); return h;
+    }, soldName)).includes(soldName));
+
   /* เสียงเตือนบนมือถือพังเงียบ ๆ ได้ 2 ทาง จึงต้องดักทั้งคู่
      1. สร้างตัวเล่นเสียงใหม่ทุกครั้ง — เบราว์เซอร์จำกัดจำนวน พอเกินแล้วเงียบ
      2. มือถือปิดเสียงไว้จนกว่าคนจะแตะจอ ต้องสั่งเปิดเองทุกครั้งก่อนเล่น */
