@@ -373,6 +373,26 @@
   .cal-sum{margin:16px 0 0; text-align:center; font-size:13px; color:var(--muted)}
   .cal-sum b{color:var(--ink); font-weight:800}
 
+  /* บนมือถือคู่การ์ดเรียงลงมาเหมือนตอนยังไม่ได้จับคู่ หน้าตาไม่เปลี่ยน */
+  .dash-pair{display:grid; gap:14px}
+
+  /* ---------- ตารางของที่ซื้อมา บนหน้าแรก ----------
+     4 คอลัมน์ ไม่มีปุ่ม เป็นของให้กวาดตาอย่างเดียว (หน้าของที่ซื้อมาคือที่สำหรับแก้)
+     **ซ่อนบนมือถือ** 4 คอลัมน์ในจอ 390 บีบจนอ่านไม่ออก และหน้าแรกบนมือถือ
+     เจ้าของบอกว่าโอเคแล้ว ไม่ต้องยัดเพิ่ม · บนมือถือดูที่หน้าของที่ซื้อมาแทน */
+  .hd-t{display:none}
+  .hd-tb{margin-top:12px}
+  .hd-th, .hd-tr{
+    display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1.3fr) minmax(0,1fr) 90px;
+    gap:12px; align-items:center; padding:9px 0;
+  }
+  .hd-th{font-size:11.5px; font-weight:800; color:var(--muted); border-bottom:1px solid var(--line)}
+  .hd-tr{border-bottom:1px solid var(--line-2); font-size:13.5px; font-weight:600; color:var(--ink-2)}
+  .hd-tr:last-child{border-bottom:none}
+  .hd-nm{font-weight:800; color:var(--ink)}
+  .hd-c{font-weight:800; color:var(--ink)}
+  .hd-th span:last-child, .hd-tr span:last-child{text-align:right}
+
   /* ---------- การ์ดสถานะของวันที่เลือก ---------- */
   .srow{
     display:flex; align-items:center; gap:14px; margin-top:14px; padding:15px 18px;
@@ -2157,18 +2177,38 @@
        เหลือที่ว่างยาวเป็นแถบ ๆ · แบ่งสามแล้วแต่ละกองได้ ~346px พอดีของที่มี */
     #homeBody{
       display:grid; align-items:start; gap:0 26px;
-      grid-template-columns:minmax(0,1fr) minmax(0,1fr) 380px;
+      grid-template-columns:minmax(0,1fr) minmax(0,1fr);
       /* คอลัมน์ที่กินสองแถว (ทางลัด · ขายดี) ไหลเองได้ตามเนื้อหา
          ไม่โดนความสูงของปฏิทินในแถวแรกดันให้ห่าง */
+      /* ลำดับตามภาพที่เจ้าของส่งมา: สถานะเต็มแถว → ทางลัด|ขายดี → แถบวัน → การ์ดชุดใหญ่
+         **ลำดับใน HTML ห้ามขยับ** ไม่งั้นหน้ามือถือสลับที่ตามไปด้วย
+         (มือถือไม่ได้ใช้กริด เรียงตาม HTML ตรง ๆ) จึงย้ายด้วย grid-area เอา */
       grid-template-areas:
-        "qw hil wk"
-        "qw hil status";
+        "status status"
+        "qw     hil"
+        "wk     wk";
     }
     #homeBody > #quickWrap{grid-area:qw}
     #homeBody > #hiliteWrap{grid-area:hil}
     /* ใช้ 24px ให้ตรงกับจังหวะหัวข้อทั้งแอป (check-space คุมไว้ ใส่ 22 แล้วตกทันที) */
     #homeBody > .wk{grid-area:wk; margin-top:24px}
     #homeBody > #statusRow{grid-area:status}
+    /* การ์ดสถานะสองใบเรียงข้างกันเต็มความกว้าง เหมือนในภาพที่เจ้าของส่งมา */
+    #homeBody > #statusRow{display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start}
+
+    /* แผง "ขาย" ของหน้าแรก จัดตามภาพที่เจ้าของส่งมา
+       ซ้าย = ยอดขาย + (บิล|เฉลี่ยต่อบิล) · ขวา = กราฟ 7 วัน · ล่าง = ตารางของที่ซื้อมา
+       **บอกตำแหน่งตรง ๆ ด้วย grid-area** เพราะปล่อยให้ไหลเองแล้วกราฟที่สูงกว่ามาก
+       ทำให้เหลือรูโหว่ใต้การ์ดเล็ก (เจ้าของเคยบอกว่า "โล่งเยอะเลย")
+       **ต้องเจาะที่ .home-sale เท่านั้น** หน้าภาพรวมใช้ 3 คอลัมน์ ห้ามโดนทับ */
+    .dash.home-sale{
+      grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+      grid-template-areas: "a d" "p d" "t t";
+    }
+    .dash.home-sale > .dash-a{grid-area:a}
+    .dash.home-sale > .dash-pair{grid-area:p; grid-template-columns:1fr 1fr}
+    .dash.home-sale > .dash-d{grid-area:d}
+    .dash.home-sale > .hd-t{grid-area:t; display:block}
     /* ช่องค้นหาเป็น "ปุ่มกด" ไม่ใช่เนื้อหา ยาวเต็มจอแล้วดูเป็นแถบว่างเปล่า */
     .hsearch{max-width:620px}
 
@@ -6815,6 +6855,14 @@ document.addEventListener('scroll', e => {
       const d = Math.abs(el.offsetLeft + el.offsetWidth / 2 - mid);
       if(d < gap){ gap = d; best = el; }
     });
+    /* **วันที่เลือกอยู่ ถ้ายังเห็นอยู่ในถาด ให้ยึดเดือนของมันก่อน**
+       บนจอคอมถาดกว้างมาก เห็นทีละ 20 วัน จุดกึ่งกลางเลยไปตกเดือนก่อน
+       แล้วหัวเขียน "ต.ค." ทั้งที่วงแดงอยู่ที่ 6 พ.ย. — อ่านแล้วขัดกันเอง */
+    const on = row.querySelector('.wk-d.on');
+    if(on){
+      const x = on.offsetLeft + on.offsetWidth / 2;
+      if(x > row.scrollLeft && x < row.scrollLeft + row.clientWidth) best = on;
+    }
     if(best) head.textContent = thaiMonth(monthKey(best.dataset.day));
   });
 }, true);
@@ -6928,6 +6976,33 @@ function jumpDay(k){
   if(k > dayKey()) return;
   dlg.close(); pickDay(k);
 }
+/* ตารางของที่ซื้อมา — **โชว์เฉพาะที่แอปรู้จริง** (เจ้าของเลือกเอง)
+   ในภาพตัวอย่างมีคอลัมน์ "คงเหลือ 12.5 กก." กับป้าย "ใกล้หมด"
+   **แอปไม่ได้นับสต็อกเลย** ของที่ซื้อมาเก็บแค่ซื้อมาเท่าไหร่/จ่ายเท่าไหร่ ไว้คิดต้นทุนต่อหน่วย
+   ใส่ไปก็เป็นเลขมั่ว แล้วแม่ค้าจะวางแผนซื้อของผิด
+   **ต้นทุนเป็นข้อมูลของคนดูแล** หน้าของที่ซื้อมาถูกล็อกด้วยรหัสอยู่แล้ว
+   เอามาโชว์บนหน้าแรกแบบไม่ล็อก = คนที่ยืนอยู่หน้าร้านเห็นต้นทุนหมด */
+function ingTableHTML(){
+  if(hasPin() && !isAdmin()) return '';
+  const list = (db.ingredients || []).slice(0, 8);
+  if(!list.length) return '';
+  const usedIn = id => (db.menus || []).filter(m => (m.items || []).some(it => it.ingId === id)).length;
+  return `<div class="card hd-t">
+    ${cardHead('ing', 'ของที่ซื้อมา', `ต้นทุนต่อหน่วยที่แอปคิดให้จากบิลที่กรอกไว้`)}
+    <div class="hd-tb">
+      <div class="hd-th"><span>รายการ</span><span>ซื้อมา</span><span>ต้นทุนต่อหน่วย</span><span>ใช้ในเมนู</span></div>
+      ${list.map(ing => `<div class="hd-tr">
+        <span class="hd-nm">${esc(ing.name || '')}</span>
+        <span>${baht(ing.packQty)} ${esc(ing.unit || '')} · ${money(ing.packPrice)}</span>
+        <span class="hd-c">${esc(perUnit(ing))}</span>
+        <span>${usedIn(ing.id) ? usedIn(ing.id) + ' เมนู' : '—'}</span>
+      </div>`).join('')}
+    </div>
+    ${(db.ingredients || []).length > 8
+      ? `<p class="hint" style="margin:12px 0 0">แสดง 8 อย่างแรกจาก ${db.ingredients.length} อย่าง</p>` : ''}
+  </div>`;
+}
+
 /* ---------- การ์ดสถานะของวันที่เลือก ---------- */
 function srow(cls, ic, title, sub, act, fn){
   return `<div class="srow ${cls}">
@@ -7139,7 +7214,11 @@ function viewToday(){
 
   const L = dayLabel(key), OD = ofDay(key);     // "วันนี้" / "วันที่ 28 ต.ค."
   const isToday = key === dayKey();
-  const pane = s => `dash dpane${segOn('dash',s) ? ' on' : ''}" data-sb="dash" data-seg="${s}`;
+  /* ติด home-sale ไว้ให้แผง "ขาย" ของหน้าแรกโดยเฉพาะ
+     หน้าภาพรวมใช้ชั้นเดียวกัน (data-sb="dash") แต่จัดคนละแบบ (3 คอลัมน์)
+     ถ้าไม่แยกคลาส การจัดของหน้าแรกจะไปทับหน้าภาพรวมด้วย */
+  const pane = s => `dash dpane${s === 'sale' ? ' home-sale' : ''}${
+    segOn('dash',s) ? ' on' : ''}" data-sb="dash" data-seg="${s}`;
 
   return `
   <div class="dash-wrap">
@@ -7169,22 +7248,28 @@ function viewToday(){
           · ปกติวันละ ${baht(avg7)} บาท</div>` : ''}
       </div>
 
-      <div class="stat-card tint-o dash-b">
-        <div class="stat-k">บิล${OD}</div>
-        <div class="stat-v">${bills}<small> บิล</small></div>
-        <div class="stat-chart">${sparkLine(billSeries, 'var(--brand)', 140, 46)}</div>
-      </div>
+      <!-- สองใบนี้เล็ก จับคู่ไว้ด้วยกันจะได้วางเคียงกันใต้การ์ดยอดขายบนจอคอม
+           ปล่อยให้ไหลเองแล้วใบหนึ่งไปอยู่ข้างกราฟที่สูงกว่ามาก เหลือรูโหว่ใต้มัน -->
+      <div class="dash-pair">
+        <div class="stat-card tint-o dash-b">
+          <div class="stat-k">บิล${OD}</div>
+          <div class="stat-v">${bills}<small> บิล</small></div>
+          <div class="stat-chart">${sparkLine(billSeries, 'var(--brand)', 140, 46)}</div>
+        </div>
 
-      <div class="stat-card tint-g dash-c">
-        <div class="stat-k">เฉลี่ยต่อบิล</div>
-        <div class="stat-v">${baht(perBill)}<small> บาท</small></div>
-        <div class="stat-chart">${miniBars(week.map(w => billsOf(w.key) ? w.sale/billsOf(w.key) : 0), 'var(--ink-2)', 140, 46)}</div>
+        <div class="stat-card tint-g dash-c">
+          <div class="stat-k">เฉลี่ยต่อบิล</div>
+          <div class="stat-v">${baht(perBill)}<small> บาท</small></div>
+          <div class="stat-chart">${miniBars(week.map(w => billsOf(w.key) ? w.sale/billsOf(w.key) : 0), 'var(--ink-2)', 140, 46)}</div>
+        </div>
       </div>
 
       <div class="card dash-d">
         ${cardHead('hist', isToday ? 'ยอดขาย 7 วันล่าสุด' : `ยอดขาย 7 วันจนถึง${OD}`, `เฉลี่ย ${baht(week.filter(w=>w.sale>0).reduce((s,w)=>s+w.sale,0) / Math.max(1,week.filter(w=>w.sale>0).length))} บาท/วัน`)}
         ${chartBody(key, week)}
       </div>
+
+      ${ingTableHTML()}
 
     </div>
 

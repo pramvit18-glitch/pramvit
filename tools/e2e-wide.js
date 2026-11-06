@@ -152,7 +152,9 @@ const MIN_4COL = 860;
         : 9999
     };
   });
-  push(`หัวหน้าแรกจัด ${fill.cols} คอลัมน์ ไม่ใช่กองเดียวยาว`, fill.cols === 3);
+  /* เจ้าของส่งภาพตัวอย่างมาแล้วบอกว่า "หน้าแรกในคอมเอาแบบนี้ได้มั้ย"
+     ในภาพแบ่ง 2 คอลัมน์: การ์ดสถานะเต็มแถว → ทางลัด|ขายดี → แถบวัน → การ์ดชุดใหญ่ */
+  push(`หัวหน้าแรกจัด ${fill.cols} คอลัมน์ ไม่ใช่กองเดียวยาว`, fill.cols === 2);
   push(`แถวทางลัดใช้ที่เกือบเต็มคอลัมน์ (${Math.round(fill.quick*100)}%)`, fill.quick > 0.8);
   push(`แถวขายดีใช้ที่เกือบเต็มคอลัมน์ (${Math.round(fill.hil*100)}%)`, fill.hil > 0.8);
   /* เคยพลาด: หัวข้อกับแถวทางลัดอยู่คนละแถวของกริด ความสูงปฏิทินเลยดันให้ห่างกัน 100px */
@@ -161,6 +163,38 @@ const MIN_4COL = 860;
   const chart = await box(pg, '.chart svg');
   push(`จอ 1440: กราฟถูกคุมความกว้างไว้ (${chart ? chart.w : '-'}px) ตัวหนังสือจะได้ไม่โตเทอะทะ`,
     !!chart && chart.w <= 680);
+
+  /* ---------- หน้าแรกบนจอคอม ตามภาพที่เจ้าของส่งมา ---------- */
+  const hd = await pg.evaluate(() => {
+    const r = s2 => { const e = document.querySelector(s2);
+      return e ? e.getBoundingClientRect() : null; };
+    const st = document.getElementById('statusRow');
+    const rows = ['.dash.home-sale > .dash-a', '.dash.home-sale > .dash-pair',
+                  '.dash.home-sale > .dash-d'].map(r).filter(Boolean);
+    const tb = r('.dash.home-sale > .hd-t');
+    const pair = document.querySelector('.dash.home-sale > .dash-pair');
+    return {
+      สถานะกี่คอลัมน์: st ? getComputedStyle(st).gridTemplateColumns.split(' ').length : 0,
+      มีตาราง: !!tb,
+      // รูโหว่ = ระยะจากก้นการ์ดที่ลงมาต่ำสุด ถึงหัวตาราง
+      รูโหว่: (tb && rows.length) ? Math.round(tb.top - Math.max(...rows.map(x => x.bottom))) : 9999,
+      คู่การ์ดเรียงข้างกัน: pair ? getComputedStyle(pair).gridTemplateColumns.split(' ').length : 0,
+      เดือนบนถาด: (document.querySelector('.wk-mt') || {}).textContent || '',
+      วันที่เลือก: (document.querySelector('.wk-d.on') || {}).dataset
+        ? document.querySelector('.wk-d.on').dataset.day : ''
+    };
+  });
+  push('การ์ดสถานะเรียงสองใบต่อแถว ไม่ใช่กองเดียวยาว', hd.สถานะกี่คอลัมน์ === 2);
+  push('มีตารางของที่ซื้อมาบนหน้าแรก', hd.มีตาราง);
+  push('การ์ดเล็กสองใบเรียงเคียงกัน', hd.คู่การ์ดเรียงข้างกัน === 2);
+  /* เคยพลาดแบบนี้มาแล้ว: ปล่อยการ์ดไหลเอง แล้วกราฟที่สูงกว่ามากทิ้งรูโหว่ใต้การ์ดเล็ก
+     เจ้าของเคยบอกว่า "โล่งเยอะเลย" — ต้องวัดจริง ไม่ใช่ดูด้วยตา */
+  push(`ไม่มีรูโหว่ใต้การ์ดเล็ก (ห่างตาราง ${hd.รูโหว่}px)`, hd.รูโหว่ >= 0 && hd.รูโหว่ <= 40);
+  /* ถาดวันกว้างมากบนจอคอม จุดกึ่งกลางไปตกเดือนก่อน หัวเลยเขียนคนละเดือนกับวงแดง */
+  push(`ชื่อเดือนตรงกับวันที่เลือก (${hd.เดือนบนถาด})`,
+    !!hd.วันที่เลือก && hd.เดือนบนถาด.includes(
+      ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+        [Number(hd.วันที่เลือก.slice(5,7)) - 1]));
 
   /* ---------- ฟอนต์ต้องโหลดได้จริง ไม่ใช่แค่ประกาศไว้ใน CSS ---------- */
   const font = await pg.evaluate(async () => {

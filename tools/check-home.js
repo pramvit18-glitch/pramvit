@@ -114,7 +114,7 @@ const probe = `
   const html = viewToday();
   out.push(['มีแท็บย่อยครบ 4 อัน', (html.match(/dseg-b/g)||[]).length === 4]);
   out.push(['มีแผงเนื้อหาครบ 4 แผง', (html.match(/class="dash dpane/g)||[]).length === 4]);
-  out.push(['เปิดอยู่แผงเดียว', (html.match(/dash dpane on/g)||[]).length === 1]);
+  out.push(['เปิดอยู่แผงเดียว', (html.match(/dpane[^"]* on/g)||[]).length === 1]);
   out.push(['การ์ดเดิมยังอยู่ครบ', ['hero-card','stat-card','mon-nums','mbox']
     .every(c => html.indexOf(c) >= 0)]);
   // อันดับเมนูขึ้นเฉพาะวันที่มีขาย วันที่ยังไม่ขายต้องเป็นสถานะว่าง ไม่ใช่หน้าโล่ง
