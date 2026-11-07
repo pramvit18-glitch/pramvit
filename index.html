@@ -5002,7 +5002,7 @@ function viewMenu(){
           <div class="li-title">${esc(m.name || '(ยังไม่มีชื่อ)')}</div>
           <div class="li-sub">${noRecipe ? 'ยังไม่ได้ใส่ว่าใช้อะไรบ้าง'
             : `ขาย ${baht(m.price)} บาท · ได้กำไรจานละ ${baht(profit(m))} บาท`}</div>
-          ${isSetMenu(m) ? `<div class="li-sub">จัดชุดให้แล้ว: ${esc(setAddons(m).map(a => a.name).join(' · '))}</div>`
+          ${isSetMenu(m) ? `<div class="li-sub">จัดชุดให้แล้ว: ${esc(fixText(setAddons(m)))}</div>`
             : n(m.incl) > 0 ? `<div class="li-sub">รวมไส้ ${n(m.incl)} อย่าง · เกินคิดเพิ่มอันละ ${baht(m.extraTop)} บาท</div>` : ''}
         </div>
         <div class="li-end">
@@ -5107,43 +5107,101 @@ function draftGroupSum(){
    แม่ค้าแตะเลือกจากไส้ที่มีอยู่แล้ว **ไม่ต้องพิมพ์ชื่อไส้เอง** พิมพ์แล้วสะกดไม่ตรงกัน
    ลูกค้าจะเห็นชื่อไส้คนละแบบกับที่ร้านรู้จัก */
 let menuDraftFix = new Set();
-function toggleDraftFix(name, el){
-  if(menuDraftFix.has(name)) menuDraftFix.delete(name); else menuDraftFix.add(name);
-  const on = menuDraftFix.has(name);
-  if(el){ el.classList.toggle('on', on); el.setAttribute('aria-pressed', on); }
-  const sum = document.getElementById('fpickSum');
-  if(sum) sum.textContent = draftFixSum();
-}
-function draftFixSum(){
-  const list = [...menuDraftFix];
-  if(!list.length) return 'ไม่เลือก = ลูกค้าเลือกไส้เองได้ตามปกติ';
-  return `จัดให้ ${list.length} อย่าง · ${list.join(' · ')} · เปลี่ยนเองไม่ได้`;
-}
-// ไส้ทุกอย่างในร้าน ชื่อซ้ำเอาอันเดียว (ไส้ชื่อเดียวกันอยู่ได้หลายชุด)
-function allAddonNames(){
-  const out = [];
-  (db.groups || []).forEach(g => (g.items || []).forEach(it => {
-    if(it.name && !out.some(x => x.name === it.name)) out.push({ name:it.name, group:g.name });
-  }));
+
+/* ไส้ทุกอย่างในร้าน แยกตามชุด (ไส้คาว / ไส้หวาน / ราดซอส)
+   ชื่อซ้ำข้ามชุดเอาอันเดียว · ร้านจัดชุดข้ามชุดได้ จะเอาทั้งคาวทั้งหวานทั้งซอสก็ได้
+   เจ้าของถามเอง: "ถ้าใส่คาวกับหวานหมดด้วยล่ะทำไง ไหนจะซอสด้วยนะ" */
+function fixGroups(){
+  const seen = new Set(), out = [];
+  (db.groups || []).forEach(g => {
+    const items = (g.items || []).filter(it => it.name && !seen.has(it.name));
+    items.forEach(it => seen.add(it.name));
+    if(items.length) out.push({ id:g.id, name:g.name, items });
+  });
   return out;
 }
-function fixPickerHTML(){
-  const all = allAddonNames();
-  if(!all.length) return '';
+// ไส้ทุกอย่างในร้านเรียงตามลำดับชุด ใช้จัดลำดับตอนบันทึกด้วย
+function allAddonNames(){
+  const out = [];
+  fixGroups().forEach(g => g.items.forEach(it => out.push({ name:it.name, group:g.name })));
+  return out;
+}
+/* ไส้ที่เคยจัดไว้แต่ถูกลบออกจากชุดไปแล้ว — **ต้องโชว์ไว้ให้เอาออกได้**
+   ไม่งั้นมันค้างอยู่บนเมนูตลอดไปโดยที่แม่ค้าไม่มีทางแตะถึง */
+function strayFix(){
+  const known = allAddonNames().map(a => a.name);
+  return [...menuDraftFix].filter(nm => !known.includes(nm));
+}
+
+function toggleDraftFix(name, el){
+  if(menuDraftFix.has(name)) menuDraftFix.delete(name); else menuDraftFix.add(name);
+  paintFixPicker();
+}
+// เลือกทั้งชุดทีเดียว — "ใส่คาวหมด" ไม่ต้องไล่แตะทีละอัน
+function toggleDraftFixGroup(gid){
+  const g = gid === '*' ? { items: strayFix().map(nm => ({ name:nm })) }
+                        : fixGroups().find(x => x.id === gid);
+  if(!g) return;
+  const all = g.items.every(it => menuDraftFix.has(it.name));
+  g.items.forEach(it => all ? menuDraftFix.delete(it.name) : menuDraftFix.add(it.name));
+  paintFixPicker();
+}
+/* วาดใหม่เฉพาะก้อนตัวเลือก ไม่เปิดกล่องใหม่
+   (เปิดใหม่ = ชื่อกับราคาที่พิมพ์ค้างไว้หายหมด) */
+function paintFixPicker(){
+  const box = document.getElementById('fpickBox');
+  if(box) box.innerHTML = fixPickerInner();
+}
+
+function draftFixSum(){
+  const total = menuDraftFix.size;
+  if(!total) return 'ไม่เลือก = ลูกค้าเลือกไส้เองได้ตามปกติ';
+  // บอกเป็นชุด ไม่ใช่ไล่ชื่อยาวเป็นพรืด (เลือกทั้งคาวทั้งหวานแล้วอ่านไม่ไหว)
+  const per = fixGroups().map(g => {
+    const k = g.items.filter(it => menuDraftFix.has(it.name)).length;
+    return k ? `${g.name} ${k}` : '';
+  }).filter(Boolean).join(' · ');
+  return `จัดให้ ${total} อย่าง${per ? ' · ' + per : ''} · ลูกค้าเปลี่ยนเองไม่ได้`;
+}
+
+function fixChipsHTML(items){
+  return `<div class="gpick">${items.map(it => {
+    const on = menuDraftFix.has(it.name);
+    return `<button type="button" class="gchip${on ? ' on' : ''}" aria-pressed="${on}"
+      onclick="toggleDraftFix('${jsq(it.name)}', this)">
+      <span class="gchip-n">${esc(it.name)}</span>
+    </button>`;
+  }).join('')}</div>`;
+}
+
+function fixPickerInner(){
+  const gs = fixGroups();
+  const stray = strayFix();
+  const groupBlock = (key, name, items) => {
+    const picked = items.filter(it => menuDraftFix.has(it.name)).length;
+    const all = picked === items.length;
+    return `
+      <div class="gpick-head" style="margin-top:12px">
+        <span>${esc(name)}</span>
+        <small>เลือกแล้ว ${picked} จาก ${items.length}</small>
+        <button type="button" class="btn sm" style="margin-left:auto"
+                onclick="toggleDraftFixGroup('${jsq(key)}')">${all ? 'เอาออกทั้งชุด' : 'เลือกทั้งชุด'}</button>
+      </div>
+      ${fixChipsHTML(items)}`;
+  };
   return `
     <div class="gpick-head" style="margin-top:16px">
       <span>เมนูจัดชุด — ร้านใส่ไส้ให้เลย</span>
       <small id="fpickSum">${esc(draftFixSum())}</small>
     </div>
-    <div class="gpick">${all.map(a => {
-      const on = menuDraftFix.has(a.name);
-      return `<button type="button" class="gchip${on ? ' on' : ''}" aria-pressed="${on}"
-        onclick="toggleDraftFix('${jsq(a.name)}', this)">
-        <span class="gchip-n">${esc(a.name)}</span>
-        <small>${esc(a.group || '')}</small>
-      </button>`;
-    }).join('')}</div>
-    <p class="hint">เลือกไว้แล้ว = ขายราคาเดียว ไส้ตามที่ร้านจัด · ลูกค้าเลือกเองไม่ได้ · ไม่คิดค่าไส้เพิ่ม</p>`;
+    ${gs.map(g => groupBlock(g.id, g.name, g.items)).join('')}
+    ${stray.length ? groupBlock('*', 'ไส้ที่ไม่อยู่ในชุดไหนแล้ว', stray.map(nm => ({ name:nm }))) : ''}
+    <p class="hint">เลือกไว้แล้ว = ขายราคาเดียว ไส้ตามที่ร้านจัด · ลูกค้าเลือกเองไม่ได้ · ไม่คิดค่าไส้เพิ่ม<br>
+      จะเอาทั้งคาว ทั้งหวาน ทั้งซอส พร้อมกันก็ได้ กด "เลือกทั้งชุด" ทีเดียวจบ</p>`;
+}
+function fixPickerHTML(){
+  if(!allAddonNames().length && !menuDraftFix.size) return '';
+  return `<div id="fpickBox">${fixPickerInner()}</div>`;
 }
 
 function groupPickerHTML(){
@@ -5166,6 +5224,14 @@ function groupPickerHTML(){
         <small>${g.items.length} อย่าง</small>
       </button>`;
     }).join('')}</div>`;
+}
+
+/* เรียงไส้ที่ร้านจัดให้ตามลำดับชุด (คาว → หวาน → ซอส) ไม่ใช่ตามลำดับที่แม่ค้าแตะ
+   อ่านบนบิลแล้วเป็นระเบียบ และลูกค้าเห็นเรียงเหมือนกันทุกจาน
+   ของที่ถูกลบออกจากชุดไปแล้วต่อท้ายไว้ **ห้ามทิ้ง** ไม่งั้นกดบันทึกเฉย ๆ ไส้หายเงียบ */
+function sortedDraftFix(){
+  const order = allAddonNames().map(a => a.name);
+  return [...order.filter(nm => menuDraftFix.has(nm)), ...strayFix()];
 }
 
 function menuDialog(m){
@@ -5199,7 +5265,7 @@ function menuDialog(m){
     save: v => {
       const data = {name:v.name.trim(), cat:(v.cat||'').trim(), price:v.price,
                     qtyPerDay:v.qtyPerDay, incl:v.incl, extraTop:v.extraTop,
-                    groupIds:[...menuDraftGroups], fix:[...menuDraftFix]};
+                    groupIds:[...menuDraftGroups], fix:sortedDraftFix()};
       if(m) Object.assign(m, data);
       else db.menus.push(Object.assign({id:uid(), items:[]}, data));
       const gs = menuDraftGroups.size, fx = menuDraftFix.size;
@@ -5860,6 +5926,15 @@ function clearBill(){
    จะถูกเก็บเงินเพิ่มทันทีทั้งที่ลูกค้าไม่ได้เลือกอะไรเลย */
 const setAddons = m => ((m && m.fix) || []).filter(Boolean).map(nm => ({ name:String(nm), price:0 }));
 const isSetMenu = m => setAddons(m).length > 0;
+/* ร้านจัดชุดใส่ทั้งคาวทั้งหวานทั้งซอสได้ ซึ่งยาวเกินกว่าจะโชว์ครบในรายการที่ไว้กวาดตา
+   **ตัดเฉพาะที่เป็นรายการให้เลือก** (แถวเมนู) · บิลกับการ์ดออเดอร์ต้องโชว์ครบเสมอ
+   เพราะนั่นคือสิ่งที่แม่ค้าอ่านตอนยืนทอด */
+function fixText(names, max){
+  const list = (names || []).map(x => (x && x.name) ? x.name : String(x));
+  const m = max || 3;
+  if(list.length <= m) return list.join(' · ');
+  return list.slice(0, m).join(' · ') + ` และอีก ${list.length - m} อย่าง`;
+}
 
 function addonCost(m, addons){
   if(isSetMenu(m)) return 0;            // ร้านจัดไส้ให้แล้ว ไม่เก็บค่าไส้
@@ -6136,7 +6211,7 @@ function posRowsHTML(){
     <button type="button" class="posrow${inBill ? ' has' : ''}" onclick="tapMenu('${m.id}')">
       <span class="posrow-m">
         <span class="posrow-n">${esc(m.name || '(ไม่มีชื่อ)')}</span>
-        ${fix.length ? `<span class="posrow-top">ร้านจัดไส้ให้: ${esc(fix.map(a => a.name).join(' · '))}</span>`
+        ${fix.length ? `<span class="posrow-top">ร้านจัดไส้ให้: ${esc(fixText(fix))}</span>`
           : tops ? `<span class="posrow-top">เลือกไส้ได้ ${tops}</span>` : ''}
       </span>
       ${inBill ? `<span class="posrow-c">${inBill}</span>` : ''}

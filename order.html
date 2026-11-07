@@ -557,7 +557,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v166';
+const PAGE_VER = 'crepe-cost-v167';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -1426,6 +1426,13 @@ const hotTag = m => n(m && m.hot)
    ไส้ที่ร้านจัดให้ **ไม่คิดเงินเพิ่ม** (ต้องตรงกับ isSetMenu/addonCost ใน index.html) */
 const setAddons = m => ((m && m.fix) || []).filter(Boolean).map(nm => ({ name:String(nm), price:0 }));
 const isSetMenu = m => setAddons(m).length > 0;
+/* ร้านจัดชุดใส่ทั้งคาวทั้งหวานทั้งซอสได้ ชื่อไส้เลยยาวเกินกว่าจะใส่ในแถวเมนู
+   **ตัดแค่ในแถวรายการ** กล่องที่กดเข้าไปต้องโชว์ครบเสมอ ลูกค้าต้องรู้ว่าได้อะไรบ้าง */
+function fixText(names, max){
+  const list = names || [], m = max || 3;
+  if(list.length <= m) return list.join(' · ');
+  return list.slice(0, m).join(' · ') + ` และอีก ${list.length - m} อย่าง`;
+}
 
 function addonCost(m, addons){
   if(isSetMenu(m)) return 0;
@@ -1442,7 +1449,7 @@ function addonOver(m, addons){
 
 function addonText(m){
   // ร้านจัดไส้ให้แล้ว ต้องบอกตั้งแต่หน้ารายการว่าได้อะไร ไม่ใช่ให้กดเข้าไปลุ้น
-  if(isSetMenu(m)) return 'ร้านจัดไส้ให้: ' + setAddons(m).map(a => a.name).join(' · ');
+  if(isSetMenu(m)) return 'ร้านจัดไส้ให้: ' + fixText(setAddons(m).map(a => a.name));
   const gs = m.groups || [];
   if(!gs.length) return 'ไม่มีไส้ให้เลือก';
   const total = gs.reduce((s,g) => s + (g.items||[]).length, 0);

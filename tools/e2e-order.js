@@ -1178,8 +1178,14 @@ const push = (name, v) => { ok.push([name, !!v]); };
     /* เมนูจัดชุด ตั้ง incl/extraTop ไว้ด้วย **ตั้งใจ**
        ถ้าไส้ที่ร้านจัดให้หลุดเข้าสูตรโควตา จะถูกคิดเพิ่ม (2-1)x10 = 10 บาททันที
        ข้อที่เช็กราคา 25 จึงจับได้ว่าสูตรกลางตัดค่าไส้ของเมนูจัดชุดจริงไหม */
-    db.menus.push({ id:'m3', name:'เครปจัดชุดพิเศษ', price:25, groupIds:['g1'], items:[],
-                    incl:1, extraTop:10, fix:['ไส้กรอก', "ไข่ไก่ด'ล"] });
+    /* จัดชุดข้ามชุดไส้ — เจ้าของถามเอง: "ถ้าใส่คาวกับหวานหมดด้วยล่ะ ไหนจะซอสด้วยนะ"
+       5 อย่างจาก 2 ชุด ใช้พิสูจน์ว่าราคายังเดียว และแถวเมนูไม่ยาวจนล้น */
+    db.groups.push({ id:'g2', name:'ไส้หวาน', items:[
+      {id:'b1', name:'นูเทลล่า', price:10}, {id:'b2', name:'กล้วย', price:5},
+      {id:'b3', name:'ช็อกโกแลต', price:5}]});
+    db.menus.push({ id:'m3', name:'เครปจัดชุดพิเศษ', price:25, groupIds:['g1','g2'], items:[],
+                    incl:1, extraTop:10,
+                    fix:['ไส้กรอก', "ไข่ไก่ด'ล", 'นูเทลล่า', 'กล้วย', 'ช็อกโกแลต'] });
     // เครปกรอบ 6 จาน (ขายดี) · เครปนุ่ม 1 จาน (น้อยกว่า HOT_MIN จึงไม่ติดป้าย)
     const mk = (id, nm, qty) => ({ id:'x' + id + qty, d:dayKey(), t:'10:00',
       menuId:id, name:nm, qty, addons:[], total:qty * 15 });
@@ -1200,8 +1206,9 @@ const push = (name, v) => { ok.push([name, !!v]); };
     Object.keys(mOf('m1')).sort().join(',') === 'extraTop,fix,groups,hot,id,incl,name,off,price');
   push('อันดับขายดีเป็นเลข 1-3 เท่านั้น',
     pubHot.menus.every(m => Number.isInteger(m.hot) && m.hot >= 0 && m.hot <= 3));
-  push('ไส้ที่ร้านจัดให้ขึ้นไปด้วย (ลูกค้าต้องรู้ว่าได้อะไร)',
-    Array.isArray(mOf('m3').fix) && mOf('m3').fix.length === 2);
+  push('ไส้ที่ร้านจัดให้ขึ้นไปด้วยครบทุกชุด (คาว + หวาน)',
+    Array.isArray(mOf('m3').fix) && mOf('m3').fix.length === 5
+    && mOf('m3').fix.includes('ไส้กรอก') && mOf('m3').fix.includes('ช็อกโกแลต'));
 
   await cust.reload(); await cust.waitForTimeout(900);
   push('ลูกค้าเห็นป้ายขายดีแค่อันเดียว', await cust.locator('#view .li-hot').count() === 1);
@@ -1215,8 +1222,11 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('ป้ายไม่ได้บอกยอดขายของร้านให้ลูกค้ารู้', !!hotTxt && !/\d/.test(hotTxt));
 
   const setIdx = await cust.evaluate(() => menu.menus.findIndex(m => m.id === 'm3'));
-  push('หน้ารายการบอกตั้งแต่ยังไม่กดว่าร้านจัดไส้ให้อะไร', setIdx >= 0 &&
-    (await cust.locator('#view .li').nth(setIdx).textContent()).includes('ร้านจัดไส้ให้'));
+  const setRow = setIdx >= 0 ? await cust.locator('#view .li').nth(setIdx).textContent() : '';
+  push('หน้ารายการบอกตั้งแต่ยังไม่กดว่าร้านจัดไส้ให้อะไร', setRow.includes('ร้านจัดไส้ให้'));
+  /* ไส้เยอะ ๆ ต้องตัดให้สั้นในแถวรายการ ไม่งั้นแถวเดียวสูงสี่บรรทัด
+     (เห็นตอนถ่ายภาพหน้าจอจริง ใส่ 10 อย่างแล้วกินพื้นที่กว่าชื่อเมนูอีก) */
+  push('ไส้เยอะแล้วแถวเมนูไม่ยาวเป็นพรืด', setRow.includes('และอีก 2 อย่าง'));
 
   if(setIdx >= 0){
     await cust.evaluate(i => pick(i), setIdx);
@@ -1224,13 +1234,17 @@ const push = (name, v) => { ok.push([name, !!v]); };
     push('กล่องเมนูจัดชุดไม่มีชิปให้ติ๊กไส้ (เปลี่ยนเองไม่ได้)',
       await cust.locator('#sheet .tops .top').count() === 0);
     const sheetTxt = await cust.textContent('#sheet');
-    push('แต่บอกชัดว่าจานนี้ใส่อะไรให้แล้ว',
-      sheetTxt.includes('ร้านจัดไส้ให้แล้ว') && sheetTxt.includes('ไส้กรอก'));
+    /* **กล่องที่กดเข้าไปต้องโชว์ครบทุกชื่อ** ตัดได้แค่ในแถวรายการ
+       ลูกค้าต้องรู้ว่าจ่าย 25 แล้วได้อะไรบ้าง ไม่ใช่สั่งแบบเดา */
+    push('กล่องบอกครบทุกไส้ที่จะได้ (ทั้งคาวและหวาน)',
+      sheetTxt.includes('ร้านจัดไส้ให้แล้ว')
+      && ['ไส้กรอก', 'นูเทลล่า', 'กล้วย', 'ช็อกโกแลต'].every(nm => sheetTxt.includes(nm))
+      && !sheetTxt.includes('และอีก'));
     await cust.evaluate(() => addToCart());
     await cust.waitForTimeout(600);
     const line = await cust.evaluate(() => cart[cart.length - 1] || {});
     push('ราคาเมนูจัดชุดเป็นราคาเดียว ไม่คิดค่าไส้เพิ่ม', line.total === 25);
-    push('ไส้ที่ร้านจัดให้ติดไปกับออเดอร์ด้วย', (line.addons || []).length === 2);
+    push('ไส้ที่ร้านจัดให้ติดไปกับออเดอร์ครบทุกอัน', (line.addons || []).length === 5);
     await cust.evaluate(() => { cart.length = 0; draw(); });
   } else {
     push('กล่องเมนูจัดชุดไม่มีชิปให้ติ๊กไส้ (เปลี่ยนเองไม่ได้)', false);
@@ -1248,13 +1262,17 @@ const push = (name, v) => { ok.push([name, !!v]); };
     openOrderDialog();
     tapMenu('m3'); tapMenu('m3');
     const l = (order && order.lines) || [];
+    const html = orderDialogHTML();
     return { lines: l.length, qty: n((l[0] || {}).qty), adds: ((l[0] || {}).addons || []).length,
-             total: orderTotal(), topBtn: document.querySelectorAll('.bl-top').length };
+             total: orderTotal(), topBtn: document.querySelectorAll('.bl-top').length,
+             // บิลคือสิ่งที่แม่ค้าอ่านตอนยืนทอด ต้องเห็นไส้ครบทุกชื่อ ห้ามตัด
+             billFull: ['ไส้กรอก', 'นูเทลล่า', 'ช็อกโกแลต'].every(nm => html.indexOf(nm) >= 0) };
   });
-  push('แม่ค้ากดเมนูจัดชุด ไส้ติดมาในบิลเลย', bill.adds === 2);
+  push('แม่ค้ากดเมนูจัดชุด ไส้ติดมาในบิลครบทุกอัน', bill.adds === 5);
   push('กดซ้ำ = เพิ่มจำนวนบรรทัดเดิม ไม่แตกบรรทัดซ้ำ', bill.lines === 1 && bill.qty === 2);
   push('บิลคิดราคาเดียว ไม่บวกค่าไส้', bill.total === 50);
   push('บรรทัดเมนูจัดชุดไม่มีปุ่ม "เลือกไส้" ให้กด', bill.topBtn === 0);
+  push('บิลหน้าร้านโชว์ไส้ครบทุกชื่อ (ไม่ตัดเหมือนแถวเมนู)', bill.billFull === true);
   // คืนสภาพ ไม่ทิ้งบิลค้างกับกล่องเปิดค้างไว้
   await seller.evaluate(() => { try{ closeOrderDialog(); dlg.close(); }catch(e){} });
   await seller.waitForTimeout(900);

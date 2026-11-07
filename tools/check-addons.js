@@ -155,8 +155,62 @@ const probe = `
     db.sales.pop();                     // คืนสภาพ ไม่ทิ้งยอดขายปลอมไว้ให้ข้อถัดไป
     return good;
   })()]);
+  /* --- จัดชุดข้ามชุดไส้: เอาทั้งคาว ทั้งหวาน ทั้งซอส ---
+     เจ้าของถามเอง: "ถ้าใส่คาวกับหวานหมดด้วยล่ะทำไง ไหนจะซอสด้วยนะ" */
+  menuDraftFix = new Set();
+  const gAll = fixGroups();
+  out.push(['ตัวเลือกไส้แยกเป็นชุดให้ ไม่ใช่กองรวมกันหมด', gAll.length >= 3
+    && fixPickerHTML().indexOf(gAll[0].name) >= 0
+    && fixPickerHTML().indexOf(gAll[1].name) >= 0]);
+  out.push(['ทุกชุดมีปุ่ม "เลือกทั้งชุด" ให้กดทีเดียว',
+    (fixPickerHTML().match(/toggleDraftFixGroup/g) || []).length === gAll.length]);
+
+  // กดเลือกทั้งชุดของชุดที่ 2 ก่อน แล้วค่อยชุดแรก — ตั้งใจสลับลำดับ
+  toggleDraftFixGroup(gAll[1].id);
+  toggleDraftFixGroup(gAll[0].id);
+  toggleDraftFixGroup(gAll[2].id);
+  const wantAll = gAll[0].items.length + gAll[1].items.length + gAll[2].items.length;
+  out.push(['กดเลือกทั้งชุดแล้วได้ไส้ทั้งชุดจริง', menuDraftFix.size === wantAll]);
+  out.push(['กดซ้ำ = เอาออกทั้งชุด', (() => {
+    toggleDraftFixGroup(gAll[1].id);
+    const okk = menuDraftFix.size === wantAll - gAll[1].items.length;
+    toggleDraftFixGroup(gAll[1].id);
+    return okk && menuDraftFix.size === wantAll;
+  })()]);
+  /* **ต้องเรียงตามลำดับชุด ไม่ใช่ตามลำดับที่แม่ค้าแตะ**
+     ไม่งั้นบิลขึ้นหวานก่อนคาวสลับไปมา อ่านตอนยืนทอดแล้วสับสน */
+  const sorted = sortedDraftFix();
+  const wantOrder = [...gAll[0].items, ...gAll[1].items, ...gAll[2].items].map(it => it.name);
+  out.push(['ไส้ที่จัดให้เรียงตามลำดับชุด (คาว → หวาน → ซอส) ไม่ใช่ตามลำดับที่แตะ',
+    sorted.join('|') === wantOrder.join('|')]);
+
+  const bigM = { id:'setm2', name:'เครปจัดเต็ม', price:45, groupIds:[gAll[0].id], items:[], fix:sorted };
+  db.menus.push(bigM);
+  out.push(['ใส่ไส้หมดทุกชุดก็ยังราคาเดียว ไม่บวกเพิ่ม',
+    addonCost(bigM, setAddons(bigM)) === 0 && sorted.length >= 9]);
+
+  order = { lines: [] };
+  tapMenu(bigM.id);
+  const bigLine = order.lines[0];
+  out.push(['ไส้ครบทุกอันติดไปกับบรรทัดในบิล',
+    !!bigLine && (bigLine.addons || []).length === sorted.length]);
+  /* **บิลต้องโชว์ไส้ครบทุกชื่อ** นั่นคือสิ่งที่แม่ค้าอ่านตอนยืนทอด
+     ส่วนแถวเมนูที่ไว้กดเลือก ต้องตัดให้สั้น ไม่งั้นแถวเดียวสูงสามบรรทัด เลือกเมนูลำบาก */
+  const bigHTML = orderDialogHTML();
+  out.push(['บิลโชว์ไส้ครบทุกชื่อ ไม่ตัดทิ้ง',
+    sorted.every(nm => bigHTML.indexOf(nm) >= 0)]);
+  out.push(['แถวเมนูในหน้าขายตัดให้สั้น ไม่ยาวเป็นพรืด',
+    bigHTML.indexOf('และอีก ' + (sorted.length - 3) + ' อย่าง') >= 0]);
+
+  /* ไส้ที่ถูกลบออกจากชุดไปแล้วต้องไม่หายเงียบ และต้องเอาออกได้เอง */
+  menuDraftFix = new Set(['ไส้ที่ถูกลบไปแล้ว']);
+  out.push(['ไส้ที่ไม่อยู่ในชุดไหนแล้ว ยังเห็นในตัวเลือกและเอาออกได้',
+    fixPickerHTML().indexOf('ไส้ที่ถูกลบไปแล้ว') >= 0
+    && sortedDraftFix().join('') === 'ไส้ที่ถูกลบไปแล้ว']);
+  menuDraftFix = new Set();
+
   saleDraft = null;
-  db.menus = db.menus.filter(m => m.id !== setM.id);
+  db.menus = db.menus.filter(m => m.id !== setM.id && m.id !== bigM.id);
   order = { lines: [] };
 
   const o = t => (orderDialogHTML().match(new RegExp('<' + t + '[ >]', 'g'))||[]).length;
