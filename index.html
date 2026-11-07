@@ -2849,6 +2849,7 @@ function orderLink(){
 
 // ใบเมนูที่ลูกค้าจะเห็น — หยิบเฉพาะที่ต้องโชว์ ไม่ลากต้นทุนหรือสูตรไปด้วย
 function menuForCustomers(){
+  const hotIds = hotForCustomers();      // คิดที่นี่ครั้งเดียว ไม่ใช่ไล่คิดทุกเมนู
   return {
     name:   String(db.shopName || 'ร้านของฉัน'),
     branch: String(db.shopBranch || ''),
@@ -2864,6 +2865,11 @@ function menuForCustomers(){
       /* วันนี้หมดแล้วไหม — ส่งเป็น true/false ไม่ส่งวันที่
          ลูกค้าไม่ต้องรู้ว่าปิดตั้งแต่วันไหน และก้อนจะได้เล็ก */
       off: isSoldOut(m),
+      /* อันดับขายดี 1-3 (0 = ไม่ติดป้าย) — **เป็นอันดับเท่านั้น ไม่มีตัวเลขยอดขาย**
+         ของที่วันนี้หมดแล้วไม่ต้องติดป้าย อ่านแล้วขัดกันเอง */
+      hot: isSoldOut(m) ? 0 : hotIds.indexOf(m.id) + 1,
+      /* ไส้ที่ร้านจัดให้ตายตัว — ลูกค้าต้องเห็นว่าจานนี้มีอะไร ไม่ใช่สั่งแบบไม่รู้ว่าได้อะไร */
+      fix: setAddons(m).map(a => a.name),
       groups: (m.groupIds || []).map(id => findGroup(id)).filter(Boolean).map(g => ({
         name: String(g.name || ''),
         items: (g.items || []).map(it => ({ name: String(it.name || ''), price: n(it.price) }))
@@ -4996,7 +5002,8 @@ function viewMenu(){
           <div class="li-title">${esc(m.name || '(ยังไม่มีชื่อ)')}</div>
           <div class="li-sub">${noRecipe ? 'ยังไม่ได้ใส่ว่าใช้อะไรบ้าง'
             : `ขาย ${baht(m.price)} บาท · ได้กำไรจานละ ${baht(profit(m))} บาท`}</div>
-          ${n(m.incl) > 0 ? `<div class="li-sub">รวมไส้ ${n(m.incl)} อย่าง · เกินคิดเพิ่มอันละ ${baht(m.extraTop)} บาท</div>` : ''}
+          ${isSetMenu(m) ? `<div class="li-sub">จัดชุดให้แล้ว: ${esc(setAddons(m).map(a => a.name).join(' · '))}</div>`
+            : n(m.incl) > 0 ? `<div class="li-sub">รวมไส้ ${n(m.incl)} อย่าง · เกินคิดเพิ่มอันละ ${baht(m.extraTop)} บาท</div>` : ''}
         </div>
         <div class="li-end">
           <span class="status is-${noRecipe ? 'warn' : st.lv}">${noRecipe ? 'ยังไม่ครบ' : st.word}</span>
@@ -5095,6 +5102,50 @@ function draftGroupSum(){
   const items = gs.reduce((a,g) => a + g.items.length, 0);
   return `เลือก ${gs.length} ชุด · ติ๊กได้ ${items} อย่างตอนขาย`;
 }
+/* ===================== ไส้ที่ร้านจัดให้ (เมนูจัดชุด) =====================
+   ใช้ชิปแบบเดียวกับชุดไส้ (.gpick/.gchip) ไม่ต้องมี CSS ใหม่
+   แม่ค้าแตะเลือกจากไส้ที่มีอยู่แล้ว **ไม่ต้องพิมพ์ชื่อไส้เอง** พิมพ์แล้วสะกดไม่ตรงกัน
+   ลูกค้าจะเห็นชื่อไส้คนละแบบกับที่ร้านรู้จัก */
+let menuDraftFix = new Set();
+function toggleDraftFix(name, el){
+  if(menuDraftFix.has(name)) menuDraftFix.delete(name); else menuDraftFix.add(name);
+  const on = menuDraftFix.has(name);
+  if(el){ el.classList.toggle('on', on); el.setAttribute('aria-pressed', on); }
+  const sum = document.getElementById('fpickSum');
+  if(sum) sum.textContent = draftFixSum();
+}
+function draftFixSum(){
+  const list = [...menuDraftFix];
+  if(!list.length) return 'ไม่เลือก = ลูกค้าเลือกไส้เองได้ตามปกติ';
+  return `จัดให้ ${list.length} อย่าง · ${list.join(' · ')} · เปลี่ยนเองไม่ได้`;
+}
+// ไส้ทุกอย่างในร้าน ชื่อซ้ำเอาอันเดียว (ไส้ชื่อเดียวกันอยู่ได้หลายชุด)
+function allAddonNames(){
+  const out = [];
+  (db.groups || []).forEach(g => (g.items || []).forEach(it => {
+    if(it.name && !out.some(x => x.name === it.name)) out.push({ name:it.name, group:g.name });
+  }));
+  return out;
+}
+function fixPickerHTML(){
+  const all = allAddonNames();
+  if(!all.length) return '';
+  return `
+    <div class="gpick-head" style="margin-top:16px">
+      <span>เมนูจัดชุด — ร้านใส่ไส้ให้เลย</span>
+      <small id="fpickSum">${esc(draftFixSum())}</small>
+    </div>
+    <div class="gpick">${all.map(a => {
+      const on = menuDraftFix.has(a.name);
+      return `<button type="button" class="gchip${on ? ' on' : ''}" aria-pressed="${on}"
+        onclick="toggleDraftFix('${jsq(a.name)}', this)">
+        <span class="gchip-n">${esc(a.name)}</span>
+        <small>${esc(a.group || '')}</small>
+      </button>`;
+    }).join('')}</div>
+    <p class="hint">เลือกไว้แล้ว = ขายราคาเดียว ไส้ตามที่ร้านจัด · ลูกค้าเลือกเองไม่ได้ · ไม่คิดค่าไส้เพิ่ม</p>`;
+}
+
 function groupPickerHTML(){
   if(!(db.groups||[]).length){
     return `<div class="gpick-empty">
@@ -5120,6 +5171,7 @@ function groupPickerHTML(){
 function menuDialog(m){
   if(!adminOk(() => menuDialog(m))) return;
   menuDraftGroups = new Set(m ? (m.groupIds || []) : []);
+  menuDraftFix    = new Set(m ? (m.fix || []) : []);
   openDialog({ icon:'menu',
     title: m ? 'แก้ไขเมนู' : 'เพิ่มเมนูใหม่',
     sub: m ? 'แก้ชื่อ ราคา และเลือกไส้ที่ใส่ได้' : 'ใส่ชื่อ ราคา แล้วติ๊กไส้ที่ใส่ได้ ในหน้าต่างเดียวจบ',
@@ -5133,7 +5185,7 @@ function menuDialog(m){
       {k:'incl', label:'ราคานี้รวมไส้กี่อย่าง (เว้นว่าง = ไม่จำกัด)', type:'number', value:m?.incl ?? ''},
       {k:'extraTop', label:'ไส้ที่เกินคิดเพิ่มอันละ (บาท)', type:'number', value:m?.extraTop ?? ''}
     ],
-    extra: groupPickerHTML(),
+    extra: groupPickerHTML() + fixPickerHTML(),
     live: m ? (v => {
       const c = menuCost(m), pf = v.price - c;
       if(!(v.price > 0)) return `ต้นทุนวัตถุดิบจานละ ${baht(c)} บาท`;
@@ -5147,13 +5199,15 @@ function menuDialog(m){
     save: v => {
       const data = {name:v.name.trim(), cat:(v.cat||'').trim(), price:v.price,
                     qtyPerDay:v.qtyPerDay, incl:v.incl, extraTop:v.extraTop,
-                    groupIds:[...menuDraftGroups]};
+                    groupIds:[...menuDraftGroups], fix:[...menuDraftFix]};
       if(m) Object.assign(m, data);
       else db.menus.push(Object.assign({id:uid(), items:[]}, data));
-      const gs = menuDraftGroups.size;
+      const gs = menuDraftGroups.size, fx = menuDraftFix.size;
       menuDraftGroups = new Set();
+      menuDraftFix = new Set();
       save(); render();
-      toast(savedMsg('เมนู', data.name, !m) + (gs ? ` · ใส่ไส้ ${gs} ชุด` : ''));
+      toast(savedMsg('เมนู', data.name, !m)
+            + (fx ? ` · จัดชุดไส้ให้ ${fx} อย่าง` : gs ? ` · ใส่ไส้ ${gs} ชุด` : ''));
     }
   });
 }
@@ -5728,6 +5782,27 @@ function hotMenuIds(){
   (db.sales||[]).forEach(x => { if(days.has(x.d)) cnt.set(x.menuId, (cnt.get(x.menuId)||0) + n(x.qty)); });
   return [...cnt.entries()].sort((a,b) => b[1] - a[1]).slice(0,6).map(e => e[0]);
 }
+/* ===================== เมนูขายดีที่ลูกค้าจะเห็น =====================
+   เจ้าของขอมาเอง: "เมนูที่ลูกค้าสั่งบ่อย ๆ ไปแสดงที่ลูกค้าได้มั้ย"
+
+   **คิดที่เครื่องแม่ค้า แล้วส่งขึ้นคลาวด์แค่อันดับ (1-3)**
+   ห้ามส่งจำนวนจานหรือยอดเงินขึ้นไปเด็ดขาด — ยอดขายย้อนหลังเป็นเรื่องในร้าน
+   ลูกค้าเห็นแค่ป้าย "ขายดี" ก็พอ ไม่ต้องรู้ว่าขายได้กี่จาน
+   ขายได้น้อยกว่า HOT_MIN ไม่ติดป้าย ไม่งั้นร้านที่เพิ่งเปิดขายได้จานเดียว
+   ก็กลายเป็น "ขายดี" ซึ่งเป็นคำโกหก */
+const HOT_SHOW = 3;             // ติดป้ายให้ลูกค้าเห็นมากสุดกี่อย่าง
+const HOT_MIN  = 3;             // ขายได้ใน 7 วันน้อยกว่านี้ ไม่นับว่าขายดี
+function hotForCustomers(){
+  const days = new Set(lastNDays(dayKey(), 7).map(w => w.key));
+  const cnt = new Map();
+  (db.sales || []).forEach(x => {
+    if(!x.menuId || !days.has(x.d)) return;
+    cnt.set(x.menuId, (cnt.get(x.menuId) || 0) + n(x.qty));
+  });
+  return [...cnt.entries()].filter(e => e[1] >= HOT_MIN)
+    .sort((a,b) => b[1] - a[1]).slice(0, HOT_SHOW).map(e => e[0]);
+}
+
 function toggleQuick(){ quickPick = !quickPick; if(quickPick) posCat = null; repaintPosList(); }
 
 // เมนูที่ต้องโชว์ หลังกรองหมวด/คำค้น/เลือกด่วน
@@ -5776,7 +5851,18 @@ function clearBill(){
 
    ทุกจุดที่คิดเงิน (บิลหน้าร้าน · แก้ยอดขายย้อนหลัง · หน้าลูกค้า) ต้องใช้สูตรนี้
    ถ้าแยกกันคิด เดี๋ยวได้ราคาคนละอย่างระหว่างที่ลูกค้าเห็นกับที่ร้านเก็บ */
+/* ===================== เมนูจัดชุด — ร้านตั้งไส้ไว้ให้เลย =====================
+   เจ้าของขอมาเอง: "ร้านตั้งให้เลยว่ามีใส่อะไรบ้าง"
+   `m.fix` = ชื่อไส้ที่ร้านใส่ให้ตายตัว · ลูกค้าเปลี่ยนไม่ได้ · ราคาเดียวจบ
+
+   ไส้พวกนี้ **ไม่คิดเงินเพิ่ม** และต้องตัดที่สูตรกลางที่เดียว ห้ามไปบวกลบเอาเองตามจุด
+   ถ้าปล่อยให้ไหลเข้าสูตรโควตา เมนูจัดชุด 3 ไส้ที่ตั้ง incl 2 ไว้
+   จะถูกเก็บเงินเพิ่มทันทีทั้งที่ลูกค้าไม่ได้เลือกอะไรเลย */
+const setAddons = m => ((m && m.fix) || []).filter(Boolean).map(nm => ({ name:String(nm), price:0 }));
+const isSetMenu = m => setAddons(m).length > 0;
+
 function addonCost(m, addons){
+  if(isSetMenu(m)) return 0;            // ร้านจัดไส้ให้แล้ว ไม่เก็บค่าไส้
   const list = addons || [];
   const incl = n(m && m.incl);
   if(incl > 0) return Math.max(0, list.length - incl) * n(m && m.extraTop);
@@ -5785,6 +5871,7 @@ function addonCost(m, addons){
 
 // ไส้ที่เกินโควตา — ใช้บอกแม่ค้ากับลูกค้าว่าเกินมากี่อย่าง
 function addonOver(m, addons){
+  if(isSetMenu(m)) return 0;           // เลือกเองไม่ได้ จึงไม่มีคำว่า "เกิน"
   const incl = n(m && m.incl);
   return incl > 0 ? Math.max(0, (addons || []).length - incl) : 0;
 }
@@ -5797,9 +5884,11 @@ const orderCount = () => (order ? order.lines : []).reduce((s,l) => s + n(l.qty)
 function tapMenu(id, backTo){
   const m = findMenu(id); if(!m || !order) return;
   const tops = menuAddons(m);
+  const set  = isSetMenu(m);     // ร้านจัดไส้ไว้แล้ว ไม่ต้องเปิดกล่องให้ติ๊ก
 
-  // เมนูที่ไม่มีไส้ให้เลือก กดซ้ำ = เพิ่มจำนวนในบรรทัดเดิม ไม่ต้องแตกบรรทัด
-  if(!tops.length){
+  /* เมนูที่ไม่มีไส้ให้เลือก (หรือร้านจัดไส้ไว้แล้ว) กดซ้ำ = เพิ่มจำนวนในบรรทัดเดิม
+     เมนูจัดชุดทุกจานไส้เหมือนกันอยู่แล้ว แตกบรรทัดไปก็ได้บรรทัดซ้ำเปล่า ๆ */
+  if(!tops.length || set){
     const same = order.lines.find(l => l.menuId === id);
     if(same){ same.qty = n(same.qty) + 1; repaintOrder(); return; }
   }
@@ -5807,10 +5896,12 @@ function tapMenu(id, backTo){
   // เมนูที่มีไส้ กดแต่ละครั้ง = จานใหม่ที่เลือกไส้ของตัวเองได้
   // (เดิมไปบวกจำนวนให้บรรทัดเดิมที่ยังไม่มีไส้ ทำให้สั่งจานเดิมแต่คนละไส้ไม่ได้เลย)
   // อยากได้จานเหมือนเดิมเพิ่ม ให้กด + ที่บรรทัดในบิลแทน
-  const line = { lid: uid(), menuId:id, name:m.name, price:n(m.price), qty:1, addons:[] };
+  // ไส้ของเมนูจัดชุดต้องติดไปกับบรรทัดด้วย ไม่งั้นแม่ค้าอ่านบิลแล้วไม่รู้ว่าจานนี้ใส่อะไร
+  const line = { lid: uid(), menuId:id, name:m.name, price:n(m.price), qty:1,
+                 addons: set ? setAddons(m) : [] };
   order.lines.push(line);
   repaintOrder();
-  if(tops.length) lineAddons(line.lid, backTo);
+  if(tops.length && !set) lineAddons(line.lid, backTo);
 }
 
 // ไส้ของจานนี้ตรงกับอีกบรรทัดเป๊ะไหม — ใช้ชื่อไส้ที่เรียงแล้วเทียบ
@@ -5840,6 +5931,14 @@ function lineAddons(lid, backTo){
   const l = order.lines.find(x => x.lid === lid); if(!l) return;
   const m = findMenu(l.menuId);
   const tops = menuAddons(m);
+  /* เมนูจัดชุด: ไส้ถูกตั้งไว้แล้ว เปิดให้ติ๊กไม่ได้
+     ไม่งั้นแม่ค้าแก้ไส้จานนี้ได้ แต่ลูกค้าที่สั่งผ่าน QR แก้ไม่ได้ ของกับราคาจะไม่ตรงกัน */
+  if(isSetMenu(m)){
+    openDialog({ icon:'ing', title:'เมนูนี้ร้านจัดไส้ไว้แล้ว', sub: m ? m.name : '',
+      html:`<p style="margin:0;color:var(--ink-2)">จานนี้ใส่ <b>${esc(setAddons(m).map(a => a.name).join(' · '))}</b> ให้ทุกจาน ราคาเดียวจบ<br>
+        อยากให้เลือกไส้เองได้ ไปที่ <b>ตั้งค่า</b> → แตะเมนูนี้ → <b>แก้ไข</b> แล้วเอาไส้ที่ร้านจัดให้ออกครับ</p>` });
+    return;
+  }
   if(!tops.length){
     openDialog({ icon:'ing', title:'เมนูนี้ยังไม่ได้ตั้งไส้', sub: m ? m.name : '',
       html:'<p style="margin:0;color:var(--ink-2)">ไปที่แท็บ <b>ตั้งค่า</b> → แตะเมนูนี้ → <b>ชุดไส้ที่ใส่ได้</b> แล้วติ๊กชุดไส้ที่ใช้ครับ</p>' });
@@ -6032,11 +6131,13 @@ function posRowsHTML(){
   return shown.map(m => {
     const inBill = lines.filter(l => l.menuId === m.id).reduce((a,l) => a + n(l.qty), 0);
     const tops = menuAddons(m).length;
+    const fix  = setAddons(m);
     return `
     <button type="button" class="posrow${inBill ? ' has' : ''}" onclick="tapMenu('${m.id}')">
       <span class="posrow-m">
         <span class="posrow-n">${esc(m.name || '(ไม่มีชื่อ)')}</span>
-        ${tops ? `<span class="posrow-top">เลือกไส้ได้ ${tops}</span>` : ''}
+        ${fix.length ? `<span class="posrow-top">ร้านจัดไส้ให้: ${esc(fix.map(a => a.name).join(' · '))}</span>`
+          : tops ? `<span class="posrow-top">เลือกไส้ได้ ${tops}</span>` : ''}
       </span>
       ${inBill ? `<span class="posrow-c">${inBill}</span>` : ''}
       <span class="posrow-p">฿${baht(m.price)}</span>
@@ -6056,7 +6157,8 @@ function orderDialogHTML(){
     </div>` : '';
 
   const billRows = lines.map(l => {
-    const tops = menuAddons(findMenu(l.menuId)).length;
+    // เมนูจัดชุดไม่มีปุ่มเลือกไส้ (กดไปก็เลือกไม่ได้) ไส้ที่ร้านจัดให้โชว์เป็นข้อความอยู่แล้ว
+    const tops = isSetMenu(findMenu(l.menuId)) ? 0 : menuAddons(findMenu(l.menuId)).length;
     const picked = (l.addons||[]).length;
     return `
     <div class="bill-line">
@@ -7404,7 +7506,8 @@ function renderSaleDialog(){
         <button type="button" onclick="bumpQty(1)" aria-label="เพิ่ม">+</button>
       </div>
 
-      ${tops.length ? `<div class="sec">ท็อปปิ้งที่เพิ่ม</div>
+      ${isSetMenu(m) ? `<p class="hint">เมนูนี้ร้านจัดไส้ไว้แล้ว: <b>${esc(setAddons(m).map(a => a.name).join(' · '))}</b> — ราคาเดียว เลือกไส้เองไม่ได้</p>`
+      : tops.length ? `<div class="sec">ท็อปปิ้งที่เพิ่ม</div>
       <div class="tops">${tops.map(a => `
         <button type="button" class="top${saleDraft.picked.has(a.name) ? ' on' : ''}" onclick="toggleTop('${jsq(a.name)}')">
           ${esc(a.name)}${n((findMenu(saleDraft.menuId)||{}).incl) > 0 ? ''
@@ -7433,8 +7536,11 @@ function toggleTop(name){
 function commitSale(){
   const m = findMenu(saleDraft.menuId);
   if(!m) return toast('เลือกเมนูก่อนนะครับ');
-  const addons = menuAddons(m).filter(a => saleDraft.picked.has(a.name))
-                              .map(a => ({name:a.name, price:n(a.price)}));
+  // เมนูจัดชุด: ไส้ที่ร้านตั้งไว้ต้องถูกบันทึกลงยอดขายด้วย ไม่งั้นย้อนดูแล้วไม่รู้ว่าขายอะไรไป
+  const addons = isSetMenu(m)
+    ? setAddons(m)
+    : menuAddons(m).filter(a => saleDraft.picked.has(a.name))
+                   .map(a => ({name:a.name, price:n(a.price)}));
   const rec = {
     id: saleDraft.id || uid(),
     d: saleDraft.d || dayKey(),

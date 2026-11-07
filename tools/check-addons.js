@@ -103,6 +103,62 @@ const probe = `
   out.push(['ปุ่มเลือกไส้บอก type ครบ',
     noType(topsHTML(menuAddons(crepe), new Set(), lid)).length === 0]);
 
+  /* --- เมนูจัดชุด: ร้านตั้งไส้ไว้ให้เลย (เจ้าของขอมาเอง) ---
+     ตั้ง incl/extraTop ไว้ด้วย **ตั้งใจ** ถ้าไส้ที่ร้านจัดให้หลุดเข้าสูตรโควตา
+     จานนี้จะถูกคิดเพิ่ม (2-1)x10 = 10 บาท ทั้งที่ลูกค้าไม่ได้เลือกอะไรเลย */
+  const g0 = db.groups[0];
+  const setM = { id:'setm1', name:'เครปจัดชุดทดสอบ', price:25, groupIds:[g0.id], items:[],
+                 incl:1, extraTop:10, fix:[g0.items[0].name, g0.items[1].name] };
+  db.menus.push(setM);
+  out.push(['รู้จักว่าเมนูไหนเป็นเมนูจัดชุด',
+    isSetMenu(setM) === true && isSetMenu(crepe) === false]);
+  out.push(['ไส้ที่ร้านจัดให้ไม่คิดเงินเพิ่ม ถึงจะตั้งโควตาไว้ก็ตาม',
+    addonCost(setM, setAddons(setM)) === 0 && addonOver(setM, setAddons(setM)) === 0]);
+
+  order = { lines: [] }; seen = [];
+  tapMenu(setM.id);
+  const sl = order.lines[0];
+  out.push(['กดเมนูจัดชุดแล้วไม่เด้งกล่องให้ติ๊กไส้', seen.length === 0]);
+  out.push(['ไส้ที่ร้านจัดให้ติดมากับบรรทัดในบิลเอง', !!sl && (sl.addons||[]).length === 2]);
+  out.push(['ราคายังเป็นราคาเดียว ไม่บวกค่าไส้', !!sl && lineTotal(sl) === 25]);
+  tapMenu(setM.id);
+  out.push(['กดซ้ำเพิ่มจำนวนในบรรทัดเดิม ไม่แตกบรรทัดซ้ำ',
+    order.lines.length === 1 && n(order.lines[0].qty) === 2]);
+  out.push(['บรรทัดเมนูจัดชุดไม่มีปุ่มเลือกไส้ให้กด', orderDialogHTML().indexOf('bl-top') < 0]);
+  out.push(['แถวเมนูในหน้าขายบอกไส้ที่ร้านจัดให้', orderDialogHTML().indexOf('ร้านจัดไส้ให้:') >= 0]);
+  // เผลอเรียกตรง ๆ ต้องได้คำอธิบาย ไม่ใช่ชิปให้ติ๊ก (ไม่งั้นแม่ค้าแก้ได้แต่ลูกค้าแก้ไม่ได้)
+  seen = [];
+  lineAddons(order.lines[0].lid);
+  out.push(['เรียกเลือกไส้ตรง ๆ กับเมนูจัดชุด ได้คำอธิบายไม่ใช่ชิป',
+    seen.length === 1 && String(seen[0].title).indexOf('จัดไส้ไว้แล้ว') >= 0
+    && String(seen[0].html).indexOf('class="top') < 0]);
+  // แก้ยอดขายย้อนหลังต้องใช้สูตรเดียวกัน ไม่งั้นย้อนไปแก้แล้วได้ราคาคนละอย่าง
+  saleDraft = { menuId:setM.id, qty:2, picked:new Set() };
+  out.push(['แก้ยอดขายย้อนหลังก็คิดราคาเดียว', saleTotal() === 50]);
+  out.push(['กล่องแก้ยอดขายบอกว่าร้านจัดไส้ไว้แล้ว ไม่โชว์ชิปให้ติ๊ก', (() => {
+    let box = null;
+    const keep = openDialog;
+    openDialog = c => { box = c; return keep(c); };
+    renderSaleDialog();
+    openDialog = keep;
+    return !!box && String(box.html).indexOf('ร้านจัดไส้ไว้แล้ว') >= 0
+                 && String(box.html).indexOf('toggleTop(') < 0;
+  })()]);
+  // บันทึกจริง: ไส้ที่ร้านจัดให้ต้องลงไปในยอดขายด้วย ไม่งั้นย้อนดูแล้วไม่รู้ว่าขายอะไรไป
+  out.push(['บันทึกยอดขายเมนูจัดชุดแล้วไส้ติดไปในรายการด้วย', (() => {
+    saleDraft = { menuId:setM.id, qty:2, picked:new Set(), d:dayKey(), t:'10:00' };
+    const before = (db.sales||[]).length;
+    try{ commitSale(); }catch(e){ return false; }
+    const rec = (db.sales||[])[db.sales.length - 1] || {};
+    const good = db.sales.length === before + 1
+              && (rec.addons||[]).length === 2 && n(rec.total) === 50;
+    db.sales.pop();                     // คืนสภาพ ไม่ทิ้งยอดขายปลอมไว้ให้ข้อถัดไป
+    return good;
+  })()]);
+  saleDraft = null;
+  db.menus = db.menus.filter(m => m.id !== setM.id);
+  order = { lines: [] };
+
   const o = t => (orderDialogHTML().match(new RegExp('<' + t + '[ >]', 'g'))||[]).length;
   const c = t => (orderDialogHTML().match(new RegExp('</' + t + '>', 'g'))||[]).length;
   out.push(['แท็กครบ', ['div','span','button','p','small','b'].every(t => o(t) === c(t))]);

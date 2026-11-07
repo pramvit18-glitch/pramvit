@@ -1168,6 +1168,97 @@ const push = (name, v) => { ok.push([name, !!v]); };
   push('ถามซ้อนกันแล้วตัวนับไม่กระโดด', await seller.evaluate(() => n(db.queueNo)) === 1);
   push('ไม่มีเลขคิวซ้ำกัน', new Set(qAfter).size === qAfter.length);
 
+  /* ---------- เมนูขายดีที่ลูกค้าเห็น + เมนูจัดชุด ----------
+     เจ้าของขอมาเอง: "เมนูที่ลูกค้าสั่งบ่อย ๆ ไปแสดงที่ลูกค้าได้มั้ย
+     แล้วร้านตั้งเมนูพิเศษได้มั้ย ว่าทางร้านตั้งให้เลยว่ามีใส่อะไรบ้าง"
+
+     ทำท้ายสุดของชุด เพราะบล็อกนี้เพิ่มเมนูกับใส่ยอดขายย้อนหลังเข้าไป
+     ถ้าไปแทรกกลางทาง ข้อที่นับจำนวนเมนู (2 อัน) จะตกทั้งที่โค้ดถูก */
+  await seller.evaluate(async () => {
+    /* เมนูจัดชุด ตั้ง incl/extraTop ไว้ด้วย **ตั้งใจ**
+       ถ้าไส้ที่ร้านจัดให้หลุดเข้าสูตรโควตา จะถูกคิดเพิ่ม (2-1)x10 = 10 บาททันที
+       ข้อที่เช็กราคา 25 จึงจับได้ว่าสูตรกลางตัดค่าไส้ของเมนูจัดชุดจริงไหม */
+    db.menus.push({ id:'m3', name:'เครปจัดชุดพิเศษ', price:25, groupIds:['g1'], items:[],
+                    incl:1, extraTop:10, fix:['ไส้กรอก', "ไข่ไก่ด'ล"] });
+    // เครปกรอบ 6 จาน (ขายดี) · เครปนุ่ม 1 จาน (น้อยกว่า HOT_MIN จึงไม่ติดป้าย)
+    const mk = (id, nm, qty) => ({ id:'x' + id + qty, d:dayKey(), t:'10:00',
+      menuId:id, name:nm, qty, addons:[], total:qty * 15 });
+    db.sales = [mk('m1','เครปกรอบ',6), mk('m2','เครปนุ่ม',1)];
+    save();
+    await publishMenu();
+  });
+  await seller.waitForTimeout(700);
+
+  const pubHot = await (await fetch(`${CLOUD}/s/${key}/menu.json`)).json();
+  const mOf = id => pubHot.menus.find(m => m.id === id) || {};
+  push('เมนูที่ขายบ่อยติดอันดับขึ้นไปในใบเมนู', mOf('m1').hot === 1);
+  push('เมนูที่ขายได้น้อยไม่ติดป้าย (ไม่โกหกลูกค้า)', mOf('m2').hot === 0);
+  /* **ห้ามส่งจำนวนจานหรือยอดเงินขึ้นคลาวด์** ยอดขายย้อนหลังเป็นเรื่องในร้าน
+     เช็กรายชื่อช่องทั้งหมดเลย ไม่ใช่เช็กแค่ว่าไม่มีคำว่า sales
+     ไม่งั้นวันหลังมีคนเติมช่อง "ขายได้กี่จาน" ขึ้นไปก็ยังผ่าน */
+  push('ใบเมนูมีแต่ช่องที่ควรมี ไม่มีตัวเลขยอดขายปนขึ้นไป',
+    Object.keys(mOf('m1')).sort().join(',') === 'extraTop,fix,groups,hot,id,incl,name,off,price');
+  push('อันดับขายดีเป็นเลข 1-3 เท่านั้น',
+    pubHot.menus.every(m => Number.isInteger(m.hot) && m.hot >= 0 && m.hot <= 3));
+  push('ไส้ที่ร้านจัดให้ขึ้นไปด้วย (ลูกค้าต้องรู้ว่าได้อะไร)',
+    Array.isArray(mOf('m3').fix) && mOf('m3').fix.length === 2);
+
+  await cust.reload(); await cust.waitForTimeout(900);
+  push('ลูกค้าเห็นป้ายขายดีแค่อันเดียว', await cust.locator('#view .li-hot').count() === 1);
+  push('ป้ายอยู่บนเมนูที่ขายดีจริง',
+    (await cust.locator('#view .li').nth(0).textContent()).includes('ขายดี'));
+  /* **ต้อง count() ก่อนทุกครั้ง** ป้ายที่หายไปแล้วไป textContent() ตรง ๆ
+     มันรอจนหมดเวลาแล้วโยน error = ล้มทั้งชุดโดยไม่รายงานผลสักข้อ
+     (เจอมาแล้วตอนพิสูจน์ชุดนี้ — ถอดป้ายออกแล้วชุดตายทั้งชุด ไม่ใช่ตกข้อเดียว) */
+  const hotTxt = await cust.locator('#view .li-hot').count()
+    ? await cust.locator('#view .li-hot').first().textContent() : '';
+  push('ป้ายไม่ได้บอกยอดขายของร้านให้ลูกค้ารู้', !!hotTxt && !/\d/.test(hotTxt));
+
+  const setIdx = await cust.evaluate(() => menu.menus.findIndex(m => m.id === 'm3'));
+  push('หน้ารายการบอกตั้งแต่ยังไม่กดว่าร้านจัดไส้ให้อะไร', setIdx >= 0 &&
+    (await cust.locator('#view .li').nth(setIdx).textContent()).includes('ร้านจัดไส้ให้'));
+
+  if(setIdx >= 0){
+    await cust.evaluate(i => pick(i), setIdx);
+    await cust.waitForTimeout(900);
+    push('กล่องเมนูจัดชุดไม่มีชิปให้ติ๊กไส้ (เปลี่ยนเองไม่ได้)',
+      await cust.locator('#sheet .tops .top').count() === 0);
+    const sheetTxt = await cust.textContent('#sheet');
+    push('แต่บอกชัดว่าจานนี้ใส่อะไรให้แล้ว',
+      sheetTxt.includes('ร้านจัดไส้ให้แล้ว') && sheetTxt.includes('ไส้กรอก'));
+    await cust.evaluate(() => addToCart());
+    await cust.waitForTimeout(600);
+    const line = await cust.evaluate(() => cart[cart.length - 1] || {});
+    push('ราคาเมนูจัดชุดเป็นราคาเดียว ไม่คิดค่าไส้เพิ่ม', line.total === 25);
+    push('ไส้ที่ร้านจัดให้ติดไปกับออเดอร์ด้วย', (line.addons || []).length === 2);
+    await cust.evaluate(() => { cart.length = 0; draw(); });
+  } else {
+    push('กล่องเมนูจัดชุดไม่มีชิปให้ติ๊กไส้ (เปลี่ยนเองไม่ได้)', false);
+    push('แต่บอกชัดว่าจานนี้ใส่อะไรให้แล้ว', false);
+    push('ราคาเมนูจัดชุดเป็นราคาเดียว ไม่คิดค่าไส้เพิ่ม', false);
+    push('ไส้ที่ร้านจัดให้ติดไปกับออเดอร์ด้วย', false);
+  }
+  // กล่องที่เผลอเปิดค้างไว้จะไปบังปุ่มของข้อถัด ๆ ไป ปิดทิ้งเสมอ
+  await cust.evaluate(() => { try{ el('dlg').close(); }catch(e){} });
+  await cust.waitForTimeout(900);
+  await cust.screenshot({ path: SHOT + '/cust-hot-set.png' });
+
+  /* ฝั่งแม่ค้า: กดเมนูจัดชุดในหน้าต่างสั่งสินค้า ไส้ต้องติดมาเองโดยไม่เปิดกล่องให้ติ๊ก */
+  const bill = await seller.evaluate(() => {
+    openOrderDialog();
+    tapMenu('m3'); tapMenu('m3');
+    const l = (order && order.lines) || [];
+    return { lines: l.length, qty: n((l[0] || {}).qty), adds: ((l[0] || {}).addons || []).length,
+             total: orderTotal(), topBtn: document.querySelectorAll('.bl-top').length };
+  });
+  push('แม่ค้ากดเมนูจัดชุด ไส้ติดมาในบิลเลย', bill.adds === 2);
+  push('กดซ้ำ = เพิ่มจำนวนบรรทัดเดิม ไม่แตกบรรทัดซ้ำ', bill.lines === 1 && bill.qty === 2);
+  push('บิลคิดราคาเดียว ไม่บวกค่าไส้', bill.total === 50);
+  push('บรรทัดเมนูจัดชุดไม่มีปุ่ม "เลือกไส้" ให้กด', bill.topBtn === 0);
+  // คืนสภาพ ไม่ทิ้งบิลค้างกับกล่องเปิดค้างไว้
+  await seller.evaluate(() => { try{ closeOrderDialog(); dlg.close(); }catch(e){} });
+  await seller.waitForTimeout(900);
+
   await b.close();
 
   let bad = 0;
