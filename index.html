@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#eef0f3">
+<meta name="theme-color" content="#fafafa">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="ต้นทุนเครป">
@@ -34,30 +34,30 @@
 
   /* ===================== ธีมขาว–ส้ม (เรียบ) ===================== */
   :root{
-    --page:#eef0f3;          /* พื้นหลังหน้า เทาอ่อน */
+    --page:#fafafa;          /* พื้นหลังหน้า เทาอ่อน */
     --bg:#ffffff;            /* พื้นผิวการ์ด / ช่องกรอก */
-    --soft:#f4f5f7;          /* แถบอ่อน พื้นช่องกรอก */
-    --tint:#fdecec;          /* แดงอ่อนมาก */
-    --line:#e5e7ea;
-    --line-2:#eef0f3;
+    --soft:#f6f6f6;          /* แถบอ่อน พื้นช่องกรอก */
+    --tint:#fff7f7;          /* แดงอ่อนมาก — พื้นแถวที่เลือก และปุ่มรองตอนชี้ */
+    --line:#e6e6e6;
+    --line-2:#efefef;
 
-    --ink:#16181c;           /* ดำอมน้ำเงิน อ่านสบายกว่าดำล้วน */
-    --ink-2:#4b5059;
-    --muted:#8d939c;
+    --ink:#3a3a3a;           /* ตัวหนังสือหลัก */
+    --ink-2:#5f5f5f;
+    --muted:#6b6b6b;         /* เทาอ่อนสุดที่ยังอ่านออกบนพื้นขาว (4.5:1) */
 
-    --brand:#d32b2b;        /* สีหลัก ใช้กับตัวเลขใหญ่และปุ่มหลัก */
-    --brand-d:#a81f1f;      /* แดงเข้ม สำหรับตัวหนังสือเล็ก */
-    --brand-l:#f6b9b9;      /* แดงอ่อน */
-    --brand-mid:#e8605f;    /* แดงกลาง */
-    --r:20px;               /* ความมนของทุกพื้นผิว — การ์ด ช่องกรอก แถว กล่อง ใช้ค่าเดียวกันหมด */
+    --brand:#c10016;        /* สีหลัก ใช้กับตัวเลขใหญ่และปุ่มหลัก */
+    --brand-d:#9c0012;      /* แดงเข้ม สำหรับตัวหนังสือเล็ก */
+    --brand-l:#f0c6c9;      /* แดงอ่อน — แท่งกราฟที่ไม่ได้เลือก */
+    --brand-mid:#e32339;    /* แดงกลาง — ตอนเอาเมาส์ชี้ */
+    --r:10px;               /* ความมนของทุกพื้นผิว — การ์ด ช่องกรอก แถว กล่อง ใช้ค่าเดียวกันหมด */
     --wide:1180px;          /* ความกว้างสุดของเนื้อหาบนจอคอม (ขยายตามจอที่ท้ายไฟล์) */
     --r-pill:999px;         /* แคปซูล — เป็นรูปทรง ไม่ใช่ค่าความมน */
-    --sh-card:0 6px 22px rgba(22,24,28,.07), 0 1px 3px rgba(22,24,28,.05);
-    --sh-lift:0 10px 30px rgba(22,24,28,.12);
+    --sh-card:0 4px 4px rgba(239,239,239,.4), 0 1px 3px rgba(0,0,0,.045);
+    --sh-lift:0 4px 10px rgba(0,0,0,.15);
 
-    --good:#15803d;  --good-ink:#15803d;  --good-bg:#edf7f0;
-    --warn:#a16207;  --warn-ink:#8a5a06;  --warn-bg:#fdf6e3;
-    --bad:#b91c1c;   --bad-ink:#b91c1c;   --bad-bg:#fdeeee;
+    --good:#1b6e2f;  --good-ink:#1b6e2f;  --good-bg:#e8f5e9;
+    --warn:#8a5a00;  --warn-ink:#5c3d00;  --warn-bg:#fff9c4;
+    --bad:#c10016;   --bad-ink:#9c0012;   --bad-bg:#fff7f7;
 
     --nav-h:62px;
     --drag:0px;              /* ระยะที่ลากหัวหน้าต่างลงอยู่ ตั้งจาก JS ตอนลากเท่านั้น */
@@ -106,7 +106,7 @@
   .appbar-ic{
     width:42px; height:42px; flex:0 0 auto; border-radius:var(--r); display:grid; place-items:center;
     background:linear-gradient(145deg, var(--brand-mid), var(--brand-d)); color:#fff;
-    box-shadow:0 6px 16px rgba(211,43,43,.3);
+    box-shadow:0 6px 16px rgba(193,0,22,.3);
   }
   .appbar-ic svg{width:20px; height:20px}
   .titles{min-width:0; text-align:center}
@@ -196,7 +196,7 @@
     content:''; position:absolute; top:-22px; left:50%;
     width:48px; height:48px; border-radius:50%; background:var(--brand);
     transform:translateX(-50%) scale(.3); opacity:0;
-    box-shadow:0 10px 22px rgba(211,43,43,.4), 0 0 0 4px var(--bg);
+    box-shadow:0 10px 22px rgba(193,0,22,.4), 0 0 0 4px var(--bg);
     transition:opacity .18s, transform .24s var(--ease);
   }
   .bottomnav button.on::before{opacity:1; transform:translateX(-50%) scale(1)}
@@ -332,7 +332,7 @@
     font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; transition:.16s;
   }
   .wk-d.today:not(.on) .num{box-shadow:inset 0 0 0 2px var(--brand-l)}
-  .wk-d.on .num{background:var(--brand); color:#fff; font-weight:800; box-shadow:0 6px 14px rgba(211,43,43,.3)}
+  .wk-d.on .num{background:var(--brand); color:#fff; font-weight:800; box-shadow:0 6px 14px rgba(193,0,22,.3)}
   .wk-d:disabled{opacity:.32; cursor:default}
   /* จุดใต้วัน = วันนั้นมีบันทึก */
   .wk-d .dot{width:5px; height:5px; border-radius:50%; background:var(--brand-l)}
@@ -423,7 +423,7 @@
 
   /* ---------- กระดิ่งแจ้งออเดอร์ มุมบนขวา ---------- */
   .icon-btn.bell{position:relative; overflow:visible}
-  .icon-btn.bell.on{background:var(--brand); color:#fff; box-shadow:0 6px 16px rgba(211,43,43,.3)}
+  .icon-btn.bell.on{background:var(--brand); color:#fff; box-shadow:0 6px 16px rgba(193,0,22,.3)}
   .icon-btn.bell.on:hover{background:var(--brand-d); color:#fff}
   .bell-n{
     position:absolute; top:-3px; right:-3px; min-width:19px; height:19px; padding:0 5px;
@@ -447,7 +447,7 @@
     border:none; font:inherit; color:#fff; cursor:pointer;
     background:linear-gradient(145deg, var(--brand-mid), var(--brand-d));
     border-radius:var(--r); padding:11px 14px; margin-bottom:14px;
-    box-shadow:0 8px 22px rgba(211,43,43,.3);
+    box-shadow:0 8px 22px rgba(193,0,22,.3);
     transition:transform var(--tap-out) var(--ease);
   }
   .obar:active{transform:scale(.985); transition-duration:var(--tap-in)}
@@ -635,7 +635,8 @@
   }
   .btn:active{transform:scale(.975)}
   .btn:hover{color:var(--brand)}
-  .btn.primary{background:var(--brand); color:#fff; box-shadow:0 8px 20px rgba(211,43,43,.3)}
+  .btn.primary{background:var(--brand); color:#fff; box-shadow:none}
+  .btn.primary:hover{background:var(--brand-mid)}
   .btn.primary:hover{background:var(--brand-d); color:#fff}
   .btn.ghost{background:transparent; box-shadow:none; color:var(--ink-2)}
   .btn.ghost:hover{background:var(--soft); color:var(--ink)}
@@ -1485,7 +1486,7 @@
   }
   .cat b{color:var(--muted); font-weight:700; font-size:12px; margin-left:4px}
   .cat:hover{color:var(--brand)}
-  .cat.on{background:var(--brand); color:#fff; box-shadow:0 7px 18px rgba(211,43,43,.28)}
+  .cat.on{background:var(--brand); color:#fff; box-shadow:0 7px 18px rgba(193,0,22,.28)}
   .cat.hot{display:inline-flex; align-items:center; gap:5px}
   .cat.hot svg{width:13px; height:13px}
   .cat.on b{color:rgba(255,255,255,.75)}
@@ -1497,7 +1498,7 @@
     position:absolute; top:-7px; right:-7px; min-width:24px; height:24px; padding:0 6px;
     border-radius:var(--r-pill); background:var(--brand); color:#fff;
     font-size:12.5px; font-weight:800; display:grid; place-items:center;
-    box-shadow:0 2px 6px rgba(211,43,43,.4);
+    box-shadow:0 2px 6px rgba(193,0,22,.4);
   }
 
 
@@ -1571,7 +1572,7 @@
   .posrow-c{
     flex:0 0 auto; min-width:26px; height:26px; padding:0 8px; border-radius:var(--r-pill);
     background:var(--brand); color:#fff; font-size:13px; font-weight:800;
-    display:grid; place-items:center; box-shadow:0 4px 10px rgba(211,43,43,.3);
+    display:grid; place-items:center; box-shadow:0 4px 10px rgba(193,0,22,.3);
   }
   .posrow-p{
     flex:0 0 auto; font-weight:800; font-size:16px; color:var(--ink);
@@ -1648,10 +1649,10 @@
     width:100%; padding:20px; margin-bottom:18px; border:none; border-radius:var(--r-pill);
     background:var(--brand); color:#fff; cursor:pointer; font:inherit;
     font-weight:800; font-size:18px; letter-spacing:-.01em;
-    box-shadow:0 10px 26px rgba(211,43,43,.3); transition:transform .14s, box-shadow .18s;
+    box-shadow:none; transition:transform .14s, background .18s;
   }
   .orderbtn svg{width:25px; height:25px}
-  .orderbtn:hover{box-shadow:0 14px 32px rgba(211,43,43,.4)}
+  .orderbtn:hover{background:var(--brand-mid)}
   .orderbtn:active{transform:scale(.97)}
 
   /* หน้าต่างสั่งสินค้าให้สูงได้เต็มที่ รายการเมนูเลื่อนในตัวเอง */
@@ -1928,7 +1929,7 @@
     border-radius:var(--r-pill); background:var(--soft);
     color:var(--ink-2); display:grid; place-items:center; font-weight:800; font-size:13px;
   }
-  .rankx-no.top{background:var(--brand); color:#fff; box-shadow:0 3px 9px rgba(211,43,43,.35)}
+  .rankx-no.top{background:var(--brand); color:#fff; box-shadow:0 3px 9px rgba(193,0,22,.35)}
   .rankx-main{flex:1; min-width:0}
   .rankx-n{font-weight:700; font-size:14px; margin-bottom:6px; overflow:hidden;
            text-overflow:ellipsis; white-space:nowrap}
@@ -1989,7 +1990,7 @@
     display:flex; align-items:center; justify-content:center; gap:10px;
     padding:16px; border:none; border-radius:var(--r-pill);
     background:var(--brand); color:#fff; cursor:pointer; font:inherit;
-    font-weight:800; font-size:16px; box-shadow:0 10px 24px rgba(211,43,43,.3);
+    font-weight:800; font-size:16px; box-shadow:0 10px 24px rgba(193,0,22,.3);
     transition:transform .14s;
   }
   .hero-card .orderbtn svg{width:20px; height:20px}
@@ -2306,6 +2307,62 @@
       overflow-x:auto; scrollbar-width:none;
     }
     main:has(> #homeTop:not([hidden])) #homeRail .wk-row::-webkit-scrollbar{display:none}
+  }
+
+  /* ===================== จอกว้าง: รางเมนูกางเป็นชื่อเต็ม =====================
+     ตาม mockup TIGER OpenSpace — รางขาวกว้าง ไอคอนอยู่ซ้าย ชื่ออยู่ขวา
+     ตัวที่เลือกเป็นแคปซูลแดงจาง ไม่ใช่วงกลมทึบลอยขึ้นแบบแถบบนมือถือ
+
+     เริ่มที่ 1360 ไม่ใช่ 1120 เพราะรางกินที่ไป 248px (เดิม 84px)
+     จอ 1280 เนื้อหาจะเหลือแค่ ~976px ซึ่งแดชบอร์ด 3 คอลัมน์เริ่มอึดอัด
+     จึงให้จอขนาดนั้นใช้รางไอคอนแคบของเดิมต่อไป
+     (กฎเดิมวัดจากความกว้างจอ ไม่ได้วัดจากที่ที่เนื้อหาได้จริง — จดไว้ในคู่มือแล้ว) */
+  @media(min-width:1360px){
+    .shell{grid-template-columns:248px minmax(0,1fr)}
+    .bottomnav{width:248px; padding:16px 12px 20px; gap:3px}
+
+    /* หัวข้อกลุ่มของราง ใส่ด้วย ::before จึงไม่ต้องแตะ HTML และไม่โผล่บนมือถือ */
+    .bottomnav::before{
+      content:'ใช้ทุกวัน';
+      padding:2px 12px 8px; font-size:11.5px; font-weight:800;
+      color:var(--muted); letter-spacing:.01em;
+    }
+
+    /* เจาะ [data-tab] เพราะในแถบมีปุ่มของกล่องเมนูย่อยปนอยู่ด้วย
+       และต้องชนะ .bottomnav button ที่สั่งเรียงเป็นคอลัมน์ไว้ */
+    .bottomnav button[data-tab]{
+      flex-direction:row; justify-content:flex-start; align-items:center;
+      gap:11px; padding:11px 12px; font-size:14px; font-weight:700;
+      text-align:left; border-radius:var(--r); color:var(--ink);
+      transition:background .16s, color .16s, transform var(--tap-out) var(--spring);
+    }
+    .bottomnav button[data-tab] span{flex:1 1 auto; text-align:left}
+    .bottomnav button[data-tab] svg{width:20px; height:20px; flex:0 0 auto}
+    /* วงกลมทึบลอยขึ้นเป็นของแถบบนมือถือ รางกว้างใช้แคปซูลแดงจางแทน */
+    .bottomnav button[data-tab]::before{display:none}
+    .bottomnav button[data-tab]:hover{background:var(--soft); color:var(--ink)}
+    .bottomnav button[data-tab].on{background:var(--tint); color:var(--brand)}
+    .bottomnav button[data-tab].on:hover{background:var(--tint)}
+    .bottomnav button[data-tab].on svg{color:var(--brand); transform:none}
+    /* กดแล้วไม่ยุบทั้งปุ่ม ปุ่มกว้างขนาดนี้ยุบแล้วดูเหมือนหน้ากระตุก */
+    .bottomnav button[data-tab]:active{transform:none; background:var(--tint)}
+
+    /* กล่องเมนูย่อยเกาะขอบขวาของรางที่กว้างขึ้นแล้ว */
+    .navfly{left:calc(100% + 8px); top:-6px}
+ 
+    /* แถบหัวเป็นแผ่นขาวพาดเต็มความกว้างของฝั่งเนื้อหา ตาม mockup
+       ตัวหนังสือยังต้องตรงแนวกับเนื้อหาข้างล่าง จึงคิดระยะขอบด้วยสูตรเดียวกับ main
+       ((ความกว้างราง − --wide) / 2 + 28) ไม่ใช่ตั้ง padding ตายตัว */
+    .appbar{
+      max-width:none; margin:0;
+      padding:14px max(28px, calc((100% - var(--wide)) / 2 + 28px));
+      background:var(--bg);
+      box-shadow:0 1px 0 var(--line), 0 4px 4px rgba(239,239,239,.4);
+    }
+
+    /* หัวการ์ดมีเส้นคั่นบาง ๆ ตามระบบดีไซน์
+       เจาะ main เพื่อไม่ให้ไปโดนหัวกล่อง (dialog) ซึ่งมีเส้นคั่นของตัวเองอยู่แล้ว */
+    main .card-head{padding-bottom:12px; border-bottom:1px solid var(--line)}
   }
 
 </style>

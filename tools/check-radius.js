@@ -10,7 +10,7 @@ const push = (name, v) => out.push([name, !!v]);
 /* ---------- token ---------- */
 const r = (/--r:\s*(\d+)px/.exec(css) || [])[1];
 push(`มี token ความมนของพื้นผิว --r (${r || '-'}px)`, !!r);
-push('--r เป็น 20px ตามที่เจ้าของเลือก', r === '20');
+push('--r เป็น 10px ตาม mockup TIGER OpenSpace', r === '10');
 push('มี token แคปซูลแยกต่างหาก', /--r-pill:\s*999px/.test(css));
 push('เลิกใช้ชื่อเก่า --r-card ที่สื่อว่าใช้แค่กับการ์ด', !/--r-card/.test(css));
 
@@ -51,7 +51,7 @@ if(orderSrc){
     .map(m => m[1].trim()).filter(v => !OK(v)))];
   push(`หน้าลูกค้าใช้ token ความมนชุดเดียวกัน${oBad.length ? ' — เจอ: ' + oBad.join(' | ') : ''}`,
     !oBad.length);
-  push('หน้าลูกค้าใช้ --r เท่ากับแอปร้าน (20px)', /--r:\s*20px/.test(orderSrc));
+  push('หน้าลูกค้าใช้ --r เท่ากับแอปร้าน (10px)', /--r:\s*10px/.test(orderSrc));
 }
 push(`จำนวนค่าความมนที่ใช้ไม่เกิน 7 แบบ (ตอนนี้ ${Object.keys(kinds).length})`,
   Object.keys(kinds).length <= 7);
