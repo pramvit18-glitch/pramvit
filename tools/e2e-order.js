@@ -1323,6 +1323,40 @@ const push = (name, v) => { ok.push([name, !!v]); };
   await seller.evaluate(() => toggleTopOut('ไส้กรอก'));
   await seller.waitForTimeout(600);
 
+  /* ---------- แม่ค้ากด "ยอดไม่ตรง" ลูกค้าต้องรู้ ----------
+     เจ้าของถามเอง: "กดยอดไม่ตรงแล้วต้องไปแจ้งลูกค้าด้วยไหม"
+     ของเดิมหน้าลูกค้าไม่อ่านช่อง chk เลย ค้างที่ "รอร้านกดรับออเดอร์" จุดเด้งไม่มีวันจบ */
+  const badRes = await (await fetch(`${CLOUD}/s/${key}/orders.json`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ at: Date.now(), status:'new', total: 25, paid: true, slip:'0f0f0f0f0f0f0f0f',
+      items:[{ id:'m1', name:'เครปกรอบ', qty:1, price:15, addons:[], total:25 }] })
+  })).json();
+  const badId = badRes && badRes.name;
+  await cust.evaluate(id => { sentList.push({ id, at: Date.now(), paid: true }); saveSent(); goQueue(); }, badId);
+  await cust.waitForTimeout(1200);
+  await cust.evaluate(() => refreshMine());          // เห็นออเดอร์รอบแรก (ยังไม่มีอะไรผิด)
+  await cust.waitForTimeout(500);
+  const buzzBefore = await cust.evaluate(() => window.__buzz);
+  const beforeTxt = await cust.textContent('#view');
+  push('ก่อนแม่ค้ากด ลูกค้ายังไม่เห็นป้ายเรื่องยอดโอน', !beforeTxt.includes('ยังไม่ตรง'));
+
+  await seller.evaluate(async id => { await pollOrders(); await markPaidChecked(id, -1); }, badId);
+  await seller.waitForTimeout(600);
+  await cust.evaluate(() => refreshMine());
+  await cust.waitForTimeout(600);
+  const afterTxt = await cust.textContent('#view');
+  push('แม่ค้ากดยอดไม่ตรงแล้ว ลูกค้าเห็นป้ายบอกบนการ์ด',
+    afterTxt.includes('ร้านเช็กยอดโอนแล้ว ยังไม่ตรง') && afterTxt.includes('฿25'));
+  push('การ์ดไม่ค้างที่ "รอร้านกดรับออเดอร์" อีกต่อไป บอกให้แวะคุยที่ร้าน',
+    afterTxt.includes('ร้านขอเช็กเรื่องเงินก่อน'));
+  push('คำไม่กล่าวหาลูกค้า (ไม่มีคำว่าโกง/ปลอม)', !/โกง|ปลอม|หลอก/.test(afterTxt));
+  push('เตือนลูกค้า (สั่น) ตอนร้านเพิ่งกด', await cust.evaluate(() => window.__buzz) === buzzBefore + 1);
+  await cust.evaluate(() => refreshMine());
+  await cust.waitForTimeout(600);
+  push('เตือนครั้งเดียว ไม่สั่นซ้ำทุกรอบที่ถาม', await cust.evaluate(() => window.__buzz) === buzzBefore + 1);
+  // เก็บกวาด
+  await fetch(`${CLOUD}/s/${key}/orders/${badId}.json`, { method:'DELETE' }).catch(() => {});
+
   await b.close();
 
   let bad = 0;
