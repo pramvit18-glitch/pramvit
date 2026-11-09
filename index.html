@@ -2179,6 +2179,8 @@
     #homeBody{
       display:grid; align-items:start; gap:0 26px;
       grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+      /* หมายเหตุ: บล็อก "รางซ้าย" ท้ายไฟล์ทับกฎกลุ่มนี้ทั้งหมดเมื่อจอกว้างพอ
+         เก็บไว้เป็นทางถอยสำหรับเบราว์เซอร์ที่ยังไม่รองรับ :has() */
       /* คอลัมน์ที่กินสองแถว (ทางลัด · ขายดี) ไหลเองได้ตามเนื้อหา
          ไม่โดนความสูงของปฏิทินในแถวแรกดันให้ห่าง */
       /* ลำดับตามภาพที่เจ้าของส่งมา: สถานะเต็มแถว → ทางลัด|ขายดี → แถบวัน → การ์ดชุดใหญ่
@@ -2254,6 +2256,52 @@
      ตารางของที่ซื้อมาที่มีหลายคอลัมน์ก็ถูกบีบจนตัวหนังสือตัดบรรทัด */
   @media(min-width:1600px){ :root{ --wide:1420px } }
   @media(min-width:1850px){ :root{ --wide:1560px } }
+
+  /* ===================== จอคอม: รางการ์ดซ้าย + เนื้อหาขวา =====================
+     ตามแบบที่เจ้าของส่งมา — เมนูของฉันกับปฏิทินเป็นการ์ดยืนอยู่ซ้ายตลอด
+     เนื้อหาที่เหลือ (ค้นหา สถานะ ขายดี แผงตัวเลข) ไหลอยู่ฝั่งขวา
+
+     ใช้ :has() ครอบทั้งก้อนโดยตั้งใจ — ถ้าเบราว์เซอร์ไม่รองรับ กฎทั้งหมดถูกทิ้ง
+     แล้วหน้าตกกลับไปเป็นแบบเรียงลงมาแบบเดิม ไม่พัง
+     และเงื่อนไข :not([hidden]) ทำให้แท็บอื่น (ขาย/ย้อนหลัง/ตั้งค่า) ที่ซ่อนหัวหน้าแรก
+     ไม่เหลือคอลัมน์ว่าง 300px ค้างอยู่ */
+  @media(min-width:1280px){
+    main:has(> #homeTop:not([hidden])){
+      display:grid; align-items:start;
+      grid-template-columns:300px minmax(0,1fr); gap:0 24px;
+    }
+    /* ละลายกล่องครอบสองชั้น ให้ของข้างในไปเป็นช่องของกริดโดยตรง */
+    main:has(> #homeTop:not([hidden])) > #homeTop,
+    main:has(> #homeTop:not([hidden])) #homeBody{display:contents}
+
+    main:has(> #homeTop:not([hidden])) #homeRail{
+      grid-column:1; grid-row:1 / -1;
+      display:flex; flex-direction:column; gap:14px;
+      position:sticky; top:16px;
+    }
+    main:has(> #homeTop:not([hidden])) > .hsearch,
+    main:has(> #homeTop:not([hidden])) #searchRes,
+    main:has(> #homeTop:not([hidden])) #statusRow,
+    main:has(> #homeTop:not([hidden])) #hiliteWrap,
+    main:has(> #homeTop:not([hidden])) > #view{grid-column:2}
+
+    /* ของในรางเป็นการ์ดขาวเหมือนในแบบ — บนมือถือยังเป็นส่วนเปล่า ๆ เหมือนเดิม */
+    main:has(> #homeTop:not([hidden])) #quickWrap,
+    main:has(> #homeTop:not([hidden])) #homeRail .wk{
+      background:var(--bg); border-radius:var(--r); box-shadow:var(--sh-card);
+      padding:16px; margin:0;
+    }
+    /* หัวข้อในการ์ดไม่ต้องเว้นบนอีก การ์ดมี padding ให้แล้ว */
+    main:has(> #homeTop:not([hidden])) #homeRail .home-sec,
+    main:has(> #homeTop:not([hidden])) #homeRail .wk-head{margin-top:0}
+    /* ช่องค้นหาเต็มคอลัมน์ขวา ไม่ต้องจำกัด 620 อีก เพราะคอลัมน์แคบลงแล้ว */
+    main:has(> #homeTop:not([hidden])) > .hsearch{max-width:none}
+    /* ปฏิทินในรางกว้างแค่ ~268px ถาดวันยังปัดได้เหมือนบนมือถือ */
+    main:has(> #homeTop:not([hidden])) #homeRail .wk-row{
+      overflow-x:auto; scrollbar-width:none;
+    }
+    main:has(> #homeTop:not([hidden])) #homeRail .wk-row::-webkit-scrollbar{display:none}
+  }
 
 </style>
 </head>
@@ -2353,14 +2401,18 @@
     <div id="homeBody">
       <!-- หัวข้อกับแถวทางลัดต้องอยู่ด้วยกัน ไม่งั้นบนจอคอมที่จัดเป็นคอลัมน์
            หัวข้อกับของจะถูกแถวของกริดดันให้ห่างกัน (เจอมาแล้ว ช่องว่างกลางหน้า) -->
-      <div id="quickWrap">
-        <div class="home-sec">
-          <h2>เมนูของฉัน</h2>
-          <button type="button" onclick="quickCustomize()">ปรับแต่ง</button>
+      <!-- บนจอคอมสองกองนี้กลายเป็น "รางการ์ดซ้าย" ที่ลอยตามการเลื่อน
+           ห่อไว้ด้วยกันเพื่อให้ยืนเป็นคอลัมน์เดียวได้ โดยลำดับบนมือถือไม่ขยับ -->
+      <div id="homeRail">
+        <div id="quickWrap">
+          <div class="home-sec">
+            <h2>เมนูของฉัน</h2>
+            <button type="button" onclick="quickCustomize()">ปรับแต่ง</button>
+          </div>
+          <div class="quick" id="quickRow"></div>
         </div>
-        <div class="quick" id="quickRow"></div>
+        <div class="wk" id="wkStrip"></div>
       </div>
-      <div class="wk" id="wkStrip"></div>
       <div id="statusRow"></div>
       <div id="hiliteWrap"></div>
     </div>
