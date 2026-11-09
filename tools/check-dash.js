@@ -29,7 +29,9 @@ const probe = `
   out.push(['กราฟแท่งเล็กวาดจริง', count(/miniBars|<rect/g) >= 1]);
   out.push(['หัวการ์ดมีไอคอนอย่างน้อย 3 ใบ', count(/ic-tile/g) >= 3]);
   out.push(['มีกราฟ 7 วันอยู่ในการ์ด', has('class="chart"')]);
-  out.push(['มีอันดับเมนูขายดี', has('rankx') || has('ยังไม่มีการขาย')]);
+  // อันดับเมนูขายดีย้ายไปอยู่บนสุดของหน้าแรก (hiliteHTML) แล้ว ไม่ใช่การ์ดในแท็บย่อยนี้
+  out.push(['มีอันดับเมนูขายดี (อยู่บนสุดของหน้าแรก)',
+    hiliteHTML().indexOf('hil-m') >= 0 || hiliteHTML() === '']);
   out.push(['มีสรุปเดือนนี้', has('mon-nums') && has(baht(sumMonth(monthKey(key)).sale))]);
 
   const o = t => (html.match(new RegExp('<' + t + '[ >]', 'g'))||[]).length;
