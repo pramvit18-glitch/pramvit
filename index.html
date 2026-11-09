@@ -2199,6 +2199,9 @@
           "status status status"
           "qw     hil    wk";
       }
+      /* คอลัมน์แคบลงจากเดิม (549 → 461) ของที่เคยเรียงแถวเดียวเลยตกลงมาเป็นสองแถว
+         ไอคอนทางลัดกว้างจริงแค่ 68px ลดขั้นต่ำลงให้กลับไปเรียงแถวเดียวเหมือนเดิม */
+      .quick, .hil{grid-template-columns:repeat(auto-fit, minmax(84px, 1fr))}
     }
     #homeBody > #quickWrap{grid-area:qw}
     #homeBody > #hiliteWrap{grid-area:hil}
