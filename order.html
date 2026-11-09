@@ -223,7 +223,6 @@
   .btn:hover{color:var(--brand)}
   .btn.primary{background:var(--brand); color:#fff; box-shadow:none}
   .btn.primary:hover{background:var(--brand-mid)}
-  .btn.primary:hover{background:var(--brand-d); color:#fff}
   .btn.primary:disabled{opacity:.5; box-shadow:none}
   .btn.ghost{background:transparent; box-shadow:none; color:var(--ink-2)}
   .btn.ghost:hover{background:var(--soft); color:var(--ink)}
@@ -566,7 +565,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v179';
+const PAGE_VER = 'crepe-cost-v180';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -1466,6 +1465,8 @@ function addonText(m){
   // เมนูโควตาต้องบอกตั้งแต่หน้ารายการ ลูกค้าจะได้ไม่เข้าใจผิดว่าเลือกฟรีไม่อั้น
   if(n(m.incl) > 0)
     return `ราคานี้รวมไส้ ${n(m.incl)} อย่าง · เกินอันละ ${baht(m.extraTop)} บาท`;
+  // หมดทุกอย่างแล้ว "เลือกไส้ได้ 0 อย่าง" อ่านแล้วเหมือนแอปพัง บอกตรง ๆ ดีกว่า
+  if(!total) return 'วันนี้ไส้หมดทุกอย่าง · สั่งแบบไม่ใส่ไส้ได้';
   return `เลือกไส้ได้ ${total} อย่าง`;
 }
 

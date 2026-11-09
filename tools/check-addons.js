@@ -254,6 +254,24 @@ const probe = `
   out.push(['เมนูธรรมดาที่ไส้นั้นหมด ยังสั่งได้ (เลือกไส้อื่นแทน)', rowOk.off === false]);
   out.push(['กล่องบอกแม่ค้าด้วยว่าเมนูจัดชุดไหนถูกปิดให้',
     soldOutHTML().indexOf('จัดชุดที่ไส้หมด') >= 0]);
+  /* จากรีวิวโค้ด: หน้าขายเคยดูแค่ isSoldOut() เมนูจัดชุดที่ปิดเพราะไส้หมด
+     เลยไม่มีป้าย "ปิดรับทาง QR" ให้แม่ค้าเห็น ทั้งที่ลูกค้าเห็นว่าหมดแล้ว */
+  out.push(['การ์ดหน้าขายติดป้ายปิดรับทาง QR ให้เมนูจัดชุดที่ไส้หมดด้วย', (() => {
+    try{ const h = saleMenusHTML(); return h.indexOf('qmenu-out') >= 0 && soldOutList().length === 0; }
+    catch(e){ return false; }
+  })()]);
+  out.push(['กล่องตั้งค่านับไส้ที่ปิดด้วย ไม่บอกว่ายังไม่ได้ปิดอะไร', (() => {
+    let box = null; const keep = openDialog;
+    openDialog = c => { box = c; return keep(c); };
+    try{ orderSetupDialog(); }catch(e){}
+    openDialog = keep;
+    return !!box && String(box.html).indexOf('ปิดไว้ว่าหมดแล้ว') >= 0;
+  })()]);
+  out.push(['ยังไม่มีเมนูสักอย่าง ก็ยังปิดไส้จากกล่องเดียวกันได้', (() => {
+    const keepMenus = db.menus; db.menus = [];
+    const h = soldOutHTML(); db.menus = keepMenus;
+    return h.indexOf('toggleTopOut(') >= 0;
+  })()]);
   out.push(['ชิปเลือกไส้ฝั่งแม่ค้าบอกว่าอันไหนปิดไว้ว่าหมด',
     topsHTML(gAll[0].items.map(it => ({ name:it.name, price:it.price, group:gAll[0].name })),
              new Set(), 'x', false).indexOf('top out') >= 0]);

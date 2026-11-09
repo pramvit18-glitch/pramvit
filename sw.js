@@ -1,10 +1,13 @@
 // Service worker — ทำให้แอปเปิดได้ตอนไม่มีเน็ต
 // เวลาแก้ index.html แล้วอยากให้เครื่องที่ติดตั้งไปแล้วได้ของใหม่ ให้ขยับเลข CACHE
-const CACHE = 'crepe-cost-v179';
+const CACHE = 'crepe-cost-v180';
 
 const ASSETS = [
   './',
   './index.html',
+  /* หน้าลูกค้าต้องอยู่ด้วย ไม่งั้นลูกค้าที่เน็ตหลุดแล้วรีเฟรช จะหล่นไปเจอแอปแม่ค้า
+     (ตัวสำรองข้างล่างเคยชี้ไป index.html ให้ทุกหน้า) */
+  './order.html',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -72,8 +75,10 @@ self.addEventListener('fetch', e => {
           return res;
         })
         .catch(() => caches.match(key)
-          .then(r => r || caches.match('./index.html'))
-          .then(r => r || caches.match('./')))
+          /* หน้าลูกค้าหล่นไปเป็นแอปร้านไม่ได้ ลูกค้าจะเห็นต้นทุน/ยอดขายของร้าน
+             จึงให้หน้าลูกค้าสำรองด้วยหน้าลูกค้าเท่านั้น */
+          .then(r => r || caches.match(key.endsWith('/order.html') ? './order.html' : './index.html'))
+          .then(r => r || (key.endsWith('/order.html') ? undefined : caches.match('./'))))
     );
     return;
   }

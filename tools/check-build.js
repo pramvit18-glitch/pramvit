@@ -48,6 +48,10 @@ const swVer  = (swTxt.match(/const CACHE = '(crepe-cost-v\d+)'/)   || [])[1];
 const ordVer = (ordTxt.match(/const PAGE_VER = '(crepe-cost-v\d+)'/) || [])[1];
 
 push('sw.js บอกเลขรุ่นของเว็บไว้', !!swVer);
+/* จากรีวิวโค้ด: หน้าลูกค้าไม่ได้อยู่ในแคช และตัวสำรองตอนเน็ตหลุดชี้ไป index.html ให้ทุกหน้า
+   ลูกค้าที่เน็ตหลุดแล้วรีเฟรช จะได้แอปแม่ค้า (เห็นต้นทุน ยอดขาย) ขึ้นมาแทนหน้าสั่งของ */
+push('sw.js เก็บหน้าลูกค้า (order.html) ไว้ในแคชด้วย', /['"]\.\/order\.html['"]/.test(swTxt));
+push('หน้าลูกค้าเน็ตหลุดแล้วไม่หล่นไปเป็นแอปร้าน', swTxt.indexOf("endsWith('/order.html') ? './order.html'") >= 0);
 push('order.html บอกเลขรุ่นของเว็บไว้', !!ordVer);
 push(`เลขรุ่นตรงกันทั้งสองไฟล์ (${swVer || '?'} / ${ordVer || '?'})`,
      !!swVer && swVer === ordVer);

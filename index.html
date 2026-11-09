@@ -653,7 +653,6 @@
   .btn:hover{color:var(--brand)}
   .btn.primary{background:var(--brand); color:#fff; box-shadow:none}
   .btn.primary:hover{background:var(--brand-mid)}
-  .btn.primary:hover{background:var(--brand-d); color:#fff}
   .btn.ghost{background:transparent; box-shadow:none; color:var(--ink-2)}
   .btn.ghost:hover{background:var(--soft); color:var(--ink)}
   .btn.danger{color:var(--bad-ink)}
@@ -3063,6 +3062,7 @@ function orderLink(){
 // ใบเมนูที่ลูกค้าจะเห็น — หยิบเฉพาะที่ต้องโชว์ ไม่ลากต้นทุนหรือสูตรไปด้วย
 function menuForCustomers(){
   const hotIds = hotForCustomers();      // คิดที่นี่ครั้งเดียว ไม่ใช่ไล่คิดทุกเมนู
+  const outTops = new Set(topOutNames()); // เหมือนกัน ไม่ไล่กวาดทุกชุดซ้ำทุกชิ้น
   return {
     name:   String(db.shopName || 'ร้านของฉัน'),
     branch: String(db.shopBranch || ''),
@@ -3078,17 +3078,17 @@ function menuForCustomers(){
       /* วันนี้หมดแล้วไหม — ส่งเป็น true/false ไม่ส่งวันที่
          ลูกค้าไม่ต้องรู้ว่าปิดตั้งแต่วันไหน และก้อนจะได้เล็ก */
       /* เมนูจัดชุดที่ไส้ของมันหมด ต้องปิดให้ลูกค้าด้วย เพราะเขาเลือกไส้เองไม่ได้ */
-      off: isSoldOut(m) || setMenuOut(m),
+      off: customerOff(m),
       /* อันดับขายดี 1-3 (0 = ไม่ติดป้าย) — **เป็นอันดับเท่านั้น ไม่มีตัวเลขยอดขาย**
          ของที่วันนี้หมดแล้วไม่ต้องติดป้าย อ่านแล้วขัดกันเอง */
-      hot: isSoldOut(m) || setMenuOut(m) ? 0 : hotIds.indexOf(m.id) + 1,
+      hot: customerOff(m) ? 0 : hotIds.indexOf(m.id) + 1,
       /* ไส้ที่ร้านจัดให้ตายตัว — ลูกค้าต้องเห็นว่าจานนี้มีอะไร ไม่ใช่สั่งแบบไม่รู้ว่าได้อะไร */
       fix: setAddons(m).map(a => a.name),
       groups: (m.groupIds || []).map(id => findGroup(id)).filter(Boolean).map(g => ({
         name: String(g.name || ''),
         /* ไส้ที่วันนี้หมด ส่งเป็น true/false เหมือนเมนู ไม่ส่งวันที่ */
         items: (g.items || []).map(it => ({ name: String(it.name || ''), price: n(it.price),
-                                            off: topOutByName(it.name) }))
+                                            off: outTops.has(it.name) }))
       })).filter(g => g.items.length)
     })).filter(m => m.name)
   };
@@ -3141,6 +3141,9 @@ function toggleTopOut(name){
    ลูกค้าเลือกไส้เองไม่ได้ด้วย จึงต้องปิดเมนูนั้นให้ฝั่งลูกค้าไปเลย
    (เมนูธรรมดาไม่ต้อง เพราะลูกค้าเลี่ยงไปเลือกไส้อื่นได้) */
 const setMenuOut = m => isSetMenu(m) && setAddons(m).some(a => topOutByName(a.name));
+/* "เมนูนี้ปิดฝั่งลูกค้าอยู่ไหม" ต้องถามตัวนี้ตัวเดียวทุกที่ (ใบเมนู · ป้ายบนหน้าขาย)
+   เคยใช้ isSoldOut() เฉย ๆ บนหน้าขาย เมนูจัดชุดที่ปิดเพราะไส้หมดเลยไม่มีป้ายให้แม่ค้าเห็น */
+const customerOff = m => isSoldOut(m) || setMenuOut(m);
 function setMenusHitBy(name){
   return (db.menus || []).filter(m => isSetMenu(m) && setAddons(m).some(a => a.name === name));
 }
@@ -3188,8 +3191,13 @@ function topOutHTML(){
 }
 
 function soldOutHTML(){
+  /* ยังไม่มีเมนูก็ยังต้องปิดไส้ได้ (ร้านที่ตั้งชุดไส้ก่อนแล้วค่อยใส่เมนู)
+     เดิม return ตั้งแต่ตรงนี้ ส่วนของไส้ข้างล่างเลยไม่เคยโผล่ */
   if(!(db.menus || []).length)
-    return '<p class="hint" style="margin:0">ยังไม่มีเมนูสักอย่าง ไปเพิ่มที่หน้าเมนูก่อนนะครับ</p>';
+    return `<div class="sec" style="margin-top:0">เมนูที่หมด</div>
+    <p class="hint" style="margin:0">ยังไม่มีเมนูสักอย่าง ไปเพิ่มที่หน้าเมนูก่อนนะครับ</p>
+    <div class="sec" style="margin-top:18px">ไส้ที่หมด</div>
+    ${topOutHTML()}`;
   const off = soldOutList().length;
   return `<div class="sec" style="margin-top:0">เมนูที่หมด</div>
   <div class="tops">${db.menus.map(m => {
@@ -4202,8 +4210,8 @@ function orderSetupDialog(){
         onclick="clearOldOrders()">ล้างออเดอร์เก่าเดี๋ยวนี้</button>
         <button type="button" class="seeall" style="margin-top:8px"
         onclick="dlg.close(); clearTodayOrders()">ล้างออเดอร์วันนี้</button></p>` : ''}
-      <p class="hint" style="margin:12px 0 0">${soldOutList().length
-        ? `ตอนนี้ปิดไว้ว่าหมดแล้ว <b>${soldOutList().length} อย่าง</b> ลูกค้ากดสั่งไม่ได้`
+      <p class="hint" style="margin:12px 0 0">${(soldOutList().length + topOutNames().length)
+        ? `ตอนนี้ปิดไว้ว่าหมดแล้ว <b>${soldOutList().length + topOutNames().length} อย่าง</b> (เมนูหรือไส้) ลูกค้ากดสั่งไม่ได้`
         : `<b>ของหมดระหว่างวันก็ปิดได้</b> ลูกค้าจะเห็นว่าหมดและกดสั่งไม่ได้
            ไม่ต้องมานั่งกด "ไม่รับ" ทีละใบ · พรุ่งนี้กลับมาขายเอง`}
         · <button type="button" class="seeall" style="margin-top:8px"
@@ -6510,13 +6518,13 @@ function saleMenusHTML(){
                : tops        ? `เลือกไส้ได้ ${tops} อย่าง`
                :               'ไม่มีไส้ให้เลือก';
     return `
-    <button type="button" class="qmenu-b${isSoldOut(m) ? ' out' : ''}" onclick="posQuick('${jsq(m.id)}')">
+    <button type="button" class="qmenu-b${customerOff(m) ? ' out' : ''}" onclick="posQuick('${jsq(m.id)}')">
       <span class="qmenu-n">${esc(m.name || '(ไม่มีชื่อ)')}</span>
       <span class="qmenu-r">
         <span class="qmenu-s">${note}</span>
         <span class="qmenu-p">฿${baht(m.price)}</span>
       </span>
-      ${isSoldOut(m) ? '<span class="qmenu-out">วันนี้ปิดรับทาง QR · หน้าร้านยังขายได้</span>' : ''}
+      ${customerOff(m) ? '<span class="qmenu-out">วันนี้ปิดรับทาง QR · หน้าร้านยังขายได้</span>' : ''}
     </button>`;
   }).join('')}</div>`;
 }
@@ -6835,7 +6843,7 @@ function viewPOS(){
 
     ${db.menus.length ? `<div class="card">
       ${cardHead('cart','เลือกเมนู', `แตะเมนูที่ลูกค้าสั่ง · ${db.menus.length} เมนู`)}
-      ${saleCatTabsHTML() ? `<div class="cats">${saleCatTabsHTML()}</div>` : ''}
+      ${(c => c ? `<div class="cats">${c}</div>` : '')(saleCatTabsHTML())}
       ${saleMenusHTML()}
     </div>` : ''}
 
@@ -6915,6 +6923,7 @@ function delBill(billId){
    ถ้าใช่ **ห้ามโชว์ราคาต่อไส้บนชิป** เพราะ 2 อันแรกฟรี ไม่ได้คิดอันละ 5 ทุกอัน
    เคยโชว์ "+5" ทุกอันแล้วดูเหมือนเลือก 3 อันต้องจ่าย 15 ซึ่งไม่จริง (จ่าย 5) */
 function topsHTML(tops, picked, lid, quota){
+  const outTops = new Set(topOutNames());   // หาครั้งเดียว ไม่ไล่กวาดทุกชุดซ้ำทุกชิป
   const groups = [];
   tops.forEach(a => {
     const g = a.group || '';
@@ -6926,8 +6935,8 @@ function topsHTML(tops, picked, lid, quota){
   return `<div id="topWarn"></div>` + groups.map(row => `
     ${row.g ? `<div class="sec">${esc(row.g)}</div>` : ''}
     <div class="tops">${row.list.map(a => `
-      <button type="button" class="top${picked.has(a.name) ? ' on' : ''}${topOutByName(a.name) ? ' out' : ''}" aria-pressed="${picked.has(a.name)}" onclick="pickLineTop('${lid}','${jsq(a.name)}',this)">
-        ${esc(a.name)}${topOutByName(a.name) ? ' · หมด' : ''}${quota ? '' : ` <b>${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</b>`}
+      <button type="button" class="top${picked.has(a.name) ? ' on' : ''}${outTops.has(a.name) ? ' out' : ''}" aria-pressed="${picked.has(a.name)}" onclick="pickLineTop('${lid}','${jsq(a.name)}',this)">
+        ${esc(a.name)}${outTops.has(a.name) ? ' · หมด' : ''}${quota ? '' : ` <b>${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</b>`}
       </button>`).join('')}</div>`).join('');
 }
 
@@ -7174,7 +7183,11 @@ const WK_SPAN = 90;            // ลากย้อนได้ราว 3 เ�
 let wkFrom = '', wkTo = '';
 function wkSpan(){
   const today = dayKey();
-  if(wkFrom && dashDay >= addDays(wkFrom, 7) && dashDay <= wkTo) return [wkFrom, wkTo];
+  /* เปิดแอปค้างข้ามเที่ยงคืน (กันจอดับตอนรับออเดอร์) dashDay ยังเป็นเมื่อวาน
+     แต่ "วันนี้" ขยับไปแล้ว ถ้าคืนช่วงเดิม ถาดจะไม่มีช่องของวันนี้ให้กด
+     จึงต้องคิดใหม่เมื่อปลายช่วงตามไม่ทันวันนี้ (เว้นแต่ปลายช่วงยังไม่ถูกตัดที่วันนี้) */
+  if(wkFrom && dashDay >= addDays(wkFrom, 7) && dashDay <= wkTo
+     && (wkTo >= today || wkTo >= addDays(dashDay, WK_SPAN))) return [wkFrom, wkTo];
   wkFrom = addDays(dashDay, -WK_SPAN);
   wkTo   = addDays(dashDay, WK_SPAN);
   if(wkTo > today) wkTo = today;

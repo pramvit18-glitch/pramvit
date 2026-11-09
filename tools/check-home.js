@@ -203,6 +203,15 @@ const probe = `
     (statusHTML() + backupWarnHTML()).match(/<div class="srow /g).length === 2]);
   /* แถบสะกิดทุกตัวต้อง **ต่อท้าย** การ์ดสถานะ ไม่ใช่เอาไปแทนที่
      อ่านจากโค้ดจริง เพราะข้อที่เทียบสองก้อนเองไม่จับตอนสลับไปแทนที่ = เทสต์โกหก */
+  /* จากรีวิวโค้ด: เปิดแอปค้างข้ามเที่ยงคืน (กันจอดับตอนรับออเดอร์) dashDay ยังเป็นเมื่อวาน
+     wkSpan() คืนช่วงเดิมที่ปลายถูกตัดไว้ที่เมื่อวาน ถาดเลยไม่มีช่องของ "วันนี้" ให้กด */
+  const yd = addDays(dayKey(), -1);
+  dashDay = yd; wkFrom = null; wkTo = null;
+  wkSpan();
+  wkTo = yd;                                   // จำลองว่าช่วงนี้ถูกคิดไว้ตั้งแต่เมื่อวาน
+  out.push(['ข้ามเที่ยงคืนแล้วถาดวันต้องมีช่องของวันนี้', wkSpan()[1] >= dayKey()]);
+  dashDay = dayKey(); wkFrom = null; wkTo = null;
+
   const wire = renderHome.toString().replace(/\\s/g, '');
   out.push(['หน้าแรกต่อแถบสะกิดท้ายการ์ดสถานะจริง ไม่ใช่เอาไปแทนที่',
     wire.indexOf('statusHTML()+') >= 0]);
