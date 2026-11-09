@@ -208,6 +208,22 @@ const probe = `
     wire.indexOf('statusHTML()+') >= 0]);
   out.push(['แถบสะกิดสำรองข้อมูลยังต่ออยู่', wire.indexOf('+backupWarnHTML()') >= 0]);
   out.push(['แถบสะกิดของหมดวันนี้ต่ออยู่ด้วย', wire.indexOf('+soldOutWarnHTML()') >= 0]);
+  /* ไส้ที่ปิดไว้ว่าหมดก็ต้องสะกิดบนหน้าแรกด้วย ไม่งั้นลืมว่าปิดค้าง
+     ของมาเพิ่มกลางวันแล้วลูกค้ายังสั่งไข่ไม่ได้ทั้งวัน (เจ้าของถามเอง: "ไส้หมด ตั้งตรงไหน") */
+  const g0 = (db.groups || [])[0];
+  if(g0 && g0.items.length){
+    const it = g0.items[0];
+    const before = soldOutWarnHTML();
+    it.soldDay = dayKey();
+    const during = soldOutWarnHTML();
+    it.soldDay = '';
+    out.push(['ปิดไส้ไว้แล้วหน้าแรกสะกิดด้วย บอกชื่อไส้ที่ปิด',
+      before === '' && during.indexOf('ไส้') >= 0 && during.indexOf(it.name) >= 0]);
+    out.push(['เปิดคืนแล้วแถบหาย', soldOutWarnHTML() === '']);
+  } else {
+    out.push(['ปิดไส้ไว้แล้วหน้าแรกสะกิดด้วย บอกชื่อไส้ที่ปิด', false]);
+    out.push(['เปิดคืนแล้วแถบหาย', false]);
+  }
 
   /* ต้องรอดจากการปิด-เปิดแอป เหมือน locked กับ pin
      load() สร้าง store ขึ้นใหม่ทุกครั้ง ลืมคัดลอกค่านี้มาเมื่อไหร่

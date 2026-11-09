@@ -1277,6 +1277,46 @@ const push = (name, v) => { ok.push([name, !!v]); };
   await seller.evaluate(() => { try{ closeOrderDialog(); dlg.close(); }catch(e){} });
   await seller.waitForTimeout(900);
 
+  /* ---------- ไส้หมดรายอย่าง ----------
+     เจ้าของถามเอง: "แล้วตั้งตรงไหน ไส้คาวกับหวาน ตอนที่หมด"
+     ไส้กรอกหมด → ลูกค้าต้องเห็นว่าหมดและติ๊กไม่ได้ แต่เมนูธรรมดายังสั่งได้ (เลือกไส้อื่น)
+     ส่วนเมนูจัดชุดที่ใส่ไส้กรอกไว้ ลูกค้าเลือกเองไม่ได้ ต้องถูกปิดให้ด้วย */
+  await seller.evaluate(() => toggleTopOut('ไส้กรอก'));
+  await seller.waitForTimeout(900);
+  const pubT = await (await fetch(`${CLOUD}/s/${key}/menu.json`)).json();
+  const itemsOf = m => (m.groups || []).flatMap(g => g.items || []);
+  const m1p = pubT.menus.find(m => m.id === 'm1') || { groups: [] };
+  push('ไส้ที่หมดขึ้นไปบอกลูกค้าในใบเมนู',
+    (itemsOf(m1p).find(it => it.name === 'ไส้กรอก') || {}).off === true);
+  push('ไส้อื่นไม่โดนปิดตาม',
+    (itemsOf(m1p).find(it => it.name === "ไข่ไก่ด'ล") || {}).off === false);
+  push('เมนูธรรมดาที่มีไส้นั้นยังเปิดอยู่', m1p.off === false);
+  push('เมนูจัดชุดที่ใส่ไส้นั้นไว้ ถูกปิดให้ลูกค้าด้วย',
+    (pubT.menus.find(m => m.id === 'm3') || {}).off === true);
+
+  await cust.reload(); await cust.waitForTimeout(900);
+  const rowsT = await cust.locator('#view .li').count();
+  const setRowT = rowsT >= 3 ? await cust.locator('#view .li').nth(2).textContent() : '';
+  push('ลูกค้าเห็นเมนูจัดชุดนั้นเป็น "หมดแล้ว"', setRowT.includes('หมดแล้ว'));
+  await cust.evaluate(() => pick(0));
+  await cust.waitForTimeout(900);
+  /* **ไส้ที่หมดต้องโชว์ไว้ ห้ามซ่อน** กติกาเดียวกับเมนูที่หมด
+     ต้อง count() ก่อน ของที่หายไปแล้วไป textContent() ตรง ๆ จะล้มทั้งชุด */
+  const outChip = cust.locator('#sheet .tops .top.out');
+  const outTxt = await outChip.count() ? await outChip.first().textContent() : '';
+  push('ชิปไส้ที่หมดยังโชว์อยู่ และบอกว่าหมดแล้ว', outTxt.includes('ไส้กรอก') && outTxt.includes('หมดแล้ว'));
+  push('ชิปนั้นกดไม่ได้', await cust.locator('#sheet .tops .top.out[disabled]').count() === 1);
+  push('ไส้อื่นยังกดได้ตามปกติ', await cust.locator('#sheet .tops .top:not(.out)').count() >= 1);
+  await cust.evaluate(() => { try{ tog('ไส้กรอก'); }catch(e){} });     // กันอีกชั้น
+  push('เรียกติ๊กตรง ๆ กับไส้ที่หมดก็ไม่ติด',
+    await cust.evaluate(() => !edit.picked.has('ไส้กรอก')));
+  await cust.evaluate(() => { try{ el('dlg').close(); }catch(e){} });
+  await cust.waitForTimeout(900);
+  await cust.screenshot({ path: SHOT + '/cust-top-out.png' });
+  // คืนสภาพ
+  await seller.evaluate(() => toggleTopOut('ไส้กรอก'));
+  await seller.waitForTimeout(600);
+
   await b.close();
 
   let bad = 0;

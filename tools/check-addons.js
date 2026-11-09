@@ -209,6 +209,61 @@ const probe = `
     && sortedDraftFix().join('') === 'ไส้ที่ถูกลบไปแล้ว']);
   menuDraftFix = new Set();
 
+  /* --- ไส้หมดรายอย่าง ---
+     เจ้าของถามเอง: "แล้วตั้งตรงไหน ไส้คาวกับหวาน ตอนที่หมด"
+     ของเดิมปิดได้แค่ทั้งเมนู พอไข่หมดแต่ไส้อื่นยังมี ต้องปิดเมนูทิ้งทั้งอัน = เสียของ */
+  const tName = gAll[0].items[0].name;
+  // ชื่อไส้เดียวกันอยู่ได้หลายชุด (ไข่ไก่อยู่ทั้งไส้คาวและไส้โตเกียว) ต้องปิดให้ครบทุกชุด
+  db.groups.push({ id:'gdup', name:'ชุดทดสอบ', items:[{ id:'dup1', name:tName, price:0 }] });
+  toggleTopOut(tName);
+  out.push(['ปิดไส้แล้วปิดทุกชุดที่มีชื่อนั้น',
+    topsByName(tName).length >= 2 && topsByName(tName).every(isTopOut)]);
+  /* **จดเป็นวันที่ ไม่ใช่ true/false** พรุ่งนี้ต้องกลับมาใส่ได้เองโดยไม่ต้องมีใครมาเปิด */
+  out.push(['จดเป็นวันที่ พรุ่งนี้กลับมาใส่ได้เอง', (() => {
+    const it = topsByName(tName)[0];
+    const today = isTopOut(it);
+    it.soldDay = '2020-01-01';
+    const stale = !isTopOut(it);
+    it.soldDay = dayKey();
+    return today && stale;
+  })()]);
+  out.push(['กล่อง "ของหมดวันนี้" มีส่วนของไส้ให้กดด้วย',
+    soldOutHTML().indexOf('ไส้ที่หมด') >= 0 && soldOutHTML().indexOf('toggleTopOut(') >= 0]);
+
+  const findIt = (pub, nm) => {
+    let f = null;
+    pub.menus.forEach(m => (m.groups || []).forEach(g => (g.items || []).forEach(it => {
+      if(it.name === nm) f = it;
+    })));
+    return f;
+  };
+  const pubOut = menuForCustomers();
+  out.push(['ไส้ที่หมดขึ้นไปบอกลูกค้าเป็น true/false ไม่ส่งวันที่',
+    (findIt(pubOut, tName) || {}).off === true]);
+  out.push(['ไส้อื่นไม่โดนปิดตามไปด้วย',
+    (findIt(pubOut, gAll[1].items[0].name) || {}).off === false]);
+
+  /* เมนูจัดชุดที่ไส้ของมันหมด ลูกค้าเลือกไส้เองไม่ได้ สั่งมาก็ทำให้ไม่ได้ตามที่บอกไว้
+     จึงต้องปิดเมนูนั้นให้ฝั่งลูกค้าไปเลย (เมนูธรรมดาไม่ต้อง เพราะเลี่ยงไปไส้อื่นได้) */
+  db.menus.push({ id:'setout', name:'จัดชุดที่ไส้หมด', price:30,
+                  groupIds:[gAll[0].id], items:[], fix:[tName] });
+  const pub2 = menuForCustomers();
+  const rowOut = pub2.menus.find(m => m.id === 'setout') || {};
+  const rowOk  = pub2.menus.find(m => m.id === crepe.id) || {};
+  out.push(['เมนูจัดชุดที่ไส้หมด ถูกปิดให้ลูกค้าด้วย', rowOut.off === true]);
+  out.push(['เมนูธรรมดาที่ไส้นั้นหมด ยังสั่งได้ (เลือกไส้อื่นแทน)', rowOk.off === false]);
+  out.push(['กล่องบอกแม่ค้าด้วยว่าเมนูจัดชุดไหนถูกปิดให้',
+    soldOutHTML().indexOf('จัดชุดที่ไส้หมด') >= 0]);
+  out.push(['ชิปเลือกไส้ฝั่งแม่ค้าบอกว่าอันไหนปิดไว้ว่าหมด',
+    topsHTML(gAll[0].items.map(it => ({ name:it.name, price:it.price, group:gAll[0].name })),
+             new Set(), 'x', false).indexOf('top out') >= 0]);
+
+  // คืนสภาพให้เหมือนเดิม ไม่ทิ้งของที่ปิดไว้ให้ข้อถัด ๆ ไป
+  toggleTopOut(tName);
+  db.groups = db.groups.filter(g => g.id !== 'gdup');
+  db.menus  = db.menus.filter(m => m.id !== 'setout');
+  out.push(['เปิดคืนแล้วธงหายหมด', topOutNames().length === 0]);
+
   saleDraft = null;
   db.menus = db.menus.filter(m => m.id !== setM.id && m.id !== bigM.id);
   order = { lines: [] };
