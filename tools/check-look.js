@@ -19,6 +19,27 @@ global.navigator = {};
 const out = [];
 const push = (name, v) => out.push([name, !!v]);
 
+/* ---------- ตารางเมนูขายดีต้องเรียงลงมาคอลัมน์เดียวทุกขนาดจอ ----------
+   เคยพังจริง: กฎจอคอมเขียนว่า ".quick, .hil{display:grid; grid-template-columns:repeat(...)}"
+   ซึ่งถูกตอนที่ .hil ยังเป็นแถวไอคอน แต่พอเปลี่ยนเป็นตาราง แถวถูกยัดลงช่องกว้าง 96px
+   เรียงข้างกันสองช่อง แล้วเนื้อหาล้นไปทับการ์ดสถานะข้างบน (เจ้าของส่งภาพมาให้ดู) */
+const cssClean = css.replace(/\/\*[\s\S]*?\*\//g, '');   // ตัดคอมเมนต์ก่อน ไม่งั้นมันปนไปอยู่ในชื่อ selector
+const cssRules = [...cssClean.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+  .map(m => ({ sels: m[1].split(',').map(x => x.trim().replace(/\s+/g, ' ')), body: m[2] }))
+  .filter(r => r.sels[0] && !r.sels[0].startsWith('@'));
+
+// กฎที่จบด้วย .hil พอดี (ไม่ใช่ .hil-b / .hil-n)
+const hilRules = cssRules.filter(r => r.sels.some(x => /(^|\s|>)\.hil$/.test(x)));
+const gridded = hilRules.filter(r => /grid-template-columns/.test(r.body));
+push('ตารางเมนูขายดีไม่ถูกบังคับเป็นกริดหลายช่อง' +
+  (gridded.length ? ' — เจอที่: ' + gridded.map(r => r.sels.join(',')).join(' / ') : ''),
+  !gridded.length);
+
+// แถวตารางมี span ที่เป็นแถบความยาว ถ้าโดน ellipsis+nowrap ทุก span แถบจะถูกบีบจนหาย
+const spanRules = cssRules.filter(r =>
+  r.sels.some(x => /\.hil-b\s+span$/.test(x)) && /text-overflow|white-space/.test(r.body));
+push('ไม่ตัดท้ายทุก span ในแถวเมนูขายดี (แถบความยาวจะหาย)', !spanRules.length);
+
 /* ---------- ฟอนต์ ----------
    เคยพังเงียบ ๆ: แอปร้านกับหน้าลูกค้าตั้งชุดฟอนต์ไว้คนละชุด
    index ขึ้นต้นด้วย Sarabun ส่วน order ขึ้นต้นด้วย -apple-system

@@ -2253,7 +2253,7 @@
       }
       /* คอลัมน์แคบลงจากเดิม (549 → 461) ของที่เคยเรียงแถวเดียวเลยตกลงมาเป็นสองแถว
          ไอคอนทางลัดกว้างจริงแค่ 68px ลดขั้นต่ำลงให้กลับไปเรียงแถวเดียวเหมือนเดิม */
-      #homeBody .quick, #homeBody .hil{grid-template-columns:repeat(auto-fit, minmax(84px, 1fr))}
+      #homeBody .quick{grid-template-columns:repeat(auto-fit, minmax(84px, 1fr))}
     }
     #homeBody > #quickWrap{grid-area:qw}
     #homeBody > #hiliteWrap{grid-area:hil}
@@ -2283,19 +2283,27 @@
        พอมาอยู่บนคอมที่คอลัมน์กว้าง 694px มันใช้จริงแค่ 340 กับ 256
        เหลือที่ว่างยาว 354-438px — เจ้าของบอกว่า "โล่งเยอะเลย"
        จอคอมไม่ต้องปัด จึงเปลี่ยนเป็นกริดกระจายเต็มคอลัมน์ไปเลย */
-    .quick, .hil{
+    /* **เฉพาะ .quick เท่านั้น** — .hil เป็นตารางเรียงลงมาแล้ว (เลขอันดับ · ชื่อ · ยอด · แถบ)
+       ถ้ามัดรวมกันไว้ แถวตารางจะถูกยัดลงช่องกว้าง 96px เรียงข้างกัน
+       แล้วเนื้อหาล้นออกไปทับการ์ดสถานะข้างบน (เจ้าของเจอเองกับตา ส่งภาพมาให้ดู) */
+    .quick{
       display:grid; grid-auto-flow:row; overflow:visible;
       grid-template-columns:repeat(auto-fit, minmax(96px, 1fr));
       gap:16px 10px;
     }
+    /* ตารางเมนูขายดียังเรียงลงมาคอลัมน์เดียวเหมือนบนมือถือ */
+    .hil{display:flex; flex-direction:column; overflow:visible}
     /* ถาดวันยังเลื่อนได้เหมือนเดิม แค่ไม่ต้องล้นออกไปชนขอบจอ */
     .wk-row{margin:0; padding-left:0; padding-right:0}
-    .quick-b, .hil-b{width:auto; min-width:0}
-    .quick-b span, .hil-b span{
+    .quick-b{width:auto; min-width:0}
+    /* **ห้ามใส่ .hil-b span ตรงนี้** แถวตารางมี <span> ที่เป็นแถบความยาวกับกล่องซ้อนอยู่
+       ถ้าสั่ง ellipsis + nowrap ทุก span แถบจะถูกบีบจนหาย และยอดเงินกับจำนวนจานทับกัน
+       ชื่อเมนูมี ellipsis ของตัวเองอยู่แล้วที่ .hil-n */
+    .quick-b span{
       max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
     }
     /* สองแถวนี้ยื่นออกนอกขอบไว้ให้ปัดบนมือถือ พออยู่ในคอลัมน์ต้องดึงกลับ ไม่งั้นล้นออกข้าง */
-    .quick, .hil{margin:0; padding-left:0; padding-right:0}
+    .quick{margin:0; padding-left:0; padding-right:0}
     /* บนมือถือหัวข้อดันปุ่มไปสุดขอบขวา พอแบ่งสองคอลัมน์ ปุ่มจะไปจ่ออยู่ติดปฏิทิน
        เหมือนเป็นปุ่มของปฏิทิน ให้ปุ่มมาอยู่ติดหัวข้อของตัวเองแทน */
     #homeBody .home-sec h2{flex:0 0 auto}
@@ -2329,11 +2337,15 @@
       display:flex; flex-direction:column; gap:14px;
       position:sticky; top:16px;
     }
+    /* **ต้องมี grid-row:auto ด้วย** ไม่ใช่แค่ grid-column
+       #statusRow กับ #hiliteWrap พก grid-area:status / grid-area:hil จากบล็อกสามคอลัมน์มาด้วย
+       (บล็อกนั้นก็ >=1280 เหมือนกัน) ซึ่งตั้ง grid-row ไปเป็นชื่อแถวที่ไม่มีในกริดของราง
+       ผลคือของสองก้อนไปกองอยู่แถวเดียวกันแล้วทับกัน และขึ้นก่อนช่องค้นหาด้วย */
     main:has(> #homeTop:not([hidden])) .hsearch,
     main:has(> #homeTop:not([hidden])) #searchRes,
     main:has(> #homeTop:not([hidden])) #statusRow,
     main:has(> #homeTop:not([hidden])) #hiliteWrap,
-    main:has(> #homeTop:not([hidden])) > #view{grid-column:2}
+    main:has(> #homeTop:not([hidden])) > #view{grid-column:2; grid-row:auto}
 
     /* ของในรางเป็นการ์ดขาวเหมือนในแบบ — บนมือถือยังเป็นส่วนเปล่า ๆ เหมือนเดิม */
     main:has(> #homeTop:not([hidden])) #quickWrap,
