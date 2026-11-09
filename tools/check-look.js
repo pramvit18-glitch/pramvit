@@ -40,6 +40,23 @@ const spanRules = cssRules.filter(r =>
   r.sels.some(x => /\.hil-b\s+span$/.test(x)) && /text-overflow|white-space/.test(r.body));
 push('ไม่ตัดท้ายทุก span ในแถวเมนูขายดี (แถบความยาวจะหาย)', !spanRules.length);
 
+/* ---------- รางการ์ดซ้ายต้องพาดทุกแถว ----------
+   เคยเขียน "grid-row:1 / -1" ซึ่งนับจากเส้นของกริดที่ประกาศไว้
+   กริดนี้ไม่ได้ประกาศแถวเลย -1 จึงกลายเป็นเส้นที่ 1 = รางกินแถวเดียว
+   แถวนั้นเลยสูงตามราง (~435px) แล้วของในคอลัมน์ขวาถูกดันไปเริ่มแถวถัดไป
+   เกิดช่องว่างใหญ่ด้านบนขวา — เจ้าของเจอเองกับตาสองรอบ */
+const railRule = cssRules.find(r =>
+  r.sels.some(x => /#homeRail$/.test(x)) && /grid-column:\s*1/.test(r.body));
+push('รางการ์ดซ้ายพาดหลายแถว (ไม่งั้นคอลัมน์ขวาถูกดันลง)',
+  !!railRule && /grid-row:\s*1\s*\/\s*span\s+\d\d+/.test(railRule.body));
+
+/* ของในคอลัมน์ขวาต้องสั่ง grid-row:auto ด้วย ไม่ใช่แค่ grid-column
+   เพราะ #statusRow/#hiliteWrap พก grid-area:status/hil จากบล็อกสามคอลัมน์มาด้วย */
+const colRule = cssRules.find(r =>
+  r.sels.some(x => /#hiliteWrap$/.test(x)) && /grid-column:\s*2/.test(r.body));
+push('ของในคอลัมน์ขวาล้าง grid-row ที่ติดมาจากกฎสามคอลัมน์',
+  !!colRule && /grid-row:\s*auto/.test(colRule.body));
+
 /* ---------- ฟอนต์ ----------
    เคยพังเงียบ ๆ: แอปร้านกับหน้าลูกค้าตั้งชุดฟอนต์ไว้คนละชุด
    index ขึ้นต้นด้วย Sarabun ส่วน order ขึ้นต้นด้วย -apple-system
