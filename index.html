@@ -2279,7 +2279,7 @@
       display:flex; flex-direction:column; gap:14px;
       position:sticky; top:16px;
     }
-    main:has(> #homeTop:not([hidden])) > .hsearch,
+    main:has(> #homeTop:not([hidden])) .hsearch,
     main:has(> #homeTop:not([hidden])) #searchRes,
     main:has(> #homeTop:not([hidden])) #statusRow,
     main:has(> #homeTop:not([hidden])) #hiliteWrap,
@@ -2295,7 +2295,12 @@
     main:has(> #homeTop:not([hidden])) #homeRail .home-sec,
     main:has(> #homeTop:not([hidden])) #homeRail .wk-head{margin-top:0}
     /* ช่องค้นหาเต็มคอลัมน์ขวา ไม่ต้องจำกัด 620 อีก เพราะคอลัมน์แคบลงแล้ว */
-    main:has(> #homeTop:not([hidden])) > .hsearch{max-width:none}
+    main:has(> #homeTop:not([hidden])) .hsearch{max-width:none}
+    /* ในรางกว้าง 268px ปล่อย auto-fit จะได้ 3 ช่อง กองสูงเกินไป
+       ตรึงเป็น 4 ช่องเหมือนในแบบที่เจ้าของส่งมา */
+    main:has(> #homeTop:not([hidden])) #homeRail .quick{
+      grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px 6px;
+    }
     /* ปฏิทินในรางกว้างแค่ ~268px ถาดวันยังปัดได้เหมือนบนมือถือ */
     main:has(> #homeTop:not([hidden])) #homeRail .wk-row{
       overflow-x:auto; scrollbar-width:none;
