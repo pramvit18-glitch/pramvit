@@ -50,6 +50,7 @@
     --brand-l:#f6b9b9;      /* แดงอ่อน */
     --brand-mid:#e8605f;    /* แดงกลาง */
     --r:20px;               /* ความมนของทุกพื้นผิว — การ์ด ช่องกรอก แถว กล่อง ใช้ค่าเดียวกันหมด */
+    --wide:1180px;          /* ความกว้างสุดของเนื้อหาบนจอคอม (ขยายตามจอที่ท้ายไฟล์) */
     --r-pill:999px;         /* แคปซูล — เป็นรูปทรง ไม่ใช่ค่าความมน */
     --sh-card:0 6px 22px rgba(22,24,28,.07), 0 1px 3px rgba(22,24,28,.05);
     --sh-lift:0 10px 30px rgba(22,24,28,.12);
@@ -2099,8 +2100,8 @@
         "nav main";
       gap:0; padding:0;
     }
-    .appbar{grid-area:head; width:100%; max-width:1180px; margin:0 auto; padding:26px 28px 10px}
-    main{grid-area:main; width:100%; max-width:1180px; margin:0 auto; padding:0 28px 80px}
+    .appbar{grid-area:head; width:100%; max-width:var(--wide); margin:0 auto; padding:26px 28px 10px}
+    main{grid-area:main; width:100%; max-width:var(--wide); margin:0 auto; padding:0 28px 80px}
 
     .bottomnav{
       grid-area:nav;
@@ -2188,6 +2189,17 @@
         "qw     hil"
         "wk     wk";
     }
+    /* จอกว้างพอ: ปฏิทินขึ้นมาอยู่แถวเดียวกับอีกสองกอง
+       เดิมปฏิทินกินเต็มแถวของตัวเองทั้งที่ใช้ความกว้างจริงไม่ถึงครึ่ง
+       แล้วดันของข้างล่างลงไปอีก ~160px โดยเปล่าประโยชน์ */
+    @media(min-width:1460px){
+      #homeBody{
+        grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.15fr);
+        grid-template-areas:
+          "status status status"
+          "qw     hil    wk";
+      }
+    }
     #homeBody > #quickWrap{grid-area:qw}
     #homeBody > #hiliteWrap{grid-area:hil}
     /* ใช้ 24px ให้ตรงกับจังหวะหัวข้อทั้งแอป (check-space คุมไว้ ใส่ 22 แล้วตกทันที) */
@@ -2233,6 +2245,12 @@
        เหมือนเป็นปุ่มของปฏิทิน ให้ปุ่มมาอยู่ติดหัวข้อของตัวเองแทน */
     #homeBody .home-sec h2{flex:0 0 auto}
   }
+
+  /* ===================== จอใหญ่: ใช้พื้นที่ให้คุ้ม =====================
+     เดิมตรึงเนื้อหาไว้ 1180px ทุกจอ เปิดบนจอ 1920 เหลือขอบว่างข้างละ ~320px
+     ตารางของที่ซื้อมาที่มีหลายคอลัมน์ก็ถูกบีบจนตัวหนังสือตัดบรรทัด */
+  @media(min-width:1600px){ :root{ --wide:1420px } }
+  @media(min-width:1850px){ :root{ --wide:1560px } }
 
 </style>
 </head>
