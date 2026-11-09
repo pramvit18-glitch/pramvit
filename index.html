@@ -587,11 +587,13 @@
     border-radius:var(--r); display:grid; gap:5px 10px; align-items:center;
     grid-template-columns:22px minmax(0,1fr) auto;
     grid-template-areas:"no name val" "no bar bar";
-    transition:background .16s, transform var(--tap-out) var(--spring);
+    transition:background .16s;
   }
   .hil-b:last-child{border-bottom:none}
   .hil-b:hover:not([disabled]){background:var(--soft)}
-  .hil-b:active:not([disabled]){transform:scale(.99)}
+  /* กดแล้วเปลี่ยนสีพื้น ไม่ยุบทั้งแถว — แถวเต็มความกว้าง ยุบแล้วดูเหมือนหน้ากระตุก
+     และบล็อกลดการเคลื่อนไหวอยู่ก่อนกฎนี้ ถ้าใช้ transform มันทับให้ไม่ได้ */
+  .hil-b:active:not([disabled]){background:var(--tint)}
   .hil-b[disabled]{cursor:default; opacity:.6}
   .hil-no{
     grid-area:no; width:22px; height:22px; border-radius:50%; display:grid; place-items:center;
@@ -997,7 +999,7 @@
   .home-sec button, .srow-a, .wk-m, .shopswitch, .statepill, .shoppill,
   .li, .seeall, .shoprow-main, .billrow, .pick-main, .day,
   .wk-d .num, .bottomnav button,
-  .btn, .icon-btn, .orderbtn, .dlg-x, .quick-ic, .hil-av, .qmenu-b, .navrow, .posbtn,
+  .btn, .icon-btn, .orderbtn, .dlg-x, .quick-ic, .qmenu-b, .navrow, .posbtn,
   .posrow, .dayx-row, .daybtn{
     transition:transform var(--tap-out) var(--spring),
                background-color .16s, color .16s, box-shadow .2s, border-color .16s;
@@ -1014,7 +1016,7 @@
   .pick-main:active, .day:active,
   .wk-d:active .num, .bottomnav button:active,
   .btn:active, .icon-btn:active, .orderbtn:active, .dlg-x:active,
-  .quick-b:active .quick-ic, .hil-b:active .hil-av, .qmenu-b:active, .navrow:active,
+  .quick-b:active .quick-ic, .qmenu-b:active, .navrow:active,
   .posbtn:active, .posrow:active, .dayx-row:active, .daybtn:active{
     transition-duration:var(--tap-in);
   }
@@ -1048,7 +1050,7 @@
   /* ปุ่มใหญ่สีแดงกับแถบเมนูล่าง ยุบชัดหน่อยเพราะเป็นของที่กดบ่อยสุด */
   .orderbtn:active{transform:scale(.96)}
   .bottomnav button:active{transform:scale(.88)}
-  .quick-b:active .quick-ic, .hil-b:active .hil-av{transform:scale(.88)}
+  .quick-b:active .quick-ic{transform:scale(.88)}
 
   /* แท่งกราฟเป็น SVG ขยับ transform แล้วจุดหมุนเพี้ยน ใช้จางลงแทน */
   .chart .cday{transition:opacity var(--tap-out)}
@@ -1057,12 +1059,12 @@
   @media(prefers-reduced-motion:reduce){
     .tap-s, .tap-m, .tap-l, .cat, .dseg-b, .pill, .top, .gchip, .li, .seeall,
     .bottomnav button, .wk-d .num, .billrow, .shoprow-main, .btn, .icon-btn,
-    .orderbtn, .quick-ic, .hil-av{transition:none}
+    .orderbtn, .quick-ic{transition:none}
     .tap-s:active, .tap-m:active, .tap-l:active, .cat:active, .dseg-b:active,
     .pill:active, .top:active, .gchip:active, .li:active, .seeall:active,
     .bottomnav button:active, .wk-d:active .num, .billrow:active,
     .shoprow-main:active, .btn:active, .icon-btn:active, .orderbtn:active,
-    .quick-b:active .quick-ic, .hil-b:active .hil-av{transform:none}
+    .quick-b:active .quick-ic{transform:none}
   }
 
   /* สลับแท็บแล้วเนื้อหาเลื่อนเข้ามาตามทิศที่กด
