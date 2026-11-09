@@ -3145,6 +3145,21 @@ const setMenuOut = m => isSetMenu(m) && setAddons(m).some(a => topOutByName(a.na
 /* "เมนูนี้ปิดฝั่งลูกค้าอยู่ไหม" ต้องถามตัวนี้ตัวเดียวทุกที่ (ใบเมนู · ป้ายบนหน้าขาย)
    เคยใช้ isSoldOut() เฉย ๆ บนหน้าขาย เมนูจัดชุดที่ปิดเพราะไส้หมดเลยไม่มีป้ายให้แม่ค้าเห็น */
 const customerOff = m => isSoldOut(m) || setMenuOut(m);
+/* นับไส้ที่ "เลือกได้จริงวันนี้" — ต้องนับแบบเดียวกับหน้าลูกค้าเป๊ะ
+   เจ้าของทักเอง: หน้าขายขึ้น "เลือกไส้ได้ 23" ทั้งที่ปิดไว้ว่าหมดไปหลายอย่าง
+   ลูกค้าเห็นเลขหนึ่ง หน้าร้านเห็นอีกเลขหนึ่ง อ่านแล้วงง
+   ชื่อซ้ำข้ามชุด (ไข่ไก่อยู่ทั้งคาวและโตเกียว) นับครั้งเดียว · ไส้ที่ปิดว่าหมดไม่นับ
+   แต่บอกไว้ท้ายว่าหมดกี่อย่าง แม่ค้าจะได้รู้ว่ายังมีของที่ปิดค้างอยู่ */
+function topsLeft(m, outSet){
+  const out = outSet || new Set(topOutNames());
+  const names = [...new Set(menuAddons(m).map(a => a.name))];
+  const left = names.filter(nm => !out.has(nm)).length;
+  return { left, out: names.length - left };
+}
+function topsText(t, short){
+  if(!t.left && t.out) return 'ไส้หมดทุกอย่างวันนี้';
+  return `เลือกไส้ได้ ${t.left}${short ? '' : ' อย่าง'}${t.out ? ` · หมด ${t.out}` : ''}`;
+}
 function setMenusHitBy(name){
   return (db.menus || []).filter(m => isSetMenu(m) && setAddons(m).some(a => a.name === name));
 }
@@ -6510,13 +6525,14 @@ function saleMenusHTML(){
   const list = saleMenus();
   if(!list.length) return `<div class="empty" style="padding:22px">
     <p style="margin:0">ไม่มีเมนูในหมวดนี้</p></div>`;
+  const outSet = new Set(topOutNames());       // หาครั้งเดียว ไม่ไล่ทุกเมนู
   return `<div class="qmenu">${list.map(m => {
     const fix  = setAddons(m);
     const tops = menuAddons(m).length;
     // บอกตั้งแต่ยังไม่กดว่าเมนูนี้เลือกไส้ได้ไหม คิดยังไง — ชุดเดียวกับในหน้าต่างสั่งสินค้า
     const note = fix.length  ? 'ร้านจัดไส้ให้: ' + esc(fixText(fix))
                : n(m.incl)   ? `ราคานี้รวมไส้ ${n(m.incl)} อย่าง`
-               : tops        ? `เลือกไส้ได้ ${tops} อย่าง`
+               : tops        ? topsText(topsLeft(m, outSet))
                :               'ไม่มีไส้ให้เลือก';
     return `
     <button type="button" class="qmenu-b${customerOff(m) ? ' out' : ''}" onclick="posQuick('${jsq(m.id)}')">
@@ -6546,6 +6562,7 @@ function posRowsHTML(){
   const shown = posMenus();
   if(!shown.length) return `<div class="empty" style="padding:22px">
     <p style="margin:0">${posQ.trim() ? 'ไม่เจอเมนูที่ชื่อว่า “' + esc(posQ.trim()) + '”' : 'ไม่มีเมนูในหมวดนี้'}</p></div>`;
+  const outSet = new Set(topOutNames());
   return shown.map(m => {
     const inBill = lines.filter(l => l.menuId === m.id).reduce((a,l) => a + n(l.qty), 0);
     const tops = menuAddons(m).length;
@@ -6555,7 +6572,7 @@ function posRowsHTML(){
       <span class="posrow-m">
         <span class="posrow-n">${esc(m.name || '(ไม่มีชื่อ)')}</span>
         ${fix.length ? `<span class="posrow-top">ร้านจัดไส้ให้: ${esc(fixText(fix))}</span>`
-          : tops ? `<span class="posrow-top">เลือกไส้ได้ ${tops}</span>` : ''}
+          : tops ? `<span class="posrow-top">${topsText(topsLeft(m, outSet), true)}</span>` : ''}
       </span>
       ${inBill ? `<span class="posrow-c">${inBill}</span>` : ''}
       <span class="posrow-p">฿${baht(m.price)}</span>
@@ -6600,7 +6617,7 @@ function orderDialogHTML(){
           <span>${n(l.qty)}</span>
           <button type="button" onclick="lineQty('${l.lid}',1)" aria-label="เพิ่ม">+</button>
         </div>
-        ${tops ? `<button type="button" class="bl-top${picked ? ' on' : ''}" onclick="lineAddons('${l.lid}')">${picked ? `แก้ไส้ (${picked})` : `+ เลือกไส้ · ${tops}`}</button>` : ''}
+        ${tops ? `<button type="button" class="bl-top${picked ? ' on' : ''}" onclick="lineAddons('${l.lid}')">${picked ? `แก้ไส้ (${picked})` : `+ เลือกไส้ · ${topsLeft(findMenu(l.menuId)).left}`}</button>` : ''}
         <button type="button" class="bl-del" onclick="delLine('${l.lid}')" aria-label="ลบ">${icon('trash',15)}</button>
       </div>
     </div>`;

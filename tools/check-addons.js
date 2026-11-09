@@ -276,6 +276,19 @@ const probe = `
     topsHTML(gAll[0].items.map(it => ({ name:it.name, price:it.price, group:gAll[0].name })),
              new Set(), 'x', false).indexOf('top out') >= 0]);
 
+  /* เจ้าของทักเอง: หน้าขายขึ้น "เลือกไส้ได้ 23" ทั้งที่ปิดไส้ไว้แล้ว แต่ลูกค้าเห็นเลขน้อยกว่า
+     เลขบนหน้าร้านต้องลดตาม และบอกว่าหมดกี่อย่าง */
+  const crepeNames = [...new Set(menuAddons(crepe).map(a => a.name))];
+  const hasT = crepeNames.includes(tName);
+  const want = 'เลือกไส้ได้ ' + (crepeNames.length - (hasT ? 1 : 0));
+  out.push(['หน้าขายนับเฉพาะไส้ที่ยังมี ไม่นับที่ปิดว่าหมด', hasT
+    && topsLeft(crepe).left === crepeNames.length - 1 && topsLeft(crepe).out === 1
+    && saleMenusHTML().indexOf(want + ' อย่าง · หมด 1') >= 0]);
+  out.push(['แถวเมนูในหน้าต่างสั่งสินค้าก็นับแบบเดียวกัน',
+    orderDialogHTML().indexOf(want + ' · หมด 1') >= 0]);
+  out.push(['ชื่อไส้ซ้ำข้ามชุดนับครั้งเดียว',
+    topsLeft(crepe).left + topsLeft(crepe).out === crepeNames.length]);
+
   // คืนสภาพให้เหมือนเดิม ไม่ทิ้งของที่ปิดไว้ให้ข้อถัด ๆ ไป
   toggleTopOut(tName);
   db.groups = db.groups.filter(g => g.id !== 'gdup');

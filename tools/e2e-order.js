@@ -1298,6 +1298,12 @@ const push = (name, v) => { ok.push([name, !!v]); };
   const rowsT = await cust.locator('#view .li').count();
   const setRowT = rowsT >= 3 ? await cust.locator('#view .li').nth(2).textContent() : '';
   push('ลูกค้าเห็นเมนูจัดชุดนั้นเป็น "หมดแล้ว"', setRowT.includes('หมดแล้ว'));
+  /* เจ้าของทักเอง: หน้าร้านขึ้น "เลือกไส้ได้ 23" แต่ลูกค้าเห็นเลขน้อยกว่า อ่านแล้วงง
+     สองฝั่งต้องเห็นเลขเดียวกัน (นับเฉพาะที่ยังมี ชื่อซ้ำนับครั้งเดียว) */
+  const custN = Number(((await cust.locator('#view .li').nth(0).textContent()).match(/เลือกไส้ได้ (\d+)/) || [])[1]);
+  const sellN = await seller.evaluate(() => topsLeft(db.menus.find(m => m.id === 'm1')).left);
+  push('จำนวนไส้ที่เลือกได้ตรงกันทั้งหน้าร้านและหน้าลูกค้า (' + sellN + ' / ' + custN + ')',
+    Number.isFinite(custN) && custN === sellN && sellN > 0);
   await cust.evaluate(() => pick(0));
   await cust.waitForTimeout(900);
   /* **ไส้ที่หมดต้องโชว์ไว้ ห้ามซ่อน** กติกาเดียวกับเมนูที่หมด
