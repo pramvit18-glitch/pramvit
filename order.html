@@ -197,6 +197,8 @@
     border-radius:var(--r-pill); padding:9px 15px; cursor:pointer; font:inherit;
     font-weight:700; font-size:13.5px; transition:.16s;
   }
+  /* ไส้ที่วันนี้หมด — โชว์ไว้แต่ติ๊กไม่ได้ */
+  .tops .top.out{opacity:.5; text-decoration:line-through; text-decoration-thickness:1.5px; cursor:default}
   .tops .top b{color:var(--muted); font-weight:700; font-variant-numeric:tabular-nums}
   .tops .top:hover{border-color:var(--brand)}
   .tops .top::before{content:'✓'; margin-right:5px; font-weight:900; opacity:0; transition:opacity .12s}
@@ -557,7 +559,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v167';
+const PAGE_VER = 'crepe-cost-v168';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -1452,7 +1454,8 @@ function addonText(m){
   if(isSetMenu(m)) return 'ร้านจัดไส้ให้: ' + fixText(setAddons(m).map(a => a.name));
   const gs = m.groups || [];
   if(!gs.length) return 'ไม่มีไส้ให้เลือก';
-  const total = gs.reduce((s,g) => s + (g.items||[]).length, 0);
+  // นับเฉพาะไส้ที่ยังมีจริง บอกว่าเลือกได้ 10 แล้วเข้าไปเจอหมด 4 อันก็เสียความรู้สึก
+  const total = gs.reduce((s,g) => s + (g.items||[]).filter(it => !it.off).length, 0);
   // เมนูโควตาต้องบอกตั้งแต่หน้ารายการ ลูกค้าจะได้ไม่เข้าใจผิดว่าเลือกฟรีไม่อั้น
   if(n(m.incl) > 0)
     return `ราคานี้รวมไส้ ${n(m.incl)} อย่าง · เกินอันละ ${baht(m.extraTop)} บาท`;
@@ -1537,8 +1540,11 @@ function drawSheet(){
       : gs.length ? gs.map(g => `
         <div class="gname">${esc(g.name)}</div>
         <div class="tops">
-          ${(g.items||[]).map(it => `
-            <button type="button" class="top${edit.picked.has(it.name) ? ' on' : ''}"
+          ${(g.items||[]).map(it => it.off
+            /* **ไส้ที่หมดต้องโชว์ไว้ ห้ามซ่อนทิ้ง** กติกาเดียวกับเมนูที่หมด
+               ถ้าหายไปเฉย ๆ ลูกค้าประจำจะนึกว่าร้านเลิกใส่ไส้นี้แล้ว */
+            ? `<button type="button" class="top out" disabled>${esc(it.name)} · หมดแล้ว</button>`
+            : `<button type="button" class="top${edit.picked.has(it.name) ? ' on' : ''}"
                     onclick="tog('${jsq(it.name)}', this)">
               ${esc(it.name)}${n(m.incl) > 0 || !n(it.price) ? '' : ` <b>+${baht(it.price)}</b>`}
             </button>`).join('')}
@@ -1587,6 +1593,7 @@ function findAddon(name){
 }
 
 function tog(name, btn){
+  if(findAddon(name).off) return;      // ไส้ที่หมดแล้ว ติ๊กไม่ได้ กันไว้อีกชั้น
   if(edit.picked.has(name)) edit.picked.delete(name); else edit.picked.add(name);
   // เปลี่ยนสีเฉพาะปุ่มที่กด ไม่วาดใหม่ทั้งกล่อง จะได้ไม่เด้งกลับขึ้นบนตอนเลื่อนหาไส้หวาน
   if(btn) btn.classList.toggle('on', edit.picked.has(name));

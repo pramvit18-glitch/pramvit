@@ -1303,6 +1303,9 @@
     font-weight:700; font-size:13.5px; transition:.16s;
   }
   .tops .top b{color:var(--muted); font-weight:700; font-variant-numeric:tabular-nums}
+  /* ไส้ที่ปิดไว้ว่าวันนี้หมด — ฝั่งแม่ค้ายังกดได้ (คุมแค่ฝั่งลูกค้าที่สั่งผ่าน QR)
+     แต่ต้องเห็นชัดว่าปิดไว้ ไม่งั้นเผลอรับออเดอร์ที่ทำไม่ได้ */
+  .tops .top.out{opacity:.6; text-decoration:line-through; text-decoration-thickness:1.5px}
   .tops .top:hover{border-color:var(--brand)}
   .tops .top::before{content:'✓'; margin-right:5px; font-weight:900; opacity:0; transition:opacity .12s}
   .tops .top.on{background:var(--tint); border-color:var(--brand); color:var(--brand-d)}
@@ -2864,15 +2867,18 @@ function menuForCustomers(){
       incl: n(m.incl), extraTop: n(m.extraTop),   // โควตาไส้ ต้องตรงกับฝั่งร้าน
       /* วันนี้หมดแล้วไหม — ส่งเป็น true/false ไม่ส่งวันที่
          ลูกค้าไม่ต้องรู้ว่าปิดตั้งแต่วันไหน และก้อนจะได้เล็ก */
-      off: isSoldOut(m),
+      /* เมนูจัดชุดที่ไส้ของมันหมด ต้องปิดให้ลูกค้าด้วย เพราะเขาเลือกไส้เองไม่ได้ */
+      off: isSoldOut(m) || setMenuOut(m),
       /* อันดับขายดี 1-3 (0 = ไม่ติดป้าย) — **เป็นอันดับเท่านั้น ไม่มีตัวเลขยอดขาย**
          ของที่วันนี้หมดแล้วไม่ต้องติดป้าย อ่านแล้วขัดกันเอง */
-      hot: isSoldOut(m) ? 0 : hotIds.indexOf(m.id) + 1,
+      hot: isSoldOut(m) || setMenuOut(m) ? 0 : hotIds.indexOf(m.id) + 1,
       /* ไส้ที่ร้านจัดให้ตายตัว — ลูกค้าต้องเห็นว่าจานนี้มีอะไร ไม่ใช่สั่งแบบไม่รู้ว่าได้อะไร */
       fix: setAddons(m).map(a => a.name),
       groups: (m.groupIds || []).map(id => findGroup(id)).filter(Boolean).map(g => ({
         name: String(g.name || ''),
-        items: (g.items || []).map(it => ({ name: String(it.name || ''), price: n(it.price) }))
+        /* ไส้ที่วันนี้หมด ส่งเป็น true/false เหมือนเมนู ไม่ส่งวันที่ */
+        items: (g.items || []).map(it => ({ name: String(it.name || ''), price: n(it.price),
+                                            off: topOutByName(it.name) }))
       })).filter(g => g.items.length)
     })).filter(m => m.name)
   };
@@ -2888,6 +2894,47 @@ function menuForCustomers(){
 const isSoldOut = m => !!m && m.soldDay === dayKey();
 const soldOutList = () => (db.menus || []).filter(isSoldOut);
 
+/* ===================== ไส้หมดรายอย่าง =====================
+   เจ้าของถามเอง: "แล้วตั้งตรงไหน ไส้คาวกับหวาน ตอนที่หมด"
+   ของเดิมปิดได้แค่ทั้งเมนู พอไข่หมดแต่ไส้อื่นยังมี ต้องปิดทั้งเมนูทิ้ง = เสียของ
+
+   **ปิดเป็น "ชื่อไส้" ไม่ใช่รายชิ้นในชุด** ไส้ชื่อเดียวกันอยู่ได้หลายชุด
+   (ไข่ไก่อยู่ทั้งไส้คาวและไส้โตเกียว) ปิดทีละชุดแล้วลูกค้าจะเห็นอันหนึ่งหมดอีกอันไม่หมด
+   **จดเป็นวันที่เหมือนเมนู** พรุ่งนี้กลับมาใส่ได้เองโดยไม่ต้องมีใครมาเปิด */
+const isTopOut = it => !!it && it.soldDay === dayKey();
+function topsByName(name){
+  const out = [];
+  (db.groups || []).forEach(g => (g.items || []).forEach(it => { if(it.name === name) out.push(it); }));
+  return out;
+}
+const topOutByName = name => topsByName(name).some(isTopOut);
+function topOutNames(){
+  const out = [];
+  (db.groups || []).forEach(g => (g.items || []).forEach(it => {
+    if(isTopOut(it) && !out.includes(it.name)) out.push(it.name);
+  }));
+  return out;
+}
+function toggleTopOut(name){
+  const list = topsByName(name); if(!list.length) return;
+  const was = list.some(isTopOut);
+  list.forEach(it => { it.soldDay = was ? '' : dayKey(); });
+  save();
+  // ส่งขึ้นทันทีเหมือนเมนู ลูกค้าอาจนิ้วจ่ออยู่ที่ชิปไส้นั้นพอดี
+  if(db.orderOn && cloudReady()) publishMenu().catch(() => {});
+  toast(was ? `${name} — กลับมาใส่ได้แล้ว` : `${name} — ปิดไว้ว่าหมดแล้ว`);
+  render();
+  const box = document.getElementById('soldBox');
+  if(box) box.innerHTML = soldOutHTML();
+}
+/* เมนูจัดชุดที่ไส้ของมันหมด = ทำให้ลูกค้าไม่ได้จริง ๆ
+   ลูกค้าเลือกไส้เองไม่ได้ด้วย จึงต้องปิดเมนูนั้นให้ฝั่งลูกค้าไปเลย
+   (เมนูธรรมดาไม่ต้อง เพราะลูกค้าเลี่ยงไปเลือกไส้อื่นได้) */
+const setMenuOut = m => isSetMenu(m) && setAddons(m).some(a => topOutByName(a.name));
+function setMenusHitBy(name){
+  return (db.menus || []).filter(m => isSetMenu(m) && setAddons(m).some(a => a.name === name));
+}
+
 function toggleSoldOut(id){
   const m = (db.menus || []).find(x => x.id === id); if(!m) return;
   const was = isSoldOut(m);
@@ -2902,11 +2949,40 @@ function toggleSoldOut(id){
   if(box) box.innerHTML = soldOutHTML();
 }
 
+/* ส่วนของไส้ในกล่อง "ของหมดวันนี้" — แยกหัวข้อตามชุดไส้ (คาว / หวาน / ซอส)
+   ใช้ `fixGroups()` ตัวเดียวกับตอนตั้งเมนูจัดชุด ชื่อซ้ำข้ามชุดเอาอันเดียว */
+function topOutHTML(){
+  const gs = fixGroups();
+  if(!gs.length) return '<p class="hint" style="margin:0">ยังไม่มีชุดไส้ในร้านนี้</p>';
+  const outNames = topOutNames();
+  const hitSets = [];
+  outNames.forEach(nm => setMenusHitBy(nm).forEach(m => {
+    if(!hitSets.includes(m.name)) hitSets.push(m.name);
+  }));
+  return gs.map(g => `
+    <div class="sec">${esc(g.name)}</div>
+    <div class="tops">${g.items.map(it => {
+      const out = topOutByName(it.name);
+      return `<button type="button" class="top${out ? ' on' : ''}" onclick="toggleTopOut('${jsq(it.name)}')">
+        ${esc(it.name)}${out ? ' · หมด' : ''}</button>`;
+    }).join('')}</div>`).join('')
+  + `<p class="hint" style="margin:14px 0 0">${outNames.length
+      ? `ปิดไว้ ${outNames.length} ไส้ — ลูกค้าเห็นว่าหมดและติ๊กไม่ได้`
+      : 'ยังไม่ได้ปิดไส้อะไรเลย'} · <b>พรุ่งนี้กลับมาใส่ได้เอง</b></p>`
+  + (hitSets.length
+      ? `<div class="note warn" style="margin-top:10px">${icon('alert',17)}<span>
+          <b>เมนูจัดชุดที่ใช้ไส้ที่หมด ถูกปิดให้ด้วย</b> — ${esc(hitSets.join(' · '))}<br>
+          เพราะลูกค้าเลือกไส้เองไม่ได้ สั่งมาก็ทำให้ไม่ได้ตามที่บอกไว้
+        </span></div>`
+      : '');
+}
+
 function soldOutHTML(){
   if(!(db.menus || []).length)
     return '<p class="hint" style="margin:0">ยังไม่มีเมนูสักอย่าง ไปเพิ่มที่หน้าเมนูก่อนนะครับ</p>';
   const off = soldOutList().length;
-  return `<div class="tops">${db.menus.map(m => {
+  return `<div class="sec" style="margin-top:0">เมนูที่หมด</div>
+  <div class="tops">${db.menus.map(m => {
     const out = isSoldOut(m);
     return `<button type="button" class="top${out ? ' on' : ''}" onclick="toggleSoldOut('${jsq(m.id)}')">
       ${esc(m.name)}${out ? ' · หมด' : ''}</button>`;
@@ -2916,13 +2992,15 @@ function soldOutHTML(){
     : 'ยังไม่ได้ปิดอะไรเลย ลูกค้าสั่งได้ทุกอย่าง'} ·
     <b>พรุ่งนี้กลับมาขายเองทุกอย่าง</b> ไม่ต้องมาเปิดเอง</p>
   <p class="hint" style="margin:8px 0 0">ที่ปิดไว้ยังขายหน้าร้านได้ตามปกติ
-    อันนี้คุมแค่ฝั่งลูกค้าที่สั่งผ่าน QR</p>`;
+    อันนี้คุมแค่ฝั่งลูกค้าที่สั่งผ่าน QR</p>
+  <div class="sec" style="margin-top:18px">ไส้ที่หมด</div>
+  ${topOutHTML()}`;
 }
 
 function soldOutDialog(){
   openDialog({ icon:'ing',
     title:'ของหมดวันนี้',
-    sub:'แตะเมนูที่หมดแล้ว · อันที่เป็นสีแดงคือปิดอยู่',
+    sub:'แตะเมนูหรือไส้ที่หมดแล้ว · อันที่เป็นสีแดงคือปิดอยู่',
     html:`<div id="soldBox">${soldOutHTML()}</div>`,
     foot:[{label:'เสร็จแล้ว', cls:'primary', fn:'dlg.close()'}]
   });
@@ -6601,8 +6679,8 @@ function topsHTML(tops, picked, lid, quota){
   return `<div id="topWarn"></div>` + groups.map(row => `
     ${row.g ? `<div class="sec">${esc(row.g)}</div>` : ''}
     <div class="tops">${row.list.map(a => `
-      <button type="button" class="top${picked.has(a.name) ? ' on' : ''}" aria-pressed="${picked.has(a.name)}" onclick="pickLineTop('${lid}','${jsq(a.name)}',this)">
-        ${esc(a.name)}${quota ? '' : ` <b>${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</b>`}
+      <button type="button" class="top${picked.has(a.name) ? ' on' : ''}${topOutByName(a.name) ? ' out' : ''}" aria-pressed="${picked.has(a.name)}" onclick="pickLineTop('${lid}','${jsq(a.name)}',this)">
+        ${esc(a.name)}${topOutByName(a.name) ? ' · หมด' : ''}${quota ? '' : ` <b>${n(a.price) > 0 ? '+' + baht(a.price) : 'ฟรี'}</b>`}
       </button>`).join('')}</div>`).join('');
 }
 
@@ -7210,12 +7288,13 @@ function statusHTML(){
    ของมาเพิ่มกลางวันแล้วอยากเปิดคืน จะได้กดได้เลยไม่ต้องไปหาในตั้งค่า
    หายเองเมื่อไม่มีอะไรปิดอยู่ (และพรุ่งนี้หายเองอยู่แล้วเพราะธงเป็นวันที่) */
 function soldOutWarnHTML(){
-  const off = soldOutList();
-  if(!off.length) return '';
-  return srow('warn', 'alert',
-    `ปิดขายอยู่ ${off.length} อย่าง`,
-    off.map(m => m.name).join(' · '),
-    'แก้', 'soldOutDialog()');
+  const off  = soldOutList().map(m => m.name);
+  const tops = topOutNames();          // ไส้ที่ปิดไว้ก็ต้องสะกิด ไม่งั้นลืมว่าปิดค้าง
+  const all  = [...off, ...tops];
+  if(!all.length) return '';
+  const what = off.length && tops.length ? `${off.length} เมนู · ${tops.length} ไส้`
+             : off.length ? `${off.length} อย่าง` : `${tops.length} ไส้`;
+  return srow('warn', 'alert', `ปิดขายอยู่ ${what}`, all.join(' · '), 'แก้', 'soldOutDialog()');
 }
 
 function backupWarnHTML(){
