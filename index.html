@@ -3772,18 +3772,36 @@ function slipRefInfo(ref){
 }
 
 /* เคยเห็นสลิปใบนี้มาก่อนไหม — คืนรายการเดิมถ้าเคย
-   1) เลขอ้างอิงตรงกัน = ใบเดิมแน่นอน (ไม่สนว่ารูปถูกตัด/ถ่ายจอมาจนหน้าตาเปลี่ยน)
-   2) **มีเลขอ้างอิงทั้งคู่แต่คนละเลข = คนละใบ** ถึงรูปจะคล้ายกันก็ไม่เตือน
-      (กันเตือนผิดกับสลิปธนาคารเดียวกันที่หน้าตาแทบเหมือนกัน)
-   3) ไม่มีเลขให้เทียบ (ไม่เจอ QR / ออเดอร์รุ่นเก่า) → เทียบรูปเหมือนเดิม */
+   1) **ใบใหม่มีเลขอ้างอิง = เทียบด้วยเลขอย่างเดียว** ตรง = ซ้ำแน่ · ไม่ตรง/ใบเก่าไม่มีเลข = ไม่ซ้ำ
+      **ห้ามถอยไปเทียบรูปกับใบเก่าที่ไม่มีเลข** — เจ้าของโอนจริงวันนี้ แล้วโดนเตือนว่าซ้ำกับ
+      ออเดอร์ 4/11 ที่จดไว้ก่อนมีระบบอ่าน QR (ไม่มีเลข) เพราะสลิปธนาคารเดียวกันหน้าตาแทบเหมือนกัน
+      ยอมแลก: สลิปเก่าก่อนมีระบบอ่าน QR ที่เอากลับมาใช้ จะจับไม่ได้ (ของเก่าหมดไปเองตาม SLIP_KEEP)
+   2) ใบใหม่ไม่มีเลข (ไม่เจอ QR / อ่านไม่ได้) → เทียบรูปได้อย่างเดียว
+      **แต่ต้องบอกว่า "รูปคล้าย" ไม่ใช่ "ซ้ำแน่"** (slipDupByRef) เพราะเตือนผิดได้ */
 function slipSeenBefore(o){
   if(!o || (!o.slip && !o.slipRef)) return null;
   const seen = (db.slipSeen || []).filter(x => x.id !== o.id);
-  if(o.slipRef){
-    const hit = seen.find(x => x.ref === o.slipRef);
-    if(hit) return hit;
-  }
-  return seen.find(x => o.slip && slipSame(x.h, o.slip) && !(o.slipRef && x.ref && x.ref !== o.slipRef)) || null;
+  if(o.slipRef) return seen.find(x => x.ref === o.slipRef) || null;
+  return seen.find(x => o.slip && slipSame(x.h, o.slip)) || null;
+}
+// ซ้ำเพราะเลขอ้างอิงตรงกัน (แน่นอน) หรือแค่รูปคล้าย (อาจเตือนผิด)
+const slipDupByRef = (o, dup) => !!(o && dup && o.slipRef && dup.ref === o.slipRef);
+
+/* ล้างคำเตือนสลิปซ้ำที่จดผิดไว้ในสมุดปัญหา — เทียบรูปใบที่มีเลขอ้างอิงกับใบเก่าที่ไม่มีเลข
+   (ก่อนแก้กติกาข้อ 1 ข้างบน) · ทำตอนเปิดแอป ใช้ข้อมูลใน db.slipSeen ที่จำไว้ในเครื่อง */
+function pruneFalseDups(){
+  let changed = false;
+  (store.shops || []).forEach(sh => {
+    if(!Array.isArray(sh.troubles) || !Array.isArray(sh.slipSeen)) return;
+    const ref = id => { const x = sh.slipSeen.find(y => y.id === id); return x ? String(x.ref || '') : null; };
+    const keep = sh.troubles.filter(t => {
+      if(t.kind !== 'dup') return true;
+      const a = ref(t.id), b = ref(t.ofId);
+      return !(a && a !== b);          // ใบใหม่มีเลข แต่ใบเก่าไม่มีเลข/คนละเลข = จดผิด
+    });
+    if(keep.length !== sh.troubles.length){ sh.troubles = keep; changed = true; }
+  });
+  if(changed) save();
 }
 
 // จำไว้ว่าเห็นสลิปใบนี้กับออเดอร์ไหนเมื่อไหร่
@@ -3908,16 +3926,17 @@ const slipChecked = o => !!o && n(o.chk) !== 0;
 async function viewSlip(id){
   const o = cloudOrders.find(x => x.id === id);
   const dup = slipSeenBefore(o);
-  const byRef = !!(dup && o.slipRef && dup.ref === o.slipRef);
+  const byRef = slipDupByRef(o, dup);
   const done = o ? n(o.chk) : 0;
   openDialog({ icon:'cart', title:'สลิปที่ลูกค้าแนบมา',
     sub: o ? `คิวที่ ${esc(String(o.no || '–'))}${o.who ? ' · ' + esc(o.who) : ''}` : '',
     /* คำเตือนต้องอยู่ **เหนือรูป** รูปสลิปสูงกว่าจอ ถ้าเอาไว้ใต้รูป
        แม่ค้าต้องเลื่อนลงไปหา แล้วจะไม่มีใครเห็น — เท่ากับไม่ได้เตือน */
     html:`${dup ? `<div class="note bad" style="margin-bottom:12px">${icon('alert',17)}<span>
-        <b>สลิปใบนี้เคยใช้มาแล้ว</b>${byRef ? ' (เลขอ้างอิงบนสลิปตรงกัน)' : ''} กับ ${n(dup.no) ? 'คิวที่ ' + esc(String(dup.no)) : 'ออเดอร์เก่า'}${
+        <b>${byRef ? 'สลิปใบนี้เคยใช้มาแล้ว' : 'รูปสลิปคล้ายกับใบที่เคยใช้มาแล้ว'}</b>${byRef ? ' (เลขอ้างอิงบนสลิปตรงกัน)' : ''} กับ ${n(dup.no) ? 'คิวที่ ' + esc(String(dup.no)) : 'ออเดอร์เก่า'}${
           dup.who ? ' ของ' + esc(dup.who) : ''} ${esc(whenText(dup.at))} ยอด ${money(dup.total)}<br>
-        อาจเป็นการเอาสลิปเดิมมาใช้ซ้ำ — เช็กแอปธนาคารให้ดีก่อนนะครับ
+        ${byRef ? 'อาจเป็นการเอาสลิปเดิมมาใช้ซ้ำ — เช็กแอปธนาคารให้ดีก่อนนะครับ'
+          : 'สลิปใบนี้ไม่มี QR ให้เทียบเลขอ้างอิง เลยเทียบได้แค่หน้าตารูป สลิปธนาคารเดียวกันหน้าตาคล้ายกันมาก อาจไม่ใช่ใบเดียวกันก็ได้ — เช็กแอปธนาคารให้ดีนะครับ'}
       </span></div>` : ''}
       <div class="slipwant"><span>ยอดที่ต้องได้</span><b>${money(n(o && o.total))}</b></div>
       ${slipQrHTML(o)}
@@ -4164,7 +4183,8 @@ function orderRowHTML(o){
   const slipTag = o.slip
     ? `<button type="button" class="ord-slip${dup ? ' dup' : needLook ? ' need' : ''}" onclick="viewSlip('${jsq(o.id)}')">
          ${icon(dup ? 'alert' : 'menu', 13)} ${dup
-             ? 'สลิปซ้ำ! เคยใช้กับ ' + (n(dup.no) ? 'คิวที่ ' + esc(String(dup.no)) : 'ออเดอร์เก่า')
+             ? (slipDupByRef(o, dup) ? 'สลิปซ้ำ! เคยใช้กับ ' : 'อาจเป็นสลิปซ้ำ · รูปคล้ายใบของ ')
+               + (n(dup.no) ? 'คิวที่ ' + esc(String(dup.no)) : 'ออเดอร์เก่า')
                + ' ' + esc(whenText(dup.at)) + ' · แตะดู'
              : needLook ? 'ดูสลิปที่แนบมา · กดเช็กยอด' : 'ดูสลิปที่แนบมา'}
        </button>`
@@ -9080,6 +9100,7 @@ if('serviceWorker' in navigator && !window.claude
 
 // เปิดด้วยลิงก์เฉพาะร้านไหม — ต้องทำที่นี่ หลังทุกอย่างถูกประกาศครบแล้ว
 applyShopLink();
+pruneFalseDups();     // ล้างคำเตือนสลิปซ้ำที่จดผิดไว้ (ดู slipSeenBefore)
 render();
 // เปิดแอปมาแล้วถ้าร้านนี้เปิดรับออเดอร์อยู่ ให้เริ่มคอยดูเลย
 startOrderWatch();

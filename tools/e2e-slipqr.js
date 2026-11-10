@@ -116,7 +116,9 @@ const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slipqr-'));
   push('เลขอ้างอิงตรงกัน = ใบเดิม ถึงรูปจะต่างกันหมด', unit.sameRef === 'old1');
   push('มีเลขทั้งคู่แต่คนละเลข = คนละใบ ถึงรูปจะเหมือนกันเป๊ะ (ไม่เตือนผิด)', unit.otherRef === null);
   push('ไม่มีเลขให้เทียบ ยังเทียบรูปเหมือนเดิม', unit.noRefNew === 'old1');
-  push('ของที่จำไว้รุ่นเก่า (ไม่มีเลข) ยังเทียบรูปกับใบใหม่ได้', unit.oldNoRef === 'old2');
+  /* เคสที่เจ้าของเจอจริง 10 พ.ย.: โอนจริงวันนี้ แต่ขึ้นว่าซ้ำกับออเดอร์ 4/11 ที่จดไว้ก่อนมีระบบอ่าน QR
+     ใบใหม่มีเลข ใบเก่าไม่มีเลข รูปสลิปธนาคารเดียวกันคล้ายกัน → ห้ามถอยไปเทียบรูป */
+  push('ใบใหม่มีเลข แต่ใบเก่าไม่มีเลข = ไม่เทียบรูป ไม่เตือนผิด (เคสที่เจ้าของเจอ)', unit.oldNoRef === undefined);
   push('ไม่เอาตัวเองมาเทียบกับตัวเอง', unit.self === null);
   push('ไม่มีทั้งรูปและเลข ไม่เทียบกับใคร', unit.nothing === null);
   push('รหัส 004 = ธนาคารกสิกรไทย', unit.bank && unit.bank.bank === 'ธนาคารกสิกรไทย' && unit.bank.ref === 'AAA');
@@ -272,6 +274,44 @@ const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slipqr-'));
   push('ไม่จดผิดลงสมุดปัญหา',
     !(await seller.evaluate(id => (db.troubles || []).some(t => t.kind === 'dup' && t.id === id), o3.id)));
 
+  /* ---------- 3b) เคสที่เจ้าของเจอ: ใบเก่าที่จดไว้ก่อนมีระบบอ่าน QR (ไม่มีเลข) ----------
+     ยัดของที่จำไว้แบบรุ่นเก่า (รูปเดียวกับใบใหม่ ไม่มีเลข เมื่อ 4/11) แล้วส่งสลิปที่มี QR เข้ามา
+     ของเดิมขึ้นว่า "สลิปใบนี้เคยใช้มาแล้ว กับ ออเดอร์เก่า 4/11" ทั้งที่โอนจริงวันนี้ */
+  await seller.evaluate(h => {
+    const d = new Date(); d.setDate(d.getDate() - 6); d.setHours(8, 33, 0, 0);
+    db.slipSeen.unshift({ id:'legacy411', h, at:d.getTime(), total:30, no:0, who:'' });
+    save();
+  }, o3.slip);
+  await toPay();
+  await cust.setInputFiles('#slipPick', IMG.r2a);
+  await cust.waitForTimeout(300); await waitRead();
+  // เลขใหม่ (ไม่ซ้ำกับใคร) ให้เหมือนโอนจริงรอบใหม่ — แก้เลขในตัวแปรก่อนส่ง
+  await cust.evaluate(r => { if(slipQ.st === 'ok') slipQ.ref = r; }, 'NEW0001REAL');
+  await sendNow();
+  const oL = await latestOrder();
+  push('(เงื่อนไข) รูปใหม่คล้ายใบเก่ารุ่นที่ไม่มีเลข', await seller.evaluate(([a, c]) => slipSame(a, c), [o3.slip, oL.slip]));
+  await seller.evaluate(() => pollOrders());
+  await seller.waitForTimeout(700);
+  push('โอนจริงรอบใหม่ (มีเลข) ไม่ถูกหาว่าซ้ำกับใบเก่าที่ไม่มีเลข',
+    await seller.evaluate(id => slipSeenBefore(cloudOrders.find(x => x.id === id)), oL.id) === null);
+  push('และไม่จดลงสมุดปัญหา',
+    !(await seller.evaluate(id => (db.troubles || []).some(t => t.kind === 'dup' && t.id === id), oL.id)));
+  /* ล้างของที่จดผิดไปแล้วในเครื่องเจ้าของ: จำลองบันทึกผิดแบบเดิม แล้วเปิดแอปใหม่ */
+  await seller.evaluate(id => {
+    db.troubles.push({ kind:'dup', id, ofId:'legacy411', at:Date.now(), no:0, who:'', total:20, what:'' });
+    save();
+  }, oL.id);
+  await seller.reload();
+  await seller.waitForTimeout(900);
+  const tr = await seller.evaluate(([bad, a, b2]) => ({
+    bad: (db.troubles || []).some(t => t.kind === 'dup' && t.id === bad),
+    real: (db.troubles || []).some(t => t.kind === 'dup' && t.id === b2 && t.ofId === a)
+  }), [oL.id, o1.id, o2.id]);
+  push('เปิดแอปใหม่ คำเตือนสลิปซ้ำที่จดผิดไว้ถูกล้างออกจากสมุดปัญหา', !tr.bad);
+  push('แต่ที่ซ้ำจริง (เลขอ้างอิงตรงกัน) ยังอยู่ ไม่ถูกล้างไปด้วย', tr.real);
+  await seller.evaluate(() => go('orders'));
+  await seller.waitForTimeout(400);
+
   /* ---------- 4) สลิปไม่มี QR → บอกเบา ๆ แต่ยังส่งได้ ---------- */
   await toPay();
   await cust.setInputFiles('#slipPick', IMG.none);
@@ -377,8 +417,21 @@ const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slipqr-'));
   const d9 = (await seller.textContent('#dlg'));
   push('ไม่ได้อ่าน QR ฝั่งร้านไม่เตือนว่าไม่มี QR (ดีกว่าเตือนผิด)',
     !d9.includes('ไม่เจอ QR') && !d9.includes('ไม่ใช่แบบของสลิปธนาคาร'));
+  // (ข้อ 3b ยัดใบเก่ารูปคล้ายกันไว้ข้างหน้า จึงอาจเจอใบนั้นก่อน — ขอแค่จับได้)
   push('ไม่ได้อ่าน QR ยังจับซ้ำด้วยการเทียบรูปได้ (รูปเดียวกับใบแรก)',
-    await seller.evaluate(id => (slipSeenBefore(cloudOrders.find(x => x.id === id)) || {}).id, o9.id) === o1.id);
+    !!(await seller.evaluate(id => (slipSeenBefore(cloudOrders.find(x => x.id === id)) || {}).id, o9.id)));
+  /* เทียบได้แค่รูป = อาจเตือนผิด ต้องพูดว่า "รูปคล้าย" ไม่ใช่ "ซ้ำแน่" */
+  push('เทียบได้แค่รูป กล่องบอกว่า "รูปคล้าย" และอาจไม่ใช่ใบเดียวกัน',
+    d9.includes('รูปสลิปคล้าย') && d9.includes('อาจไม่ใช่ใบเดียวกัน') && !d9.includes('เลขอ้างอิงบนสลิปตรงกัน'));
+  await shut(seller);
+  await seller.evaluate(() => { go('orders'); });
+  await seller.waitForTimeout(400);
+  const cardTxt = await seller.evaluate(id => {
+    const b = [...document.querySelectorAll('.ord-slip.dup')].map(x => x.textContent.replace(/\s+/g, ' '));
+    return b.join(' | ');
+  });
+  push('ป้ายบนการ์ด: ซ้ำเพราะเลขตรง = "สลิปซ้ำ!" · แค่รูปคล้าย = "อาจเป็นสลิปซ้ำ"',
+    cardTxt.includes('สลิปซ้ำ! เคยใช้กับ') && cardTxt.includes('อาจเป็นสลิปซ้ำ'));
   await shut(seller);
 
   // ของที่จำไว้ในเครื่องต้องมีเลขอ้างอิงด้วย ไม่งั้นข้ามวันแล้ว (ออเดอร์ถูกลบ) จะจับด้วยเลขไม่ได้
