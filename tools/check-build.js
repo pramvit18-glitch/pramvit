@@ -34,6 +34,16 @@ push('มี sw.js (ไม่งั้นแอปที่ติดตั้ง
 push('มี manifest.webmanifest (ไม่งั้นติดตั้งเป็นแอปไม่ได้)', has('manifest.webmanifest'));
 push('มีโฟลเดอร์ไอคอน', fs.existsSync(path.join(OUT, 'icons')));
 
+/* ตัวอ่าน QR บนสลิป — หน้าลูกค้าโหลดจาก lib/jsqr.js ตอนแนบสลิป
+   ถ้าไม่ได้ขึ้นเว็บ หน้าลูกค้าอ่าน QR ไม่ได้เงียบ ๆ (ส่งออเดอร์ได้ แต่ไม่มีเลขอ้างอิง)
+   แล้วฝั่งร้านก็กลับไปจับสลิปซ้ำด้วยการเทียบรูปอย่างเดียว โดยไม่มีใครรู้ */
+const orderSrc = fs.readFileSync(path.join(ROOT, 'order.html'), 'utf8');
+push('หน้าลูกค้าโหลดตัวอ่าน QR จาก lib/jsqr.js', orderSrc.includes("'lib/jsqr.js'"));
+push('ตัวอ่าน QR (lib/jsqr.js) ถูกเอาขึ้นเว็บด้วย', has('lib/jsqr.js'));
+push('ตัวอ่าน QR ที่ขึ้นเว็บไม่ใช่ไฟล์เปล่า', has('lib/jsqr.js')
+  && fs.statSync(path.join(OUT, 'lib/jsqr.js')).size > 100000);
+push('สัญญาอนุญาตของตัวอ่าน QR ไปด้วย (Apache-2.0)', has('lib/LICENSE-jsqr.txt'));
+
 // ของที่ไม่ควรหลุดขึ้นเว็บ
 push('ไม่มีโฟลเดอร์ tools หลุดขึ้นไป', !fs.existsSync(path.join(OUT, 'tools')));
 push('ไม่มี node_modules หลุดขึ้นไป', !fs.existsSync(path.join(OUT, 'node_modules')));

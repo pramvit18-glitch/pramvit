@@ -15,7 +15,7 @@ const WWW  = path.resolve(process.argv[2] || path.join(ROOT, 'www'));
 // ทุกหน้าเว็บที่อยู่ชั้นบนสุด จะได้ไม่ลืมหน้าที่เพิ่มใหม่
 const pages = fs.readdirSync(ROOT).filter(f => f.endsWith('.html')).sort();
 const FILES = [...pages, 'manifest.webmanifest', 'sw.js'];
-const DIRS  = ['icons', 'fonts'];   // ฟอนต์เก็บไว้เอง ไม่ได้ลิงก์ไป Google
+const DIRS  = ['icons', 'fonts', 'lib'];   // ฟอนต์เก็บไว้เอง ไม่ได้ลิงก์ไป Google · lib = ตัวอ่าน QR บนสลิป
 
 if (!pages.includes('index.html')) { console.error('  ✗ ไม่พบ index.html'); process.exit(1); }
 

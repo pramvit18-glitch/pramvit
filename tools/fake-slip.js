@@ -92,4 +92,22 @@ function writeSlips(keys){
   return out;
 }
 
-module.exports = { makePNG, writeSlips, PATTERNS };
+/* สลิปที่มี QR แปะอยู่มุมล่างขวา เหมือนสลิปจริงจากแอปธนาคาร
+   grid = ตาราง QR (true = ดำ) — เอามาจาก qr() ของหน้าลูกค้า เพื่อไม่ต้องลงไลบรารีสร้าง QR เพิ่ม
+   ใช้ใน e2e-slipqr: ใบเดียวกันหน้าตาต่าง · หน้าตาเดียวกันคนละเลข · ไม่มี QR · QR ผิดแบบ */
+function writeQRSlip(file, { w = 360, h = 540, pattern = 'a', grid = null, mod = 4 } = {}){
+  const bg = PATTERNS[pattern];
+  const n = grid ? grid.length : 0, quiet = mod * 4, size = n * mod + quiet * 2;
+  const x0 = w - size - 12, y0 = h - size - 12;
+  fs.writeFileSync(file, makePNG(w, h, (x, y) => {
+    if(grid && x >= x0 && y >= y0 && x < x0 + size && y < y0 + size){
+      const c = Math.floor((x - x0 - quiet) / mod), r = Math.floor((y - y0 - quiet) / mod);
+      const on = r >= 0 && c >= 0 && r < n && c < n && grid[r][c];
+      return on ? [0, 0, 0] : [255, 255, 255];
+    }
+    return bg(x, y);
+  }));
+  return file;
+}
+
+module.exports = { makePNG, writeSlips, writeQRSlip, PATTERNS };

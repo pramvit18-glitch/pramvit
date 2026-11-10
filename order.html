@@ -351,6 +351,9 @@
   .slipprev-t{display:flex; flex-direction:column; gap:8px; min-width:0}
   .slipprev-t b{display:flex; align-items:center; gap:6px; font-size:14px; font-weight:800}
   .slipprev-a{display:flex; gap:8px; flex-wrap:wrap}
+  /* ผลอ่าน QR บนสลิป — แค่บอกเบา ๆ ไม่ใช่ป้ายผ่าน/ไม่ผ่าน */
+  .slipq{font-style:normal; font-size:12px; font-weight:700; color:var(--muted); line-height:1.45}
+  .slipq.warn{color:var(--warn)}
   /* ปุ่มเล็กสองตัวนี้ต้องดูเป็นปุ่ม ไม่ใช่ตัวหนังสือลอย ๆ */
   .slipprev-a .btn.ghost{background:var(--soft); color:var(--ink-2)}
   .btn.sm{padding:9px 14px; font-size:13px}
@@ -565,7 +568,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v183';
+const PAGE_VER = 'crepe-cost-v184';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -1008,6 +1011,10 @@ function qrSVG(text, px){
    รูปเก็บ **แยกคนละที่กับออเดอร์** (s/<ร้าน>/slips/<id>) สำคัญมาก
    เพราะแอปแม่ค้าดึงออเดอร์ทุก 5 วินาที ถ้ารูปติดไปด้วยจะโหลดรูปซ้ำทั้งวันจนโควตาฟรีหมด */
 let slipData = null, slipHash = '';
+/* ผลอ่าน QR บนสลิป — { st:'ok', bank, ref } · { st:'none' } ไม่เจอ QR · { st:'bad' } QR ไม่ใช่แบบสลิป
+   st:'' = ยังอ่านไม่ได้ (โหลดตัวอ่านไม่ขึ้น) ฝั่งร้านจะไม่เตือนอะไร ดีกว่าเตือนผิด */
+let slipQ = { st:'' };
+let slipReading = false, slipTurn = 0;
 
 const SLIP_MAX = 800;        // ย่อด้านยาวสุดเหลือเท่านี้ พอให้อ่านตัวเลขออก
 const SLIP_Q   = 0.55;       // คุณภาพ JPEG — ได้ไฟล์ราว 60-90KB
@@ -1043,12 +1050,86 @@ function dHash(img){
   return hex;
 }
 
+/* ===================== อ่าน QR บนสลิป =====================
+   สลิปจากแอปธนาคารไทยมี QR เล็ก ๆ (มาตรฐานของแบงก์ชาติ) ข้างในมีแค่ 2 อย่าง:
+   **ธนาคารที่โอน กับเลขอ้างอิงรายการ** — ไม่มียอดเงิน ไม่มีชื่อ ไม่มีเวลา
+   เลขอ้างอิงไม่ซ้ำกันเลยทั้งประเทศ จึงจับสลิปซ้ำได้แม่นกว่าเทียบรูป
+   (รูปสลิปธนาคารเดียวกันหน้าตาคล้ายกันมาก เทียบรูปอย่างเดียวอาจเตือนผิด)
+
+   **QR นี้ไม่ได้พิสูจน์ว่าเงินเข้า** สลิปปลอมก็ใส่ QR ได้ ยืนยันได้จากแอปธนาคารอย่างเดียว
+   ข้างในเป็นรหัส 2 หลัก + ความยาว 2 หลัก + ค่า ต่อกันไป (แบบเดียวกับ QR พร้อมเพย์)
+     00 = ก้อนข้อมูล { 00 รหัสบริการ "000001" · 01 รหัสธนาคาร 3 หลัก · 02 เลขอ้างอิง }
+     51 = ประเทศ "TH" · 91 = รหัสตรวจสอบ CRC แบบเดียวกับ crc16() ของพร้อมเพย์
+
+   ตัวอ่าน (lib/jsqr.js) ก๊อปมาเก็บไว้เอง โหลดเฉพาะตอนแนบสลิป คนที่ไม่ได้สแกนจ่ายไม่ต้องโหลด */
+let jsQRWait = null;
+function loadJsQR(){
+  if(window.jsQR) return Promise.resolve(window.jsQR);
+  if(!jsQRWait) jsQRWait = new Promise((ok, no) => {
+    const sc = document.createElement('script');
+    sc.src = 'lib/jsqr.js';
+    sc.onload = () => window.jsQR ? ok(window.jsQR) : no(new Error('ไม่มีตัวอ่าน'));
+    sc.onerror = () => { jsQRWait = null; no(new Error('โหลดตัวอ่านไม่ได้')); };
+    document.head.appendChild(sc);
+  });
+  return jsQRWait;
+}
+
+// แยกรหัส-ความยาว-ค่า · ต้องลงตัวพอดีทั้งก้อน ไม่งั้นถือว่าไม่ใช่รูปแบบนี้
+function tlv(s){
+  const out = {};
+  let i = 0;
+  while(i < s.length){
+    if(i + 4 > s.length) return null;
+    const t = s.slice(i, i+2), l = Number(s.slice(i+2, i+4));
+    if(!/^\d\d$/.test(s.slice(i+2, i+4)) || i + 4 + l > s.length) return null;
+    out[t] = s.slice(i+4, i+4+l);
+    i += 4 + l;
+  }
+  return out;
+}
+
+function parseSlipQR(text){
+  const s = String(text || '').trim();
+  const top = tlv(s);
+  const inner = top && top['00'] ? tlv(top['00']) : null;
+  if(!inner || inner['00'] !== '000001' || !/^\d{3}$/.test(inner['01'] || '') || !inner['02'])
+    return { st:'bad' };
+  // รหัสตรวจสอบต้องอยู่ท้ายสุดและตรงกัน — QR ที่พิมพ์มั่วหรือแก้ตัวเลขทีหลังจะไม่ผ่าน
+  if(s.slice(-8, -4) !== '9104' || crc16(s.slice(0, -4)) !== s.slice(-4).toUpperCase())
+    return { st:'bad' };
+  return { st:'ok', bank: inner['01'], ref: inner['02'].slice(0, 40) };
+}
+
+/* ลองอ่านสองขนาด: ขนาดเกือบเต็ม (QR บนสลิปตัวเล็ก ย่อมากจะอ่านไม่ออก) แล้วค่อยย่อลง
+   (รูปถ่ายจอที่ใหญ่มาก ๆ ย่อแล้วบางทีอ่านง่ายขึ้น) */
+async function readSlipQR(img){
+  let jsQR;
+  try{ jsQR = await loadJsQR(); }catch(e){ return { st:'' }; }
+  const big = Math.max(img.width, img.height);
+  for(const max of [Math.min(big, 2000), Math.min(big, 1000)]){
+    try{
+      const sc = max / big;
+      const cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.round(img.width * sc)); cv.height = Math.max(1, Math.round(img.height * sc));
+      const cx = cv.getContext('2d');
+      cx.drawImage(img, 0, 0, cv.width, cv.height);
+      const r = jsQR(cx.getImageData(0, 0, cv.width, cv.height).data, cv.width, cv.height,
+                     { inversionAttempts:'dontInvert' });
+      if(r && r.data) return parseSlipQR(r.data);
+    }catch(e){}
+  }
+  return { st:'none' };
+}
+
 async function pickSlip(input){
   const f = input && input.files && input.files[0];
   if(!f){ clearSlip(); return; }
   if(f.size > 12 * 1024 * 1024){ alert('รูปใหญ่เกินไป ลองถ่ายใหม่หรือย่อก่อนนะครับ'); input.value = ''; return; }
+  const turn = ++slipTurn;            // เปลี่ยนรูประหว่างอ่านอยู่ ผลของรูปเก่าต้องไม่มาทับ
+  let img;
   try{
-    const img = await readImage(f);
+    img = await readImage(f);
     const sc = Math.min(1, SLIP_MAX / Math.max(img.width, img.height));
     const cv = document.createElement('canvas');
     cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
@@ -1060,11 +1141,19 @@ async function pickSlip(input){
     alert('เปิดรูปนี้ไม่ได้ ลองเลือกรูปอื่นนะครับ');
     return;
   }
+  /* อ่าน QR จากรูปเต็ม ไม่ใช่รูปที่ย่อเหลือ 800 แล้ว — QR บนสลิปตัวเล็ก ย่อแล้วอ่านไม่ออก
+     ระหว่างอ่านปิดปุ่มส่งไว้ก่อน ไม่งั้นออเดอร์ออกไปโดยไม่มีเลขอ้างอิง */
+  slipQ = { st:'' }; slipReading = true;
+  drawSlipPrev();
+  const q = await readSlipQR(img);
+  if(turn !== slipTurn) return;
+  slipQ = q; slipReading = false;
   drawSlipPrev();
 }
 
 function clearSlip(){
-  slipData = null; slipHash = '';
+  slipTurn++;
+  slipData = null; slipHash = ''; slipQ = { st:'' }; slipReading = false;
   const i = el('slipPick'); if(i) i.value = '';
   drawSlipPrev();
 }
@@ -1075,9 +1164,9 @@ function clearSlip(){
 function paintSendBtn(){
   const b = el('sendBtn');
   if(!b || !el('slipPick')) return;        // ไม่ใช่หน้าสแกนจ่าย ไม่ไปยุ่ง
-  const ok = !!slipData;
+  const ok = !!slipData && !slipReading;
   b.disabled = !ok;
-  b.textContent = ok ? 'โอนแล้ว · ส่งออเดอร์' : 'แนบสลิปก่อนถึงจะส่งได้';
+  b.textContent = slipReading ? 'กำลังอ่านสลิป…' : ok ? 'โอนแล้ว · ส่งออเดอร์' : 'แนบสลิปก่อนถึงจะส่งได้';
 }
 
 function drawSlipPrev(){
@@ -1088,6 +1177,7 @@ function drawSlipPrev(){
          <img src="${slipData}" alt="สลิปที่แนบ">
          <div class="slipprev-t">
            <b>${icon('check',15)} แนบสลิปแล้ว</b>
+           ${slipQNote()}
            <div class="slipprev-a">
              <button type="button" class="btn ghost sm" onclick="pickAnotherSlip()">เปลี่ยนรูป</button>
              <button type="button" class="btn ghost sm" onclick="clearSlip()">เอาสลิปออก</button>
@@ -1101,6 +1191,18 @@ function drawSlipPrev(){
            <i>ต้องแนบด้วย ร้านจะได้เช็กยอดถูกใบ</i>
          </span>
        </button>`;
+}
+
+/* บอกลูกค้าเบา ๆ ถ้ารูปนี้ไม่มี QR สลิป — **ไม่บังคับ** ยังส่งได้
+   คนส่วนใหญ่ที่โดนคือตัดขอบรูปจน QR หาย หรือเผลอแนบรูปอื่น (เช่นรูป QR ของร้าน)
+   บอกตอนนี้ยังแก้ทัน ดีกว่าให้ร้านต้องมาถามทีหลัง · ห้ามพูดเหมือนกล่าวหาว่าสลิปปลอม */
+function slipQNote(){
+  if(slipReading) return `<i class="slipq">กำลังอ่าน QR บนสลิป…</i>`;
+  if(slipQ.st === 'none') return `<i class="slipq warn">ไม่เจอ QR บนสลิป — ถ้าตัดขอบรูปไว้
+    ลองแนบรูปเต็มใบที่เห็น QR มุมสลิป ร้านจะเช็กได้ไวขึ้น (ส่งแบบนี้ก็ได้นะครับ)</i>`;
+  if(slipQ.st === 'bad') return `<i class="slipq warn">QR ในรูปนี้ไม่ใช่ QR ของสลิปโอนเงิน
+    — เช็กว่าแนบรูปสลิปถูกใบนะครับ</i>`;
+  return '';
 }
 
 // ช่องเลือกไฟล์ซ่อนอยู่ ปุ่มที่เห็นจึงต้องสั่งเปิดให้
@@ -1755,6 +1857,7 @@ async function send(paid){
     alert('แนบสลิปที่โอนก่อนนะครับ ร้านจะได้เช็กยอดถูกใบ');
     return;
   }
+  if(paid && slipReading) return;          // ยังอ่าน QR ไม่จบ รอแป๊บเดียว
   const btn = el('sendBtn') || el('laterBtn');
   if(!btn || btn.disabled) return;
   const label = btn.textContent;
@@ -1774,7 +1877,12 @@ async function send(paid){
     paid: !!paid,
     // ลายนิ้วมือของสลิป ติดไปกับออเดอร์เลย (สั้นมาก ไม่เปลืองโควตา)
     // ฝั่งร้านเอาไปเทียบว่าสลิปใบนี้เคยใช้มาแล้วหรือยัง
-    slip: (paid && slipHash) ? slipHash : ''
+    slip: (paid && slipHash) ? slipHash : '',
+    /* อ่าน QR บนสลิปได้อะไร — ฝั่งร้านใช้เลขอ้างอิงจับสลิปซ้ำ (แม่นกว่าเทียบรูป)
+       slipRef = "รหัสธนาคาร:เลขอ้างอิง" · slipQr = ok / none (ไม่เจอ QR) / bad (QR ผิดแบบ) / '' ไม่ได้อ่าน
+       ไม่มีอะไรเกินกว่าที่อยู่บนรูปสลิป ซึ่งขึ้นที่เก็บไปอยู่แล้ว */
+    slipRef: (paid && slipData && slipQ.st === 'ok') ? `${slipQ.bank}:${slipQ.ref}` : '',
+    slipQr: (paid && slipData) ? slipQ.st : ''
   };
 
   try{
@@ -1784,7 +1892,7 @@ async function send(paid){
     if(paid && slipData){
       try{ await cloud('PUT', `s/${SHOP}/slips/${res.name}`, slipData); }catch(e){}
     }
-    slipData = null; slipHash = '';
+    slipData = null; slipHash = ''; slipQ = { st:'' };
     sentList.push({ id: res.name, at: body.at, paid: !!paid });   // ต่อท้าย ไม่ทับของเดิม
     saveSent();
     cart = [];

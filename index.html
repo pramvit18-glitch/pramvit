@@ -547,6 +547,14 @@
   }
   .slipwant span{font-size:12.5px; font-weight:800; color:var(--muted)}
   .slipwant b{font-size:26px; font-weight:800; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+  /* ผลอ่าน QR บนสลิป — ตัวหนังสือธรรมดา ไม่ทำเป็นป้ายผ่าน เพราะ QR ไม่ได้บอกว่าเงินเข้า */
+  .slipqr{display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px;
+          background:var(--soft); border-radius:var(--r); padding:10px 14px; margin-bottom:12px; font-size:13px}
+  .slipqr span{font-size:12px; font-weight:800; color:var(--muted)}
+  .slipqr b{font-weight:800}
+  .slipqr code{font:700 12.5px/1.4 ui-monospace,Menlo,Consolas,monospace; color:var(--ink-2); word-break:break-all}
+  .slipqr i{flex-basis:100%; font-style:normal; font-size:11.5px; color:var(--muted); line-height:1.45}
+  .slipqr-w{margin:0 0 12px}
   .slipview{text-align:center; min-height:180px}
   /* สลิปเป็นรูปแนวตั้งยาว ถ้าปล่อยเต็มความสูงมันดันทุกอย่างตกจอ
      จำกัดไว้ครึ่งจอ แตะที่รูปเพื่อเปิดดูเต็ม ๆ ในแท็บใหม่ได้ */
@@ -3745,29 +3753,57 @@ function slipSame(a, b){
   return true;
 }
 
-// เคยเห็นสลิปใบนี้มาก่อนไหม — คืนรายการเดิมถ้าเคย
-function slipSeenBefore(hash, orderId){
-  return (db.slipSeen || []).find(x => x.id !== orderId && slipSame(x.h, hash));
+/* QR บนสลิป — หน้าลูกค้าอ่านให้แล้วส่งมากับออเดอร์ (ดู readSlipQR() ใน order.html)
+   o.slipRef = "รหัสธนาคาร:เลขอ้างอิง" · o.slipQr = ok / none (ไม่เจอ QR) / bad (QR ผิดแบบ) / '' ไม่ได้อ่าน
+   **QR บอกแค่ธนาคารที่โอนกับเลขอ้างอิง ไม่ได้บอกยอด และไม่ได้พิสูจน์ว่าเงินเข้า**
+   สลิปปลอมก็ใส่ QR ได้ — ห้ามเขียนให้ดูเหมือนแอปตรวจสลิปให้แล้ว
+   ที่ได้จริงคือ **จับสลิปซ้ำแม่นขึ้น**: เลขอ้างอิงไม่ซ้ำกันทั้งประเทศ
+   ส่วนการเทียบรูป สลิปธนาคารเดียวกันหน้าตาคล้ายกันมาก อาจเตือนผิดได้ */
+const BANKS = {
+  '002':'กรุงเทพ', '004':'กสิกรไทย', '006':'กรุงไทย', '011':'ทหารไทยธนชาต (ttb)',
+  '014':'ไทยพาณิชย์', '022':'ซีไอเอ็มบี', '024':'ยูโอบี', '025':'กรุงศรี', '030':'ออมสิน',
+  '033':'ธอส.', '034':'ธ.ก.ส.', '066':'อิสลาม', '067':'ทิสโก้', '069':'เกียรตินาคินภัทร',
+  '071':'ไทยเครดิต', '073':'แลนด์ แอนด์ เฮ้าส์'
+};
+function slipRefInfo(ref){
+  const m = /^(\d{3}):(.+)$/.exec(String(ref || ''));
+  if(!m) return null;
+  return { bank: BANKS[m[1]] ? 'ธนาคาร' + BANKS[m[1]] : 'รหัสธนาคาร ' + m[1], ref: m[2] };
+}
+
+/* เคยเห็นสลิปใบนี้มาก่อนไหม — คืนรายการเดิมถ้าเคย
+   1) เลขอ้างอิงตรงกัน = ใบเดิมแน่นอน (ไม่สนว่ารูปถูกตัด/ถ่ายจอมาจนหน้าตาเปลี่ยน)
+   2) **มีเลขอ้างอิงทั้งคู่แต่คนละเลข = คนละใบ** ถึงรูปจะคล้ายกันก็ไม่เตือน
+      (กันเตือนผิดกับสลิปธนาคารเดียวกันที่หน้าตาแทบเหมือนกัน)
+   3) ไม่มีเลขให้เทียบ (ไม่เจอ QR / ออเดอร์รุ่นเก่า) → เทียบรูปเหมือนเดิม */
+function slipSeenBefore(o){
+  if(!o || (!o.slip && !o.slipRef)) return null;
+  const seen = (db.slipSeen || []).filter(x => x.id !== o.id);
+  if(o.slipRef){
+    const hit = seen.find(x => x.ref === o.slipRef);
+    if(hit) return hit;
+  }
+  return seen.find(x => o.slip && slipSame(x.h, o.slip) && !(o.slipRef && x.ref && x.ref !== o.slipRef)) || null;
 }
 
 // จำไว้ว่าเห็นสลิปใบนี้กับออเดอร์ไหนเมื่อไหร่
 function rememberSlip(o){
-  if(!o.slip) return;
+  if(!o.slip && !o.slipRef) return;
   db.slipSeen = db.slipSeen || [];
   if(db.slipSeen.some(x => x.id === o.id)) return;
   /* เจอสลิปที่เคยใช้มาแล้ว → จดลงสมุดปัญหาเดี๋ยวนั้น พร้อมบอกว่าซ้ำกับใบไหน
      **ต้องถามก่อน push** ไม่งั้นมันไปเจอตัวเองที่เพิ่งใส่เข้าไป แล้วทุกใบจะกลายเป็นซ้ำ
      จดเลยไม่ต้องรอแม่ค้ากดดูสลิป เพราะอีก 12-24 ชม. ออเดอร์ถูกลบจากที่เก็บ
      แล้วจะย้อนดูไม่ได้ว่าใบที่ซ้ำเมื่อวานคือใบไหน */
-  const was = slipSeenBefore(o.slip, o.id);
+  const was = slipSeenBefore(o);
   if(was) addTrouble('dup', o, {
     ofId: was.id, ofNo: n(was.no), ofWho: String(was.who || ''),
     ofAt: n(was.at), ofTotal: n(was.total)
   });
   /* เก็บเลขคิวกับชื่อไปด้วย ไม่งั้นพอเจอสลิปซ้ำจะบอกได้แค่ "เคยใช้แล้ว"
      แต่บอกไม่ได้ว่าซ้ำกับใบไหน ซึ่งเป็นสิ่งที่แม่ค้าอยากรู้ที่สุด */
-  db.slipSeen.push({ id:o.id, h:o.slip, at:n(o.at) || Date.now(), total:n(o.total),
-                     no:n(o.no), who:String(o.who || '') });
+  db.slipSeen.push({ id:o.id, h:String(o.slip || ''), ref:String(o.slipRef || '').slice(0, 48),
+                     at:n(o.at) || Date.now(), total:n(o.total), no:n(o.no), who:String(o.who || '') });
   if(db.slipSeen.length > SLIP_KEEP) db.slipSeen = db.slipSeen.slice(-SLIP_KEEP);
   save();
 }
@@ -3871,18 +3907,20 @@ const slipChecked = o => !!o && n(o.chk) !== 0;
 
 async function viewSlip(id){
   const o = cloudOrders.find(x => x.id === id);
-  const dup = o && o.slip ? slipSeenBefore(o.slip, id) : null;
+  const dup = slipSeenBefore(o);
+  const byRef = !!(dup && o.slipRef && dup.ref === o.slipRef);
   const done = o ? n(o.chk) : 0;
   openDialog({ icon:'cart', title:'สลิปที่ลูกค้าแนบมา',
     sub: o ? `คิวที่ ${esc(String(o.no || '–'))}${o.who ? ' · ' + esc(o.who) : ''}` : '',
     /* คำเตือนต้องอยู่ **เหนือรูป** รูปสลิปสูงกว่าจอ ถ้าเอาไว้ใต้รูป
        แม่ค้าต้องเลื่อนลงไปหา แล้วจะไม่มีใครเห็น — เท่ากับไม่ได้เตือน */
     html:`${dup ? `<div class="note bad" style="margin-bottom:12px">${icon('alert',17)}<span>
-        <b>สลิปใบนี้เคยใช้มาแล้ว</b> กับ ${n(dup.no) ? 'คิวที่ ' + esc(String(dup.no)) : 'ออเดอร์เก่า'}${
+        <b>สลิปใบนี้เคยใช้มาแล้ว</b>${byRef ? ' (เลขอ้างอิงบนสลิปตรงกัน)' : ''} กับ ${n(dup.no) ? 'คิวที่ ' + esc(String(dup.no)) : 'ออเดอร์เก่า'}${
           dup.who ? ' ของ' + esc(dup.who) : ''} ${esc(whenText(dup.at))} ยอด ${money(dup.total)}<br>
         อาจเป็นการเอาสลิปเดิมมาใช้ซ้ำ — เช็กแอปธนาคารให้ดีก่อนนะครับ
       </span></div>` : ''}
       <div class="slipwant"><span>ยอดที่ต้องได้</span><b>${money(n(o && o.total))}</b></div>
+      ${slipQrHTML(o)}
       <div id="slipBox" class="slipview"><div class="empty"><p>กำลังโหลดรูป…</p></div></div>
       <p class="hint" style="margin:12px 0 0"><b>สลิปปลอมทำได้เหมือนจริงมาก</b>
         รูปนี้ใช้ดูประกอบเฉย ๆ ยืนยันเงินเข้าได้จากแอปธนาคารอย่างเดียว
@@ -3902,6 +3940,25 @@ async function viewSlip(id){
     ? `<img src="${esc(img)}" alt="สลิปที่ลูกค้าแนบ" onclick="openSlipFull()">
        <p class="hint" style="margin:8px 0 0">แตะที่รูปเพื่อดูใหญ่เต็มจอ</p>`
     : `<div class="empty"><p>โหลดรูปไม่ขึ้น — อาจส่งไม่ถึงตอนเน็ตหลุด หรือถูกลบไปแล้ว</p></div>`;
+}
+
+/* บรรทัดบอกว่า QR บนสลิปอ่านได้อะไร — อยู่เหนือรูปเหมือนคำเตือนสลิปซ้ำ (รูปสูงกว่าจอ)
+   อ่านได้ = บรรทัดเทาธรรมดา **ไม่ใช่ป้ายเขียว** เพราะ QR ไม่ได้บอกว่าเงินเข้า
+   ไม่เจอ / ผิดแบบ = แถบเหลืองเตือนเบา ๆ **ห้ามพูดว่าปลอม** อาจแค่ตัดขอบรูปหรือโอนจากกระเป๋าเงิน */
+function slipQrHTML(o){
+  const st = o ? String(o.slipQr || '') : '';
+  const info = o ? slipRefInfo(o.slipRef) : null;
+  if(st === 'ok' && info) return `<div class="slipqr">
+      <span>QR บนสลิป</span><b>${esc(info.bank)}</b><code>เลขอ้างอิง ${esc(info.ref)}</code>
+      <i>QR บอกได้แค่ธนาคารที่โอนกับเลขอ้างอิง ไม่ได้บอกยอดหรือว่าเงินเข้าจริง</i>
+    </div>`;
+  if(st === 'none') return `<div class="note warn slipqr-w">${icon('alert',17)}<span>
+      <b>ไม่เจอ QR บนสลิป</b> สลิปจากแอปธนาคารปกติจะมี QR เล็ก ๆ อยู่
+      อาจเป็นรูปที่ตัดขอบหรือถ่ายจอมา — เช็กแอปธนาคารให้ดีนะครับ</span></div>`;
+  if(st === 'bad') return `<div class="note warn slipqr-w">${icon('alert',17)}<span>
+      <b>QR บนรูปนี้ไม่ใช่แบบของสลิปธนาคาร</b> อาจโอนจากแอปกระเป๋าเงิน หรือแนบรูปผิด
+      — เช็กแอปธนาคารให้ดีนะครับ</span></div>`;
+  return '';
 }
 
 /* จำผลที่แม่ค้าเช็กแอปธนาคารมา — **ไม่ใช่แอปตรวจให้** คนเป็นคนตรวจ
@@ -4103,7 +4160,7 @@ function orderRowHTML(o){
   const needLook = !cook && o.paid && o.slip && !slipChecked(o);
 
   // สลิปซ้ำต้องเตือนตั้งแต่บนการ์ด ไม่ต้องรอให้กดเข้าไปดู
-  const dup = o.slip ? slipSeenBefore(o.slip, o.id) : null;
+  const dup = slipSeenBefore(o);
   const slipTag = o.slip
     ? `<button type="button" class="ord-slip${dup ? ' dup' : needLook ? ' need' : ''}" onclick="viewSlip('${jsq(o.id)}')">
          ${icon(dup ? 'alert' : 'menu', 13)} ${dup
