@@ -517,7 +517,79 @@
   .li:active, .tops .top:active{transform:scale(.985); transition:transform var(--tap-in) var(--ease)}
   .li, .tops .top{transition:transform var(--tap-out) var(--ease), background .14s, border-color .16s}
 
+  /* ===================== ลูกเล่นตอนใส่ตะกร้า =====================
+     เจ้าของขอเอง: "หลังจากใส่ตะกร้าอยากให้มีลูกเล่นด้วย"
+     ของเดิมกดแล้วกล่องปิดเฉย ๆ ลูกค้าไม่แน่ใจว่าของเข้าตะกร้าแล้วหรือยัง
+     ตอนนี้: วงแดง "+จำนวน" ลอยโค้งจากปุ่มลงไปที่แถบรวมเงิน แล้วยอดเงินเด้งรับ
+     **ตัวที่ลอยเป็น popover** จะได้อยู่ชั้นบนสุดเหนือกล่องที่กำลังเลื่อนปิด
+     (ถ้าเป็น div ธรรมดา มันจะไปอยู่ใต้ฉากหลังมืดของกล่อง มองไม่เห็นเลย)
+     ไม่รับการแตะ (pointer-events:none) ไม่งั้นบังปุ่ม "สั่งเลย" ตอนมันลอยผ่าน */
+  .fly{
+    position:fixed; inset:auto; left:0; top:0; margin:0; padding:0; border:0; overflow:visible;
+    width:36px; height:36px; border-radius:50%; background:var(--brand); color:#fff;
+    display:grid; place-items:center; font:800 13.5px/1 inherit; letter-spacing:-.02em;
+    box-shadow:0 6px 16px rgba(193,0,22,.32); pointer-events:none; z-index:60;
+  }
+  /* แถบรวมเงินโผล่ครั้งแรกให้เลื่อนขึ้นมา · ต้องพา translateX(-50%) ไปด้วย ไม่งั้นแถบหลุดไปชิดขวา */
+  .bar.in{animation:barin .42s var(--spring) both}
+  @keyframes barin{
+    from{transform:translate(-50%, 140%)}
+    to  {transform:translate(-50%, 0)}
+  }
+  /* ของลงตะกร้าแล้ว ยอดเงินเด้งรับหนึ่งที */
+  .bar.bump .bar-t b{animation:bump .45s var(--spring)}
+  .bar-t b{transform-origin:left center}
+  @keyframes bump{
+    0%  {transform:scale(1);    color:var(--ink)}
+    40% {transform:scale(1.16); color:var(--brand)}
+    100%{transform:scale(1);    color:var(--ink)}
+  }
+
+  /* ===================== ฉลองตอนส่งออเดอร์สำเร็จ =====================
+     การ์ดลอยกลางจอ วงแดงขยายออก เครื่องหมายถูกวาดเส้นเข้ามา + กระดาษโปรย
+     แล้วจางหายเองใน ~2 วินาที เผยหน้าคิวข้างใต้ · ไม่รับการแตะ ไม่บังอะไร
+     **อยู่นอก #view** เพราะหน้าคิววาดใหม่ได้ตลอด ถ้าอยู่ข้างในจะโดนลบกลางคัน */
+  .party{
+    position:fixed; inset:0; margin:0; padding:0; border:0; background:none; overflow:hidden;
+    width:100%; height:100%; max-width:none; max-height:none;
+    display:grid; place-items:center; pointer-events:none; z-index:70;
+    animation:partyout .45s var(--ease) 1.75s both;
+  }
+  .party-card{
+    position:relative; background:var(--bg); border-radius:var(--r); box-shadow:var(--sh-lift);
+    padding:26px 30px 22px; text-align:center; min-width:220px;
+    animation:partyin .5s var(--spring) both;
+  }
+  .party-ok{
+    width:78px; height:78px; margin:0 auto 14px; border-radius:50%; background:var(--brand);
+    display:grid; place-items:center; animation:partyring .9s var(--ease) .15s both;
+  }
+  .party-ok svg{width:40px; height:40px}
+  .party-ok path{stroke-dasharray:40; stroke-dashoffset:40; animation:partydraw .42s var(--ease) .32s forwards}
+  .party-card b{display:block; font-size:20px; font-weight:800; letter-spacing:-.03em}
+  .party-card span{display:block; margin-top:4px; font-size:13px; color:var(--muted); font-weight:700}
+  .party > i{
+    position:absolute; top:-14px; height:12px; opacity:.95;
+    animation:partyfall 2s cubic-bezier(.3,.6,.5,1) both;
+  }
+  @keyframes partyin{
+    from{transform:scale(.7); opacity:0}
+    to  {transform:scale(1);  opacity:1}
+  }
+  @keyframes partyout{to{opacity:0}}
+  @keyframes partydraw{to{stroke-dashoffset:0}}
+  @keyframes partyring{
+    0%  {box-shadow:0 0 0 0 rgba(193,0,22,.35)}
+    100%{box-shadow:0 0 0 22px rgba(193,0,22,0)}
+  }
+  @keyframes partyfall{
+    0%  {transform:translate3d(0,0,0) rotate(0)}
+    100%{transform:translate3d(var(--dx), 105vh, 0) rotate(var(--rot))}
+  }
+
   @media(prefers-reduced-motion:reduce){
+    .bar.in, .bar.bump .bar-t b, .party, .party-card, .party-ok, .party > i{animation:none}
+    .party-ok path{animation:none; stroke-dashoffset:0}
     .head-q b.dots i, .step.cur .step-n, .head-q.live b, .empty.thanks .empty-ic, .card.rise,
     .cookpic .spread, .cookpic .st{animation:none}
     .cookpic .st{opacity:.9}
@@ -568,7 +640,7 @@ const BASE_CACHE    = 'crepe-order-base';  // จำ URL ที่หาเจ�
    หน้าที่เปิดค้างอยู่ยังใช้โค้ดชุดเก่าต่อไปเรื่อย ๆ เพราะมันแค่วาดใหม่ ไม่ได้โหลดหน้าใหม่
    เจ้าของเคยเจอมาแล้ว: แก้เสร็จเอาขึ้นเว็บแล้ว แต่มองหน้าที่เปิดค้างไว้ก็ยังเห็นของเก่า
    นึกว่าเราแก้ไม่สำเร็จ */
-const PAGE_VER = 'crepe-cost-v185';
+const PAGE_VER = 'crepe-cost-v186';
 const VER_SEEN = 'crepe-order-reloaded';   // รีเฟรชเพราะรุ่นไหนไปแล้ว กันวนซ้ำไม่จบ
 
 // เปิดจากเครื่องตัวเองตอนทดสอบเท่านั้น จึงจะยอมให้ลิงก์ชี้ที่เก็บเองได้
@@ -1225,6 +1297,7 @@ async function cloud(method, path, body){
 
 /* ---------- สถานะหน้าจอ ---------- */
 let menu = null;          // ใบเมนูที่แม่ค้าเผยแพร่ไว้
+let mineHTML = '';        // หน้าคิวที่วาดไว้ล่าสุด · ไว้เทียบว่าต้องวาดใหม่ไหม (drawMine)
 let cart = [];            // ของที่ลูกค้าเลือกไว้
 let sentList = [];        // [{id, at}] ออเดอร์ที่ส่งไปแล้ว เรียงเก่าไปใหม่
 let mineMap = {};         // {id: ออเดอร์ที่อ่านกลับมาจากที่เก็บ}
@@ -1747,8 +1820,52 @@ function addToCart(){
   const each = n(m.price) + addonCost(m, addons);   // สูตรเดียวกับฝั่งร้าน
   // id ติดไปด้วย เพื่อให้ฝั่งแม่ค้าผูกกลับเข้าเมนูเดิมได้ตอนบันทึกเป็นยอดขาย
   cart.push({ id:m.id, name:m.name, qty:edit.qty, price:n(m.price), addons, total: each * edit.qty });
+  // จำตำแหน่งปุ่มไว้ก่อนกล่องปิด ของจะได้ลอยออกมาจากปุ่มที่เพิ่งกดจริง ๆ
+  const btn = document.querySelector('#dlg .dlg-foot .btn.primary');
+  const from = btn ? btn.getBoundingClientRect() : null;
+  const wasHidden = el('bar').hidden;
   el('dlg').close();
   draw();
+  cartFx(from, edit.qty, wasHidden);
+}
+
+/* ลูกเล่นตอนใส่ตะกร้า — วง "+จำนวน" ลอยโค้งลงไปที่ยอดเงิน แล้วยอดเงินเด้งรับ
+   **ตัวเลขยอดเงินเปลี่ยนทันที ไม่นับขึ้นทีละนิด** ใครอ่านตอนนี้ต้องได้ยอดจริงเสมอ
+   เครื่องที่ตั้งลดการเคลื่อนไหว ไม่มีอะไรลอย */
+function cartFx(from, qty, firstTime){
+  const b = el('bar');
+  if(b.hidden || reduceMotion()) return;
+  /* เล่นจบแล้วต้องถอดคลาสออก ไม่งั้นแถบถูกซ่อนแล้วโผล่ใหม่ (สั่งเสร็จแล้วกลับมาเลือกของ)
+     เบราว์เซอร์จะเล่นภาพที่ค้างอยู่ซ้ำเองทั้งที่ไม่ได้ใส่ของอะไรเลย */
+  const play = cls => {
+    b.classList.remove(cls); void b.offsetWidth; b.classList.add(cls);
+    setTimeout(() => b.classList.remove(cls), 600);
+  };
+  if(firstTime) play('in');
+  const bump = () => play('bump');
+  const to = el('barTotal').getBoundingClientRect();
+  if(!from || !from.width || !to.width){ bump(); return; }
+  const f = document.createElement('div');
+  f.className = 'fly';
+  f.textContent = '+' + n(qty);
+  f.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(f);
+  try{ f.popover = 'manual'; f.showPopover(); }catch(e){}   // เครื่องเก่าไม่มี popover ก็ยังลอยได้ แค่อยู่ใต้กล่อง
+  const x0 = from.left + from.width / 2 - 18, y0 = from.top + from.height / 2 - 18;
+  const x1 = to.left + 14 - 18,               y1 = to.top + to.height / 2 - 18;
+  const peak = Math.min(y0, y1) - 70;        // โค้งขึ้นก่อนแล้วค่อยตกลงไป ไม่ใช่วิ่งเป็นเส้นตรง
+  let anim = null;
+  try{
+    anim = f.animate([
+      { transform:`translate(${x0}px, ${y0}px) scale(1)`,   opacity:1 },
+      { transform:`translate(${(x0 + x1) / 2}px, ${peak}px) scale(1.1)`, opacity:1, offset:.45 },
+      { transform:`translate(${x1}px, ${y1}px) scale(.45)`, opacity:.2 }
+    ], { duration:640, easing:'cubic-bezier(.45,.05,.55,.95)' });
+  }catch(e){}
+  let gone = false;
+  const done = () => { if(gone) return; gone = true; try{ f.hidePopover(); }catch(e){} f.remove(); bump(); };
+  if(anim){ anim.onfinish = done; anim.oncancel = done; } else done();
+  setTimeout(done, 1200);                    // เผื่อแท็บถูกพักแล้วภาพไม่เล่นจบ ไม่ให้วงค้างจอ
 }
 
 /* ---------- แถบรวมเงินล่างจอ ---------- */
@@ -1893,6 +2010,7 @@ async function send(paid){
       try{ await cloud('PUT', `s/${SHOP}/slips/${res.name}`, slipData); }catch(e){}
     }
     slipData = null; slipHash = ''; slipQ = { st:'' };
+    party();
     sentList.push({ id: res.name, at: body.at, paid: !!paid });   // ต่อท้าย ไม่ทับของเดิม
     saveSent();
     cart = [];
@@ -1903,6 +2021,36 @@ async function send(paid){
     btn.disabled = false; btn.textContent = label;
     alert('ส่งไม่สำเร็จ เน็ตอาจหลุด ลองกดส่งอีกครั้งนะครับ');
   }
+}
+
+/* ฉลองตอนส่งออเดอร์สำเร็จ (เจ้าของขอเอง: "ตอนที่สั่งสำเร็จด้วยได้มั้ย")
+   การ์ดลอยกลางจอ เครื่องหมายถูกวาดเข้ามา + กระดาษโปรย แล้วจางหายเอง ~2 วินาที
+   **คำต้องไม่ซ้ำกับหัวการ์ดในหน้าคิว** ("ขอบคุณที่สั่งนะครับ") ไม่งั้นมีข้อความเดียวกันสองที่
+   **ไม่มีเสียงไม่มีสั่น** ตั้งใจ — เสียงกับสั่นของหน้านี้ไว้บอกตอนร้านเปลี่ยนสถานะเท่านั้น
+   ใช้ตอนลูกค้าเพิ่งกดเองด้วย เสียงเตือนของจริงจะมีความหมายน้อยลง */
+function party(){
+  document.querySelectorAll('.party').forEach(x => x.remove());
+  const p = document.createElement('div');
+  p.className = 'party';
+  p.setAttribute('role', 'status');
+  const colors = ['var(--brand)', 'var(--brand-l)', 'var(--good)', 'var(--warn)', '#7aa7e8'];
+  let bits = '';
+  if(!reduceMotion()) for(let i = 0; i < 22; i++){
+    const left = Math.round(Math.random() * 96);
+    const dx   = Math.round(Math.random() * 80 - 40) + 'px';
+    const rot  = Math.round(Math.random() * 540 - 270) + 'deg';
+    bits += `<i style="left:${left}%; width:${6 + (i % 4) * 2}px; background:${colors[i % colors.length]};
+      --dx:${dx}; --rot:${rot}; animation-delay:${(Math.random() * .35).toFixed(2)}s;
+      animation-duration:${(1.5 + Math.random() * .8).toFixed(2)}s"></i>`;
+  }
+  p.innerHTML = `${bits}<div class="party-card">
+      <div class="party-ok"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+      <b>ส่งออเดอร์แล้ว!</b><span>รอดูเลขคิวข้างล่างได้เลย</span>
+    </div>`;
+  document.body.appendChild(p);
+  try{ p.popover = 'manual'; p.showPopover(); }catch(e){}
+  setTimeout(() => { try{ p.hidePopover(); }catch(e){} p.remove(); }, reduceMotion() ? 1600 : 2300);
 }
 
 /* ===================== หน้ารอคิว =====================
@@ -2002,9 +2150,11 @@ function drawMine(){
           : live ? ['ขอบคุณที่สั่งนะครับ',    'ทางร้านได้รับออเดอร์ของคุณแล้ว']
                  : ['ขอบคุณที่แวะมานะครับ',   ''];
 
-  el('view').innerHTML = `
+  /* หน้าคิววาดใหม่ทุก 4 วินาที (refreshMine) ถ้าเขียนทับทุกรอบ การ์ดจะเล่นภาพลอยขึ้น
+     ไอคอนเด้ง และภาพเตาเริ่มใหม่ทุก 4 วินาที = กระพริบ · เขียนเฉพาะตอนมีอะไรเปลี่ยนจริง */
+  const html = `
     ${goneNoteHTML()}
-    <div class="card rise">
+    <div class="card rise" data-mine>
       <div class="empty thanks">
         <div class="empty-ic">${icon(done ? 'check' : 'cart', 46)}</div>
         <h3>${t[0]}</h3>
@@ -2016,6 +2166,12 @@ function drawMine(){
     <div class="card">
       <button class="btn ghost block" onclick="backToMenu()">${icon('plus',16)} สั่งเพิ่มอีกออเดอร์</button>
     </div>`;
+  const v = el('view');
+  /* ต้องเช็กด้วยว่าหน้าที่โชว์อยู่ยังเป็นหน้าคิวของเราไหม (data-mine) — ไปหน้าเมนูแล้วกลับมา
+     draw() เขียน #view ไปแล้ว ถ้าเทียบแค่ข้อความเดิม หน้าคิวจะไม่ถูกวาดกลับ
+     **ห้ามเก็บ html ไว้ใน v.dataset.mine** ชื่อจะชนกับเครื่องหมาย data-mine ของการ์ด
+     (#view เองจะมี data-mine แล้วการหาการ์ดไปเจอ #view แทน — เคยทำให้เทสต์ผ่านเปล่า ๆ) */
+  if(mineHTML !== html || !v.querySelector('[data-mine]')){ v.innerHTML = html; mineHTML = html; }
 }
 
 /* ภาพเตาเครปกำลังทำ — ใช้ตอนสถานะ "กำลังทำ"
